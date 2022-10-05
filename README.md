@@ -1,5 +1,1 @@
-# rt-app-template
-
-This is a simple repository that gives you a player controller and a couple other nice utilities to get quickly started using raytracing in compute.
-
-![Image](rt-app.png)
+This is a wip rewrite of my bachelors thesis in Vulkan abstraction library called Daxa which is developed by my friends Patric Ahrens and Gabe Rundlett.
