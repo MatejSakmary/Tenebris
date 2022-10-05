@@ -130,7 +130,7 @@ struct App : BaseApp<App> {
 
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
-        ImGui::PushFont(base_font);
+        //ImGui::PushFont(base_font);
         if (paused) {
             if (ImGui::BeginMainMenuBar()) {
                 if (ImGui::BeginMenu("Settings")) {
@@ -217,7 +217,7 @@ ESCAPE to toggle pause (lock/unlock camera)
             ImGui::PopStyleVar();
         }
 
-        ImGui::PopFont();
+        // ImGui::PopFont();
         ImGui::Render();
     }
 

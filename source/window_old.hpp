@@ -86,13 +86,6 @@ struct AppWindow {
     }
 
     auto get_native_platform() -> daxa::NativeWindowPlatform {
-        // switch(glfwGetPlatform())
-        // {
-        // case GLFW_PLATFORM_WIN32: return daxa::NativeWindowPlatform::WIN32_API;
-        // case GLFW_PLATFORM_X11: return daxa::NativeWindowPlatform::XLIB_API;
-        // case GLFW_PLATFORM_WAYLAND: return daxa::NativeWindowPlatform::WAYLAND_API;
-        // default: return daxa::NativeWindowPlatform::UNKNOWN;
-        // }
         return daxa::NativeWindowPlatform::UNKNOWN;
     }
 

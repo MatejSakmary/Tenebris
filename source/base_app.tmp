@@ -23,11 +23,11 @@ using Clock = std::chrono::high_resolution_clock;
 
 template <typename T>
 struct BaseApp : AppWindow<T> {
-    daxa::Context daxa_ctx = daxa::create_context({
-        .enable_validation = false,
-    });
-    daxa::Device device = daxa_ctx.create_device({
-        .selector = [](daxa::DeviceProperties const &device_props) -> i32 {
+    daxa::Context daxa_ctx = daxa::create_context({ .enable_validation = false });
+    daxa::Device device = daxa_ctx.create_device(
+    {
+        .selector = [](daxa::DeviceProperties const &device_props) -> i32 
+        {
             i32 score = 0;
             switch (device_props.device_type) {
             case daxa::DeviceType::DISCRETE_GPU: score += 10000; break;
@@ -40,17 +40,21 @@ struct BaseApp : AppWindow<T> {
         .debug_name = APPNAME_PREFIX("device"),
     });
 
-    daxa::Swapchain swapchain = device.create_swapchain({
+    daxa::Swapchain swapchain = device.create_swapchain(
+    {
         .native_window = AppWindow<T>::get_native_handle(),
         .native_window_platform = AppWindow<T>::get_native_platform(),
-        .present_mode = daxa::PresentMode::DO_NOT_WAIT_FOR_VBLANK,
+        .present_mode = daxa::PresentMode::DOUBLE_BUFFER_WAIT_FOR_VBLANK,
         .image_usage = daxa::ImageUsageFlagBits::TRANSFER_DST,
         .debug_name = APPNAME_PREFIX("swapchain"),
     });
 
-    daxa::PipelineCompiler pipeline_compiler = device.create_pipeline_compiler({
-        .shader_compile_options = {
-            .root_paths = {
+    daxa::PipelineCompiler pipeline_compiler = device.create_pipeline_compiler(
+    {
+        .shader_compile_options = 
+        {
+            .root_paths = 
+            {
                 DAXA_SHADER_INCLUDE_DIR,
                 "shaders",
                 "src",
@@ -62,17 +66,11 @@ struct BaseApp : AppWindow<T> {
 
     daxa::ImGuiRenderer imgui_renderer = create_imgui_renderer();
     ImFont *mono_font, *base_font, *menu_font;
+
     auto create_imgui_renderer() -> daxa::ImGuiRenderer {
         ImGui::CreateContext();
         ImGuiIO &io = ImGui::GetIO();
         mono_font = io.Fonts->AddFontDefault();
-#if defined(_WIN32)
-        base_font = io.Fonts->AddFontFromFileTTF("C:/Windows/Fonts/segoeui.ttf", 16.0f);
-        menu_font = io.Fonts->AddFontFromFileTTF("C:/Windows/Fonts/segoeui.ttf", 32.0f);
-#elif defined(__linux__)
-        base_font = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 16.0f);
-        menu_font = io.Fonts->AddFontFromFileTTF("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 32.0f);
-#endif
         ImGui_ImplGlfw_InitForVulkan(AppWindow<T>::glfw_window_ptr, true);
         return daxa::ImGuiRenderer({
             .device = device,
