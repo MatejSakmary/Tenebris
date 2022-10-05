@@ -18,8 +18,6 @@
 #endif
 #include <GLFW/glfw3native.h>
 
-const u32 WIDTH = 1920;
-const u32 HEIGHT = 1080;
 
 struct WindowVTable
 {
@@ -30,7 +28,8 @@ struct WindowVTable
 struct AppWindow
 {
     public:
-        AppWindow(std::function<void(f64, f64)> mouse_callback,
+        AppWindow(u32 width, u32 height,
+                  std::function<void(f64, f64)> mouse_callback,
                   std::function<void(i32, i32)> window_resized_callback) :
                     v_table { .mouse_callback = mouse_callback, .window_resized_callback = window_resized_callback} 
         {
@@ -38,7 +37,7 @@ struct AppWindow
             /* Tell GLFW to not create OpenGL context */
             glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
             glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-            window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
+            window = glfwCreateWindow(width, height, "Vulkan", nullptr, nullptr);
             glfwSetWindowUserPointer(window, &v_table);
             glfwSetCursorPosCallback( 
                 window,

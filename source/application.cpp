@@ -6,8 +6,8 @@ void Application::mouse_callback(f64 x, f64 y)
     float yoffset;
     if(!app_state.first_input)
     {
-        xoffset = app_state.mouse_last_x - x;
-        yoffset = app_state.mouse_last_y - y;
+        xoffset = app_state.mouse_last_pos.x - x;
+        yoffset = app_state.mouse_last_pos.y - y;
     }else{
         xoffset = 0.0f;
         yoffset = 0.0f;
@@ -16,8 +16,8 @@ void Application::mouse_callback(f64 x, f64 y)
 
     if(app_state.fly_mode)
     {
-        app_state.mouse_last_x = x;
-        app_state.mouse_last_y = y;
+        app_state.mouse_last_pos.x = x;
+        app_state.mouse_last_pos.y = y;
         // data->renderer->camera->updateFrontVec(xoffset, yoffset);
     }
 }
@@ -71,8 +71,10 @@ void Application::process_input()
 }
 
 Application::Application() : 
-    window(std::bind(&Application::mouse_callback, this, std::placeholders::_1, std::placeholders::_2),
-           std::bind(&Application::window_resize_callback,this, std::placeholders::_1, std::placeholders::_2)),
+    window(1920, 1080,
+           std::bind(&Application::mouse_callback, this, std::placeholders::_1, std::placeholders::_2),
+           std::bind(&Application::window_resize_callback,this, std::placeholders::_1, std::placeholders::_2)
+           ),
     renderer{window.get_native_handle()}
 {
 }

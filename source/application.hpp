@@ -8,16 +8,6 @@ using namespace daxa::types;
 
 struct Application 
 {
-    struct AppState
-    {
-        f64 last_frame = 0.0f;
-        f64 mouse_last_x = 0.0f;
-        f64 mouse_last_y = 0.0f;
-        f64 delta_time = 0.0f;
-        bool fly_mode = false;
-        bool first_input = false;
-        f32 fly_mode_toggle_timeout = 0.0f;
-    };
 
     public:
         Application();
@@ -26,6 +16,17 @@ struct Application
         void main_loop();
 
     private:
+
+        struct AppState
+        {
+            f64 last_frame = 0.0f;
+            f64vec2 mouse_last_pos = {0.0, 0.0};
+            f64 delta_time = 0.0f;
+            bool fly_mode = false;
+            bool first_input = false;
+            f32 fly_mode_toggle_timeout = 0.0f;
+        };
+
         AppWindow window;
         AppState app_state;
         Renderer renderer;
