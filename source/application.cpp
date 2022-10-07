@@ -91,9 +91,4 @@ void Application::main_loop()
        process_input();
        renderer.draw();
     }
-
-    /*  Wait for logical device to finish operations ->
-     *  Because drawFrame operations are asynchornous when we exit the loop
-     *  drawing and presentation operations may still be going on*/
-    // vkDeviceWaitIdle(renderer->vDevice->device);
 }
