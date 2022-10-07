@@ -37,6 +37,17 @@ Renderer::Renderer(daxa::NativeWindowHandle window) :
                 .debug_name = "Pipeline Compiler",
             }
         )
+    },
+    clear_present_task
+    {
+        daxa::TaskListInfo{
+            .device = device,
+            .dont_use_split_barriers = false,
+            .swapchain = swapchain,
+            .debug_name = "Clear and present",
+        },
+        {},
+        {},
     }
 {
     create_resources();
@@ -49,26 +60,11 @@ void Renderer::create_resources()
 
 void Renderer::record_tasks()
 {
-    ApplicationTask & clear_task = insert_or_throw(
-        tasks,
-        {
-            "clear_present",
-            {
-                daxa::TaskList({
-                    .device = device,
-                    .dont_use_split_barriers = false,
-                    .swapchain = swapchain,
-                    .debug_name = "Clear and present"
-                }), {}, {}
-            }
-        }
-    );
-
     insert_or_throw(
-        clear_task.task_images,
+        clear_present_task.task_images,
         {
             "task_swapchain_image",
-            clear_task.task.create_task_image({
+            clear_present_task.task.create_task_image({
                 .image = &images.swapchain_image,
                 .swapchain_image = true,
                 .debug_name = "task_swapchain_image" 
@@ -76,11 +72,11 @@ void Renderer::record_tasks()
         }
     );
 
-    clear_task.task.add_task({
+    clear_present_task.task.add_task({
         .used_images = 
         {
             {
-                clear_task.task_images.at("task_swapchain_image"),
+                clear_present_task.task_images.at("task_swapchain_image"),
                 daxa::TaskImageAccess::TRANSFER_WRITE,
                 daxa::ImageMipArraySlice{}
             }
@@ -91,15 +87,15 @@ void Renderer::record_tasks()
             cmd_list.clear_image({
                 .dst_image_layout = daxa::ImageLayout::TRANSFER_DST_OPTIMAL,
                 .clear_value = {std::array<f32, 4>{1.0, 0.0, 0.0, 1.0}},
-                .dst_image = runtime.get_image(clear_task.task_images.at("task_swapchain_image"))
+                .dst_image = runtime.get_image(clear_present_task.task_images.at("task_swapchain_image"))
             });
         },
         .debug_name = "clear swapchain",
     });
 
-    clear_task.task.submit({});
-    clear_task.task.present({});
-    clear_task.task.complete();
+    clear_present_task.task.submit({});
+    clear_present_task.task.present({});
+    clear_present_task.task.complete();
 }
 
 void Renderer::draw() 
@@ -109,7 +105,7 @@ void Renderer::draw()
     {
         return;
     }
-    tasks.at("clear_present").task.execute();
+    clear_present_task.task.execute();
 }
 
 Renderer::~Renderer()

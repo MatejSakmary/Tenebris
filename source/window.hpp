@@ -65,7 +65,7 @@ struct AppWindow
         auto get_native_handle() -> daxa::NativeWindowHandle 
         {
 #if defined(_WIN32)
-            return glfwGetWin32Window(glfw_window_ptr);
+            return glfwGetWin32Window(window);
 #elif defined(__linux__)
             return reinterpret_cast<daxa::NativeWindowHandle>(glfwGetX11Window(window));
 #endif
