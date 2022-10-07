@@ -12,7 +12,7 @@ T& insert_or_throw(std::unordered_map<std::string, T> & map, const std::pair<std
 }
 
 Renderer::Renderer(daxa::NativeWindowHandle window) :
-    daxa_ctx{daxa::create_context({.enable_validation = false})},
+    daxa_ctx{daxa::create_context({.enable_validation = true})},
     device{daxa_ctx.create_device({.debug_name = "Daxa device"})},
     swapchain
     {
@@ -81,7 +81,7 @@ void Renderer::record_tasks()
         {
             {
                 clear_task.task_images.at("task_swapchain_image"),
-                daxa::TaskImageAccess::COLOR_ATTACHMENT,
+                daxa::TaskImageAccess::TRANSFER_WRITE,
                 daxa::ImageMipArraySlice{}
             }
         },
@@ -89,7 +89,7 @@ void Renderer::record_tasks()
         {
             auto cmd_list = runtime.get_command_list();
             cmd_list.clear_image({
-                .dst_image_layout = daxa::ImageLayout::PRESENT_SRC,
+                .dst_image_layout = daxa::ImageLayout::TRANSFER_DST_OPTIMAL,
                 .clear_value = {std::array<f32, 4>{1.0, 0.0, 0.0, 1.0}},
                 .dst_image = runtime.get_image(clear_task.task_images.at("task_swapchain_image"))
             });
@@ -112,4 +112,8 @@ void Renderer::draw()
     tasks.at("clear_present").task.execute();
 }
 
-Renderer::~Renderer() {}
+Renderer::~Renderer()
+{
+    device.wait_idle();
+    device.collect_garbage();
+}
