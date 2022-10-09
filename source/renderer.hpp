@@ -39,7 +39,7 @@ struct Renderer
         daxa::PipelineCompiler pipeline_compiler;
 
         ApplicationImages images;
-        std::unordered_map<std::string, ApplicationTask> tasks;
+        ApplicationTask clear_present_task;
 
         void record_tasks();
         void create_resources();
