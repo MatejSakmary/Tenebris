@@ -7,52 +7,63 @@
 #define GLFW_EXPOSE_NATIVE_WIN32
 #define GLFW_NATIVE_INCLUDE_NONE
 #define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <dwmapi.h>
-#ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
-#define DWMWA_USE_IMMERSIVE_DARK_MODE 20
-#endif
 #elif defined(__linux__)
 #define GLFW_EXPOSE_NATIVE_X11
-#define GLFW_EXPOSE_NATIVE_WAYLAND
 #endif
 #include <GLFW/glfw3native.h>
 
 
 struct WindowVTable
 {
-    std::function<void(f64, f64)> mouse_callback;
+    std::function<void(f64, f64)> mouse_pos_callback;
+    std::function<void(i32, i32, i32)> mouse_button_callback;
+    std::function<void(i32, i32, i32, i32)> key_callback;
     std::function<void(i32, i32)> window_resized_callback;
 };
 
 struct AppWindow
 {
     public:
-        AppWindow(u32 width, u32 height,
-                  std::function<void(f64, f64)> mouse_callback,
-                  std::function<void(i32, i32)> window_resized_callback) :
-                    v_table { .mouse_callback = mouse_callback, .window_resized_callback = window_resized_callback} 
+        AppWindow(const u32vec2 dimensions, const WindowVTable & vtable ) :
+            dimensions{dimensions},
+            vtable{vtable}
         {
             glfwInit();
             /* Tell GLFW to not create OpenGL context */
             glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
             glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-            window = glfwCreateWindow(width, height, "Vulkan", nullptr, nullptr);
-            glfwSetWindowUserPointer(window, &v_table);
+            window = glfwCreateWindow(dimensions.x, dimensions.y, "Atmosphere-daxa", nullptr, nullptr);
+            glfwSetWindowUserPointer(window, &(this->vtable));
             glfwSetCursorPosCallback( 
                 window,
                 [](GLFWwindow *window, f64 x, f64 y)
                 { 
-                    auto &v_table = *reinterpret_cast<WindowVTable *>(glfwGetWindowUserPointer(window));
-                    v_table.mouse_callback(x, y); 
+                    auto &vtable = *reinterpret_cast<WindowVTable *>(glfwGetWindowUserPointer(window));
+                    vtable.mouse_pos_callback(x, y); 
+                }
+            );
+            glfwSetMouseButtonCallback(
+                window,
+                [](GLFWwindow *window, i32 button, i32 action, i32 mods)
+                {
+                    auto &vtable = *reinterpret_cast<WindowVTable *>(glfwGetWindowUserPointer(window));
+                    vtable.mouse_button_callback(button, action, mods);
+                }
+            );
+            glfwSetKeyCallback(
+                window,
+                [](GLFWwindow *window, i32 key, i32 code, i32 action, i32 mods)
+                {
+                    auto &vtable = *reinterpret_cast<WindowVTable *>(glfwGetWindowUserPointer(window));
+                    vtable.key_callback(key, code, action, mods);
                 }
             );
             glfwSetFramebufferSizeCallback( 
                 window, 
                 [](GLFWwindow *window, i32 x, i32 y)
                 { 
-                    auto &v_table = *reinterpret_cast<WindowVTable *>(glfwGetWindowUserPointer(window));
-                    v_table.window_resized_callback(x, y); 
+                    auto &vtable = *reinterpret_cast<WindowVTable *>(glfwGetWindowUserPointer(window));
+                    vtable.window_resized_callback(x, y); 
                 }
             );
         }
@@ -77,6 +88,7 @@ struct AppWindow
             glfwTerminate();
         }
     private:
-        WindowVTable v_table;
         GLFWwindow* window;
+        u32vec2 dimensions;
+        WindowVTable vtable;
 };

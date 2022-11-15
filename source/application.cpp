@@ -2,79 +2,54 @@
 
 void Application::mouse_callback(f64 x, f64 y)
 {
-    float xoffset;
-    float yoffset;
-    if(!app_state.first_input)
-    {
-        xoffset = app_state.mouse_last_pos.x - x;
-        yoffset = app_state.mouse_last_pos.y - y;
-    }else{
-        xoffset = 0.0f;
-        yoffset = 0.0f;
-        app_state.first_input = false;
-    }
 
-    if(app_state.fly_mode)
-    {
-        app_state.mouse_last_pos.x = x;
-        app_state.mouse_last_pos.y = y;
-        // data->renderer->camera->updateFrontVec(xoffset, yoffset);
-    }
+}
+
+void Application::mouse_button_callback(i32 button, i32 action, i32 mods)
+{
+
 }
 
 void Application::window_resize_callback(i32 width, i32 height)
 {
-    // data->renderer->framebufferResized = true;
+    state.minimized = (width == 0 || height == 0);
+    if(!state.minimized) { renderer.resize(); }
 }
 
-void Application::process_input()
+void Application::key_callback(i32 key, i32 code, i32 action, i32 mods)
 {
-    float current_frame = glfwGetTime();
-    app_state.delta_time = current_frame - app_state.last_frame;
-    app_state.last_frame = current_frame;
-    app_state.fly_mode_toggle_timeout = app_state.fly_mode_toggle_timeout - app_state.delta_time < 0.0f ? 
-        0.0f : app_state.fly_mode_toggle_timeout - app_state.delta_time;
-
-    /* end program */
-    if (window.get_key_state(GLFW_KEY_ESCAPE) == GLFW_PRESS){
-        window.set_window_close();
+    if(key == GLFW_KEY_ENTER && action == GLFW_PRESS)
+    {
+        std::cout << "ENTER pressed" << std::endl;
     }
-    if (window.get_key_state(GLFW_KEY_W) == GLFW_PRESS) {
-        // data->renderer->camera->forward(data->deltaTime);
-    }
-    if (window.get_key_state(GLFW_KEY_S) == GLFW_PRESS) {
-        // data->renderer->camera->back(data->deltaTime);
-    }
-    if (window.get_key_state(GLFW_KEY_A) == GLFW_PRESS) {
-        // data->renderer->camera->left(data->deltaTime);
-    }
-    if (window.get_key_state(GLFW_KEY_D) == GLFW_PRESS) {
-        // data->renderer-> camera->right(data->deltaTime);
-    }
-    if (window.get_key_state(GLFW_KEY_SPACE) == GLFW_PRESS && app_state.fly_mode) {
-        // data->renderer->camera->up(data->deltaTime);
-    }
-    if (window.get_key_state(GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS && app_state.fly_mode) {
-        // data->renderer->camera->down(data->deltaTime);
-    }
-    if (window.get_key_state(GLFW_KEY_F) == GLFW_PRESS && app_state.fly_mode_toggle_timeout == 0.0f) {
-        app_state.fly_mode = !app_state.fly_mode;
-        if(app_state.fly_mode)
-        {
-            window.set_input_mode(GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-            app_state.first_input = true;
-        }else{
-            window.set_input_mode(GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-        }
-        app_state.fly_mode_toggle_timeout = 0.2f;
-    }
+    return;
 }
 
 Application::Application() : 
-    window(1920, 1080,
-           std::bind(&Application::mouse_callback, this, std::placeholders::_1, std::placeholders::_2),
-           std::bind(&Application::window_resize_callback,this, std::placeholders::_1, std::placeholders::_2)
-           ),
+    window({1080, 720},
+    WindowVTable {
+        .mouse_pos_callback = std::bind(
+            &Application::mouse_callback, this,
+            std::placeholders::_1,
+            std::placeholders::_2),
+        .mouse_button_callback = std::bind(
+            &Application::mouse_button_callback, this,
+            std::placeholders::_1,
+            std::placeholders::_2,
+            std::placeholders::_3),
+        .key_callback = std::bind(
+            &Application::key_callback, this,
+            std::placeholders::_1,
+            std::placeholders::_2,
+            std::placeholders::_3,
+            std::placeholders::_4),
+        .window_resized_callback = std::bind(
+            &Application::window_resize_callback, this,
+            std::placeholders::_1,
+            std::placeholders::_2)
+        }
+    ),
+    state{ .minimized = false },
     renderer{window.get_native_handle()}
 {
 }
@@ -88,7 +63,7 @@ void Application::main_loop()
     while (!window.get_window_should_close())
     {
        glfwPollEvents();
-       process_input();
+       if (state.minimized) { std::cout << "minimized " << std::endl; continue; } 
        renderer.draw();
     }
 }

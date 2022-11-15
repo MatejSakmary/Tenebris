@@ -12,9 +12,20 @@ struct Renderer
     Renderer(daxa::NativeWindowHandle window_handle);
     ~Renderer();
 
+    void resize();
     void draw();
 
     private:
+
+        struct ApplicationTasks
+        {
+            daxa::TaskList clear_present;
+        };
+
+        struct ApplicationTaskImages
+        {
+            daxa::TaskImageId swapchain_image;
+        };
 
         struct ApplicationImages
         {
@@ -25,21 +36,14 @@ struct Renderer
         {
         };
 
-        struct ApplicationTask
-        {
-            daxa::TaskList task;
-            std::unordered_map<std::string, daxa::TaskImageId> task_images;
-            std::unordered_map<std::string, daxa::TaskBufferId> task_buffers;
-        };
+        daxa::Context daxa_context;
+        daxa::Device daxa_device;
+        daxa::Swapchain daxa_swapchain;
+        daxa::PipelineCompiler daxa_pipeline_compiler;
 
-
-        daxa::Context daxa_ctx;
-        daxa::Device device;
-        daxa::Swapchain swapchain;
-        daxa::PipelineCompiler pipeline_compiler;
-
-        ApplicationImages images;
-        ApplicationTask clear_present_task;
+        ApplicationImages daxa_images;
+        ApplicationTaskImages daxa_task_images;
+        ApplicationTasks daxa_tasks;
 
         void record_tasks();
         void create_resources();

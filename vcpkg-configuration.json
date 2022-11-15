@@ -1,13 +1,13 @@
 {
-    "registries": [
-        {
-            "kind": "git",
-            "repository": "https://github.com/GabeRundlett/vcpkg-registry",
-            "baseline": "6d3e7a1ebeb2d266cf8820f4269b79e847b43924",
-            "packages": [
-                "daxa",
-                "fsr2"
-            ]
-        }
-    ]
+  "registries": [
+    {
+      "kind": "git",
+      "baseline": "005221743f1806e93e8435eafc0c99c0cf9e2298",
+      "repository": "https://github.com/GabeRundlett/vcpkg-registry",
+      "packages": [
+        "daxa",
+        "fsr2"
+      ]
+    }
+  ]
 }
