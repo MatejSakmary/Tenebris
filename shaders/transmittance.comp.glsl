@@ -14,6 +14,6 @@ void main()
     imageStore(
         daxa_access_Image(image2D, push_constant.transmittance_image),
         i32vec2(thread_id.xy),
-        f32vec4(0.0, 0.0, 0.5, 1.0));
-        // f32vec4(thread_id.xy / push_constant.dimensions.xy, 0.0, 1.0));
+        // f32vec4(1.0, 1.0, 0.0, 1.0));
+        f32vec4(thread_id.xy / f32vec2(push_constant.dimensions.xy), 0.0, 1.0));
 }

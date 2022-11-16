@@ -187,7 +187,7 @@ void Renderer::record_render_sky_task()
                 .dimensions = {image_dimensions.x, image_dimensions.y},
                 .atmosphere_parameters = this->daxa_device.get_device_address(daxa_buffers.atmosphere_parameters.gpu_buffer)
             });
-            cmd_list.dispatch(((image_dimensions.x + 7)/8), ((image_dimensions.y + 5)/6), 0);
+            cmd_list.dispatch(((image_dimensions.x + 7)/8), ((image_dimensions.y + 3)/4));
         },
         .debug_name = "render_transmittance"
     });
@@ -215,7 +215,7 @@ void Renderer::record_clear_present_task()
 
     daxa_task_images.transmittance_sampled = daxa_tasks.clear_present.create_task_image({
         .initial_access = daxa::AccessConsts::COMPUTE_SHADER_WRITE,
-        .initial_layout = daxa::ImageLayout::UNDEFINED,
+        .initial_layout = daxa::ImageLayout::GENERAL,
         .swapchain_image = false,
         .debug_name = "transmittance sampled image"
     });
