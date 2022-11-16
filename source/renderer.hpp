@@ -5,6 +5,8 @@
 #include <daxa/daxa.hpp>
 #include <daxa/utils/task_list.hpp>
 
+#include "shared/shared.inl"
+
 using namespace daxa::types;
 
 struct Renderer
@@ -17,23 +19,48 @@ struct Renderer
 
     private:
 
-        struct ApplicationTasks
+        struct Tasks
         {
             daxa::TaskList clear_present;
+            daxa::TaskList render_sky;
         };
 
-        struct ApplicationTaskImages
+        struct Buffers
         {
-            daxa::TaskImageId swapchain_image;
+            template<typename T>
+            struct ApplicationBuffer
+            {
+                T cpu_buffer;
+                daxa::BufferId gpu_buffer;
+            };
+
+            ApplicationBuffer<AtmosphereParameters> atmosphere_parameters;
+        };
+        
+        struct TaskBuffers
+        {
+            daxa::TaskBufferId atmosphere_parameters;
         };
 
-        struct ApplicationImages
+        struct Images
         {
             daxa::ImageId swapchain_image;
+            daxa::ImageId transmittance;
+            daxa::ImageId multiscattering;
+            daxa::ImageId skyview;
         };
 
-        struct ApplicationBuffers
+        struct TaskImages
         {
+            daxa::TaskImageId swapchain_image;
+            daxa::TaskImageId transmittance;
+            daxa::TaskImageId transmittance_sampled;
+        };
+
+        struct Pipelines
+        {
+            daxa::ComputePipeline transmittance_pipeline;
+            daxa::RasterPipeline finalpass_pipeline;
         };
 
         daxa::Context daxa_context;
@@ -41,10 +68,18 @@ struct Renderer
         daxa::Swapchain daxa_swapchain;
         daxa::PipelineCompiler daxa_pipeline_compiler;
 
-        ApplicationImages daxa_images;
-        ApplicationTaskImages daxa_task_images;
-        ApplicationTasks daxa_tasks;
+        daxa::SamplerId default_sampler;
+
+        Images daxa_images;
+        Buffers daxa_buffers;
+        Tasks daxa_tasks;
+        TaskImages daxa_task_images;
+        TaskBuffers daxa_task_buffers;
+        Pipelines pipelines;
+
 
         void record_tasks();
+        void record_clear_present_task();
+        void record_render_sky_task();
         void create_resources();
 };
