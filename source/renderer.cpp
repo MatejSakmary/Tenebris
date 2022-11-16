@@ -24,13 +24,13 @@ Renderer::Renderer(daxa::NativeWindowHandle window) :
     default_sampler = daxa_device.create_sampler({});
 
     pipelines.transmittance_pipeline = daxa_pipeline_compiler.create_compute_pipeline({
-        .shader_info = { .source = daxa::ShaderFile{"transmittance.comp.glsl"} },
+        .shader_info = { .source = daxa::ShaderFile{"transmittance.glsl"} },
         .push_constant_size = sizeof(TransmittancePush),
-        .debug_name = "transmittance_compute"}).value();
+        .debug_name = "transmittance"}).value();
 
     pipelines.finalpass_pipeline = daxa_pipeline_compiler.create_raster_pipeline({
-        .vertex_shader_info = { .source = daxa::ShaderFile{"screen_triangle.vert.glsl"} },
-        .fragment_shader_info = { .source = daxa::ShaderFile{"finalpass.frag.glsl"} },
+        .vertex_shader_info = { .source = daxa::ShaderFile{"screen_triangle.glsl"} },
+        .fragment_shader_info = { .source = daxa::ShaderFile{"final_pass.glsl"} },
         .color_attachments = {{.format = daxa_swapchain.get_format()}},
         .depth_test = { .enable_depth_test = false },
         .raster = {
@@ -114,7 +114,63 @@ void Renderer::create_resources()
         .debug_name = "atmosphere_parameters",
     }); 
 
-    daxa_buffers.atmosphere_parameters.cpu_buffer = {};
+    f32 mie_scale_height = 1.2f;
+    f32 rayleigh_scale_height = 8.0f;
+    daxa_buffers.atmosphere_parameters.cpu_buffer = {
+        .atmosphere_bottom = 6360.0f,
+        .atmosphere_top = 6460.0f,
+        .mie_scattering = { 0.003996f, 0.003996f, 0.003996f },
+        .mie_extinction = { 0.004440f, 0.004440f, 0.004440f },
+        .mie_scale_height = mie_scale_height,
+        .mie_density = {
+            {
+                .layer_width = 0.0f,
+                .exp_term    = 0.0f,
+                .exp_scale   = 0.0f,
+                .lin_term    = 0.0f,
+                .const_term  = 0.0f 
+            },
+            {
+                .layer_width = 0.0f,
+                .exp_term    = 1.0f,
+                .exp_scale   = -1.0f / mie_scale_height,
+                .lin_term    = 0.0f,
+                .const_term  = 0.0f
+            }},
+        .rayleigh_scattering = { 0.005802f, 0.013558f, 0.033100f },
+        .rayleigh_scale_height = rayleigh_scale_height,
+        .rayleigh_density = {
+            {
+                .layer_width = 0.0f,
+                .exp_term    = 0.0f,
+                .exp_scale   = 0.0f,
+                .lin_term    = 0.0f,
+                .const_term  = 0.0f 
+            },
+            {
+                .layer_width = 0.0f,
+                .exp_term    = 1.0f,
+                .exp_scale   = -1.0f / rayleigh_scale_height,
+                .lin_term    = 0.0f,
+                .const_term  = 0.0f
+            }},
+        .absorption_extinction = { 0.000650f, 0.001881f, 0.000085f },
+        .absorption_density = {
+            {
+                .layer_width = 25.0f,
+                .exp_term    = 0.0f,
+                .exp_scale   = 0.0f,
+                .lin_term    = 1.0f / 15.0f,
+                .const_term  = -2.0f / 3.0f 
+            },
+            {
+                .layer_width = 0.0f,
+                .exp_term    = 1.0f,
+                .exp_scale   = 0.0f,
+                .lin_term    = -1.0f / 15.0f,
+                .const_term  = 8.0f / 3.0f
+            }},
+    };
 }
 
 void Renderer::record_tasks()

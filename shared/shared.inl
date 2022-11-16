@@ -2,19 +2,34 @@
 
 #include <daxa/daxa.inl>
 
+// An atmosphere layer density which can be calculated as:
+//   density = exp_term * exp(exp_scale * h) + linear_term * h + constant_term,
+struct DensityProfileLayer
+{
+    daxa_f32 layer_width;
+    daxa_f32 exp_term;
+    daxa_f32 exp_scale;
+    daxa_f32 lin_term;
+    daxa_f32 const_term;
+};
+
 DAXA_DECL_BUFFER_STRUCT(
     AtmosphereParameters,
     {
+        daxa_f32 atmosphere_bottom;
+        daxa_f32 atmosphere_top;
+
         daxa_f32vec3 mie_scattering;
-        daxa_f32vec3 mie_absorption;
         daxa_f32vec3 mie_extinction;
-        daxa_f32vec4 mie_density[3];
+        daxa_f32 mie_scale_height;
+        DensityProfileLayer mie_density[2];
 
         daxa_f32vec3 rayleigh_scattering;
-        daxa_f32vec4 rayleigh_density[3];
+        daxa_f32 rayleigh_scale_height;
+        DensityProfileLayer rayleigh_density[2];
 
         daxa_f32vec3 absorption_extinction;
-        daxa_f32vec4 absorption_density[3];
+        DensityProfileLayer absorption_density[2];
     }
 );
 
