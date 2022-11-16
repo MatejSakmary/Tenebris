@@ -215,9 +215,8 @@ void Renderer::record_render_sky_task()
                 .debug_name = "staging_atmosphere_gpu_buffer"
             });
             // copy data into staging buffer
-            auto buffer_ptr = daxa_device.map_memory_as<AtmosphereParameters>(staging_atmosphere_gpu_buffer);
+            auto buffer_ptr = daxa_device.get_host_address_as<AtmosphereParameters>(staging_atmosphere_gpu_buffer);
             memcpy(buffer_ptr, &daxa_buffers.atmosphere_parameters.cpu_buffer, sizeof(AtmosphereParameters));
-            daxa_device.unmap_memory(staging_atmosphere_gpu_buffer);
             // copy staging buffer into gpu_buffer
             cmd_list.copy_buffer_to_buffer({
                 .src_buffer = staging_atmosphere_gpu_buffer,

@@ -1,31 +1,31 @@
 {
-	"name": "atmosphere-daxa",
-	"version": "0.1.0",
-	"dependencies": [
-		{
-			"name": "daxa",
-			"features": [
-				"glslang",
-				"utils"
-			]
-		},
-		"fmt",
-		"glfw3",
-		"glm",
-		"stb",
-		{
-			"name": "imgui",
-			"features": [
-				"glfw-binding",
-				"docking-experimental"
-			]
-		}
-	],
-	"builtin-baseline": "01b29f6d8212bc845da64773b18665d682f5ab66",
-	"overrides": [
-		{
-			"name": "daxa",
-			"version-string": "nightly"
-		}
-	]
+  "name": "atmosphere-daxa",
+  "version": "0.1.0",
+  "dependencies": [
+    {
+      "name": "daxa",
+      "features": [
+        "glslang",
+        "utils"
+      ]
+    },
+    "fmt",
+    "glfw3",
+    "glm",
+    "stb",
+    {
+      "name": "imgui",
+      "features": [
+        "glfw-binding",
+        "docking-experimental"
+      ]
+    }
+  ],
+  "builtin-baseline": "01b29f6d8212bc845da64773b18665d682f5ab66",
+  "overrides": [
+    {
+      "name": "daxa",
+      "version-string": "nightly"
+    }
+  ]
 }
