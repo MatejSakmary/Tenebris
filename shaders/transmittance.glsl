@@ -50,7 +50,7 @@ void main()
     f32vec3 transmittance = exp(-integrate_transmittance(world_position, world_direction, 400));
 
     imageStore(
-        daxa_get_Image(image2D, push_constant.transmittance_image),
+        daxa_get_image(image2D, push_constant.transmittance_image),
         i32vec2(gl_GlobalInvocationID.xy),
         f32vec4(transmittance, 1.0));
 }

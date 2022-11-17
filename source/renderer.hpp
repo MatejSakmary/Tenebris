@@ -54,12 +54,14 @@ struct Renderer
         {
             daxa::TaskImageId swapchain_image;
             daxa::TaskImageId transmittance;
-            daxa::TaskImageId transmittance_sampled;
+            daxa::TaskImageId multiscattering;
+            daxa::TaskImageId sampled_image;
         };
 
         struct Pipelines
         {
             daxa::ComputePipeline transmittance_pipeline;
+            daxa::ComputePipeline multiscattering_pipeline;
             daxa::RasterPipeline finalpass_pipeline;
         };
 

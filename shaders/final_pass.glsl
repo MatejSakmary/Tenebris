@@ -12,8 +12,8 @@ void main()
     out_color = texture(
         sampler2D
         (
-            daxa_get_Texture(texture2D, push_constant.image_id),
-            daxa_get_Sampler(push_constant.sampler_id)
+            daxa_get_texture(texture2D, push_constant.image_id),
+            daxa_get_sampler(push_constant.sampler_id)
         ),
         in_uv
     );

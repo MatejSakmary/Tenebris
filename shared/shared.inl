@@ -40,6 +40,16 @@ struct TransmittancePush
     daxa_BufferRef(AtmosphereParameters) atmosphere_parameters;
 };
 
+struct MultiscatteringPush
+{
+    daxa_ImageViewId transmittance_image;
+    daxa_u32vec2 transmittance_dimensions;
+    daxa_ImageViewId multiscattering_image;
+    daxa_u32vec2 multiscattering_dimensions;
+    daxa_SamplerId sampler_id;
+    daxa_BufferRef(AtmosphereParameters) atmosphere_parameters;
+};
+
 struct FinalPassPush
 {
     daxa_ImageViewId image_id;
