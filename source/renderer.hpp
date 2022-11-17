@@ -55,6 +55,7 @@ struct Renderer
             daxa::TaskImageId swapchain_image;
             daxa::TaskImageId transmittance;
             daxa::TaskImageId multiscattering;
+            daxa::TaskImageId skyview;
             daxa::TaskImageId sampled_image;
         };
 
@@ -62,6 +63,7 @@ struct Renderer
         {
             daxa::ComputePipeline transmittance_pipeline;
             daxa::ComputePipeline multiscattering_pipeline;
+            daxa::ComputePipeline skyview_pipeline;
             daxa::RasterPipeline finalpass_pipeline;
         };
 

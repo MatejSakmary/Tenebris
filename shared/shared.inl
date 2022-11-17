@@ -43,9 +43,18 @@ struct TransmittancePush
 struct MultiscatteringPush
 {
     daxa_ImageViewId transmittance_image;
-    daxa_u32vec2 transmittance_dimensions;
     daxa_ImageViewId multiscattering_image;
     daxa_u32vec2 multiscattering_dimensions;
+    daxa_SamplerId sampler_id;
+    daxa_BufferRef(AtmosphereParameters) atmosphere_parameters;
+};
+
+struct SkyviewPush
+{
+    daxa_ImageViewId transmittance_image;
+    daxa_ImageViewId multiscattering_image;
+    daxa_ImageViewId skyview_image;
+    daxa_u32vec2 skyview_dimensions;
     daxa_SamplerId sampler_id;
     daxa_BufferRef(AtmosphereParameters) atmosphere_parameters;
 };

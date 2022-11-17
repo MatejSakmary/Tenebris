@@ -33,6 +33,11 @@ Renderer::Renderer(daxa::NativeWindowHandle window) :
         .push_constant_size = sizeof(MultiscatteringPush),
         .debug_name = "multiscattering"}).value();
 
+    pipelines.skyview_pipeline = daxa_pipeline_compiler.create_compute_pipeline({
+        .shader_info = { .source = daxa::ShaderFile{"skyview.glsl"} },
+        .push_constant_size = sizeof(SkyviewPush),
+        .debug_name = "skyview"}).value();
+
     pipelines.finalpass_pipeline = daxa_pipeline_compiler.create_raster_pipeline({
         .vertex_shader_info = { .source = daxa::ShaderFile{"screen_triangle.glsl"} },
         .fragment_shader_info = { .source = daxa::ShaderFile{"final_pass.glsl"} },
@@ -97,6 +102,8 @@ void Renderer::draw()
     daxa_tasks.clear_present.execute();
     reload_raster_pipeline(pipelines.finalpass_pipeline);
     reload_compute_pipeline(pipelines.transmittance_pipeline);
+    reload_compute_pipeline(pipelines.multiscattering_pipeline);
+    reload_compute_pipeline(pipelines.skyview_pipeline);
 }
 
 void Renderer::create_resources()
@@ -125,6 +132,19 @@ void Renderer::create_resources()
         .usage = daxa::ImageUsageFlagBits::SHADER_READ_ONLY | daxa::ImageUsageFlagBits::SHADER_READ_WRITE,
         .memory_flags = daxa::MemoryFlagBits::DEDICATED_MEMORY,
         .debug_name = "multiscattering"
+    });
+
+    daxa_images.skyview = daxa_device.create_image({
+        .dimensions = 2,
+        .format = daxa::Format::R16G16B16A16_SFLOAT,
+        .aspect = daxa::ImageAspectFlagBits::COLOR,
+        .size = {192, 168, 1},
+        .mip_level_count = 1,
+        .array_layer_count = 1,
+        .sample_count = 1,
+        .usage = daxa::ImageUsageFlagBits::SHADER_READ_ONLY | daxa::ImageUsageFlagBits::SHADER_READ_WRITE,
+        .memory_flags = daxa::MemoryFlagBits::DEDICATED_MEMORY,
+        .debug_name = "skyview"
     });
 
     daxa_buffers.atmosphere_parameters.gpu_buffer = daxa_device.create_buffer(daxa::BufferInfo{
@@ -223,6 +243,13 @@ void Renderer::record_render_sky_task()
         .debug_name = "multiscattering"
     });
 
+    daxa_task_images.skyview = daxa_tasks.render_sky.create_task_image({
+        .initial_access = daxa::AccessConsts::NONE,
+        .initial_layout = daxa::ImageLayout::UNDEFINED,
+        .swapchain_image = false,
+        .debug_name = "skyview"
+    });
+
     // TASK BUFFERS
     daxa_task_buffers.atmosphere_parameters = daxa_tasks.render_sky.create_task_buffer({
         .initial_access = daxa::AccessConsts::NONE,
@@ -231,6 +258,7 @@ void Renderer::record_render_sky_task()
 
     daxa_tasks.render_sky.add_runtime_image(daxa_task_images.transmittance, daxa_images.transmittance);
     daxa_tasks.render_sky.add_runtime_image(daxa_task_images.multiscattering, daxa_images.multiscattering);
+    daxa_tasks.render_sky.add_runtime_image(daxa_task_images.skyview, daxa_images.skyview);
 
     daxa_tasks.render_sky.add_task({
         .used_buffers = { {daxa_task_buffers.atmosphere_parameters, daxa::TaskBufferAccess::HOST_TRANSFER_WRITE } },
@@ -283,12 +311,10 @@ void Renderer::record_render_sky_task()
         .task = [this](daxa::TaskRuntime const & runtime)
         {
             auto cmd_list = runtime.get_command_list();
-            auto transmittance_dimensions = daxa_device.info_image(daxa_images.transmittance).size;
             auto multiscattering_dimensions = daxa_device.info_image(daxa_images.multiscattering).size;
             cmd_list.set_pipeline(pipelines.multiscattering_pipeline);
             cmd_list.push_constant(MultiscatteringPush{
                 .transmittance_image = daxa_images.transmittance.default_view(),
-                .transmittance_dimensions = {transmittance_dimensions.x, transmittance_dimensions.y},
                 .multiscattering_image = daxa_images.multiscattering.default_view(),
                 .multiscattering_dimensions = {multiscattering_dimensions.x, multiscattering_dimensions.y},
                 .sampler_id = default_sampler,
@@ -297,6 +323,28 @@ void Renderer::record_render_sky_task()
             cmd_list.dispatch(multiscattering_dimensions.x, multiscattering_dimensions.y);
         },
         .debug_name = "render_multiscattering"
+    });
+
+    daxa_tasks.render_sky.add_task({
+        .used_buffers = { {daxa_task_buffers.atmosphere_parameters, daxa::TaskBufferAccess::COMPUTE_SHADER_READ_ONLY } },
+        .used_images = { {daxa_task_images.multiscattering, daxa::TaskImageAccess::COMPUTE_SHADER_READ_ONLY, daxa::ImageMipArraySlice{} },
+                         {daxa_task_images.transmittance, daxa::TaskImageAccess::COMPUTE_SHADER_READ_ONLY, daxa::ImageMipArraySlice{} },
+                         {daxa_task_images.skyview, daxa::TaskImageAccess::COMPUTE_SHADER_WRITE_ONLY, daxa::ImageMipArraySlice{} },},
+        .task = [this](daxa::TaskRuntime const & runtime)
+        {
+            auto cmd_list = runtime.get_command_list();
+            auto skyview_dimensions = daxa_device.info_image(daxa_images.skyview).size;
+            cmd_list.set_pipeline(pipelines.skyview_pipeline);
+            cmd_list.push_constant(SkyviewPush{
+                .transmittance_image = daxa_images.transmittance.default_view(),
+                .multiscattering_image = daxa_images.multiscattering.default_view(),
+                .skyview_image = daxa_images.skyview.default_view(),
+                .sampler_id = default_sampler,
+                .atmosphere_parameters = daxa_device.get_device_address(daxa_buffers.atmosphere_parameters.gpu_buffer)
+            });
+            cmd_list.dispatch((skyview_dimensions.x + 7)/8, ((skyview_dimensions.y + 3)/4));
+        },
+        .debug_name = "render_skyview"
     });
     daxa_tasks.render_sky.submit({});
     daxa_tasks.render_sky.complete();
@@ -328,7 +376,7 @@ void Renderer::record_clear_present_task()
         .debug_name = "transmittance sampled image"
     });
 
-    daxa_tasks.clear_present.add_runtime_image(daxa_task_images.sampled_image, daxa_images.multiscattering);
+    daxa_tasks.clear_present.add_runtime_image(daxa_task_images.sampled_image, daxa_images.skyview);
 
     daxa_tasks.clear_present.add_task({
         .used_images = { { daxa_task_images.swapchain_image, daxa::TaskImageAccess::SHADER_WRITE_ONLY, daxa::ImageMipArraySlice{} },
@@ -349,7 +397,7 @@ void Renderer::record_clear_present_task()
 
             cmd_list.set_pipeline(pipelines.finalpass_pipeline);
             cmd_list.push_constant(FinalPassPush{
-                .image_id = daxa_images.multiscattering.default_view(),
+                .image_id = daxa_images.skyview.default_view(),
                 .sampler_id = default_sampler
             });
             cmd_list.draw({.vertex_count = 6});
@@ -369,6 +417,7 @@ Renderer::~Renderer()
     daxa_device.destroy_buffer(daxa_buffers.atmosphere_parameters.gpu_buffer);
     daxa_device.destroy_image(daxa_images.transmittance);
     daxa_device.destroy_image(daxa_images.multiscattering);
+    daxa_device.destroy_image(daxa_images.skyview);
     daxa_device.destroy_sampler(default_sampler);
     daxa_device.collect_garbage();
 }
