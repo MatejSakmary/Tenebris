@@ -138,7 +138,7 @@ void Renderer::create_resources()
         .dimensions = 2,
         .format = daxa::Format::R16G16B16A16_SFLOAT,
         .aspect = daxa::ImageAspectFlagBits::COLOR,
-        .size = {192, 168, 1},
+        .size = {192, 128, 1},
         .mip_level_count = 1,
         .array_layer_count = 1,
         .sample_count = 1,
@@ -155,11 +155,14 @@ void Renderer::create_resources()
     f32 mie_scale_height = 1.2f;
     f32 rayleigh_scale_height = 8.0f;
     daxa_buffers.atmosphere_parameters.cpu_buffer = {
+        .camera_position = {0.0, 0.0, 0.11},
+        .sun_direction = {0.99831, 0.0, 0.05814},
         .atmosphere_bottom = 6360.0f,
         .atmosphere_top = 6460.0f,
         .mie_scattering = { 0.003996f, 0.003996f, 0.003996f },
         .mie_extinction = { 0.004440f, 0.004440f, 0.004440f },
         .mie_scale_height = mie_scale_height,
+        .mie_phase_function_g = 0.80f,
         .mie_density = {
             {
                 .layer_width = 0.0f,
@@ -334,11 +337,14 @@ void Renderer::record_render_sky_task()
         {
             auto cmd_list = runtime.get_command_list();
             auto skyview_dimensions = daxa_device.info_image(daxa_images.skyview).size;
+            auto multiscattering_dimensions = daxa_device.info_image(daxa_images.multiscattering).size;
             cmd_list.set_pipeline(pipelines.skyview_pipeline);
             cmd_list.push_constant(SkyviewPush{
                 .transmittance_image = daxa_images.transmittance.default_view(),
                 .multiscattering_image = daxa_images.multiscattering.default_view(),
                 .skyview_image = daxa_images.skyview.default_view(),
+                .skyview_dimensions = {skyview_dimensions.x, skyview_dimensions.y},
+                .multiscattering_dimensions = {multiscattering_dimensions.x, multiscattering_dimensions.y},
                 .sampler_id = default_sampler,
                 .atmosphere_parameters = daxa_device.get_device_address(daxa_buffers.atmosphere_parameters.gpu_buffer)
             });

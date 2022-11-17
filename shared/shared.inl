@@ -16,12 +16,16 @@ struct DensityProfileLayer
 DAXA_DECL_BUFFER_STRUCT(
     AtmosphereParameters,
     {
+        daxa_f32vec3 camera_position;
+        daxa_f32vec3 sun_direction;
+
         daxa_f32 atmosphere_bottom;
         daxa_f32 atmosphere_top;
 
         daxa_f32vec3 mie_scattering;
         daxa_f32vec3 mie_extinction;
         daxa_f32 mie_scale_height;
+        daxa_f32 mie_phase_function_g;
         DensityProfileLayer mie_density[2];
 
         daxa_f32vec3 rayleigh_scattering;
@@ -55,6 +59,7 @@ struct SkyviewPush
     daxa_ImageViewId multiscattering_image;
     daxa_ImageViewId skyview_image;
     daxa_u32vec2 skyview_dimensions;
+    daxa_u32vec2 multiscattering_dimensions;
     daxa_SamplerId sampler_id;
     daxa_BufferRef(AtmosphereParameters) atmosphere_parameters;
 };

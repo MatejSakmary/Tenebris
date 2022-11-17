@@ -29,23 +29,23 @@ struct TransmittanceParams
 /// @param atmosphere_bottom - bottom radius of the atmosphere in km
 /// @param atmosphere_top - top radius of the atmosphere in km
 ///	@return - uv of the corresponding texel
-vec2 transmittance_lut_to_uv(TransmittanceParams parameters, f32 atmosphere_bottom, f32 atmosphere_top)
+f32vec2 transmittance_lut_to_uv(TransmittanceParams parameters, f32 atmosphere_bottom, f32 atmosphere_top)
 {
-	float H = safe_sqrt(atmosphere_top * atmosphere_top - atmosphere_bottom * atmosphere_bottom);
-	float rho = safe_sqrt(parameters.height * parameters.height - atmosphere_bottom * atmosphere_bottom);
+	f32 H = safe_sqrt(atmosphere_top * atmosphere_top - atmosphere_bottom * atmosphere_bottom);
+	f32 rho = safe_sqrt(parameters.height * parameters.height - atmosphere_bottom * atmosphere_bottom);
 	
-	float discriminant = parameters.height * parameters.height * 
+	f32 discriminant = parameters.height * parameters.height * 
 		(parameters.zenith_cos_angle * parameters.zenith_cos_angle - 1.0) +
 		atmosphere_top * atmosphere_top;
 	/* Distance to top atmosphere boundary */
-	float d = max(0.0, (-parameters.height * parameters.zenith_cos_angle + safe_sqrt(discriminant)));
+	f32 d = max(0.0, (-parameters.height * parameters.zenith_cos_angle + safe_sqrt(discriminant)));
 
-	float d_min = atmosphere_top - parameters.height;
-	float d_max = rho + H;
-	float mu = (d - d_min) / (d_max - d_min);
-	float r = rho / H;
+	f32 d_min = atmosphere_top - parameters.height;
+	f32 d_max = rho + H;
+	f32 mu = (d - d_min) / (d_max - d_min);
+	f32 r = rho / H;
 
-	return vec2(mu, r);
+	return f32vec2(mu, r);
 }
 
 /// Transmittance LUT uses not uniform mapping -> transfer from uv to this mapping
@@ -70,6 +70,45 @@ TransmittanceParams uv_to_transmittance_lut_params(f32vec2 uv, f32 atmosphere_bo
 
 	return params;
 }
+
+struct SkyviewParams
+{
+	f32 view_zenith_angle;
+	f32 light_view_angle;
+};
+/// Get parameters used for skyview LUT computation from uv coords
+/// @param uv - texel uv in the range [0,1]
+/// @param atmosphere_bottom - bottom of the atmosphere in km
+/// @param atmosphere_top - top of the atmosphere in km
+/// @param skyview dimensions
+/// @param view_height - view_height in world coordinates -> distance from planet center 
+/// @return - SkyviewParams structure
+SkyviewParams uv_to_skyview_lut_params(f32vec2 uv, f32 atmosphere_bottom,
+ 	f32 atmosphere_top, f32vec2 skyview_dimensions, f32 view_height)
+{
+	/* Constrain uvs to valid sub texel range 
+	(avoid zenith derivative issue making LUT usage visible) */
+	uv = f32vec2(from_subuv_to_unit(uv.x, skyview_dimensions.x),
+			  	 from_subuv_to_unit(uv.y, skyview_dimensions.y));
+			
+	f32 beta = asin(atmosphere_bottom / view_height);
+	f32 zenith_horizon_angle = PI - beta;
+
+	f32 view_zenith_angle;
+	f32 light_view_angle;
+	/* Nonuniform mapping near the horizon to avoid artefacts */
+	if(uv.y < 0.5)
+	{
+		f32 coord = 1.0 - (1.0 - 2.0 * uv.y) * (1.0 - 2.0 * uv.y);
+		view_zenith_angle = zenith_horizon_angle * coord;
+	} else {
+		f32 coord = (uv.y * 2.0 - 1.0) * (uv.y * 2.0 - 1.0);
+		view_zenith_angle = zenith_horizon_angle + beta * coord;
+	}
+	light_view_angle = (uv.x * uv.x) * PI;
+	return SkyviewParams(view_zenith_angle, light_view_angle);
+}
+
 
 /// Return distance of the first intersection between ray and sphere
 /// @param r0 - ray origin
@@ -103,6 +142,35 @@ f32 ray_sphere_intersect_nearest(f32vec3 r0, f32vec3 rd, f32vec3 s0, f32 sR)
 		return max(0.0, sol0);
 	}
 	return max(0.0, min(sol0, sol1));
+}
+
+/// Moves to the nearest intersection with top of the atmosphere in the direction specified in 
+/// world_direction
+/// @param world_position - current world position -> will be changed to new pos at the top of
+/// 		the atmosphere if there exists such intersection
+/// @param world_direction - the direction in which the shift will be done
+/// @param atmosphere_bottom - bottom of the atmosphere in km
+/// @param atmosphere_top - top of the atmosphere in km
+b32 move_to_top_atmosphere(inout f32vec3 world_position, f32vec3 world_direction,
+	f32 atmosphere_bottom, f32 atmosphere_top)
+{ 
+	f32vec3 planet_origin = f32vec3(0.0, 0.0, 0.0);
+	/* Check if the world_position is outside of the atmosphere */
+	if(length(world_position) > atmosphere_top)
+	{
+		f32 dist_to_top_atmo_intersection = ray_sphere_intersect_nearest(
+			world_position, world_direction, planet_origin, atmosphere_top);
+
+		/* No intersection with the atmosphere */
+		if (dist_to_top_atmo_intersection == -1.0) { return false; }
+		else
+		{
+			f32vec3 up_offset = normalize(world_position) * -PLANET_RADIUS_OFFSET;
+			world_position += world_direction * dist_to_top_atmo_intersection + up_offset;
+		}
+	}
+	/* Position is in or at the top of the atmosphere */
+	return true;
 }
 
 /// @param params - buffer reference to the atmosphere parameters buffer
@@ -146,4 +214,32 @@ f32vec3 sample_medium_scattering(BufferRef(AtmosphereParameters) params, f32vec3
     f32vec3 ozo_scattering = f32vec3(0.0, 0.0, 0.0);
     
     return mie_scattering + ray_scattering + ozo_scattering;
+}
+
+struct ScatteringSample
+{
+    f32vec3 mie;
+    f32vec3 ray;
+};
+/// @param params - buffer reference to the atmosphere parameters buffer
+/// @param position - position in the world where the sample is to be taken
+/// @return Scattering sample struct
+// TODO(msakmary) Fix this!!
+ScatteringSample sample_medium_scattering_detailed(BufferRef(AtmosphereParameters) params, f32vec3 position)
+{
+    const f32 height = length(position) - params.atmosphere_bottom;
+
+    const f32 density_mie = exp(params.mie_density[1].exp_scale * height);
+    const f32 density_ray = exp(params.rayleigh_density[1].exp_scale * height);
+    const f32 density_ozo = clamp(height < params.absorption_density[0].layer_width ?
+        params.absorption_density[0].lin_term * height + params.absorption_density[0].const_term :
+        params.absorption_density[1].lin_term * height + params.absorption_density[1].const_term,
+        0.0, 1.0);
+
+    f32vec3 mie_scattering = params.mie_scattering * density_mie;
+    f32vec3 ray_scattering = params.rayleigh_scattering * density_ray;
+    /* Not considering ozon scattering in current version of this model */
+    f32vec3 ozo_scattering = f32vec3(0.0, 0.0, 0.0);
+    
+    return ScatteringSample(mie_scattering, ray_scattering);
 }
