@@ -2,7 +2,6 @@
 
 #include <functional>
 
-#include <GLFW/glfw3.h>
 #if defined(_WIN32)
 #define GLFW_EXPOSE_NATIVE_WIN32
 #define GLFW_NATIVE_INCLUDE_NONE
@@ -10,8 +9,10 @@
 #elif defined(__linux__)
 #define GLFW_EXPOSE_NATIVE_X11
 #endif
+#include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 
+using namespace daxa::types;
 
 struct WindowVTable
 {
@@ -68,15 +69,13 @@ struct AppWindow
             );
         }
 
-        i32 get_key_state(i32 key) { return glfwGetKey(window, key); }
-        void set_window_close() { glfwSetWindowShouldClose(window, true); }
-        void set_input_mode(i32 mode, i32 value) { glfwSetInputMode(window, mode, value); }
-        bool get_window_should_close() { return glfwWindowShouldClose(window); }
-
-        auto get_native_handle() -> daxa::NativeWindowHandle 
+        [[nodiscard]] i32 get_key_state(i32 key) { return glfwGetKey(window, key); }
+        [[nodiscard]] auto get_window_should_close() const -> bool { return glfwWindowShouldClose(window); }
+        [[nodiscard]] auto get_glfw_window_handle() const -> GLFWwindow* { return window; }
+        [[nodiscard]] auto get_native_handle() const -> daxa::NativeWindowHandle
         {
 #if defined(_WIN32)
-            return glfwGetWin32Window(window);
+            return reinterpret_cast<daxa::NativeWindowHandle>(glfwGetWin32Window(window));
 #elif defined(__linux__)
             return reinterpret_cast<daxa::NativeWindowHandle>(glfwGetX11Window(window));
 #endif

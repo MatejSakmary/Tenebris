@@ -1,9 +1,10 @@
-#define DAXA_SHADER_NO_NAMESPACE
+#define DAXA_ENABLE_SHADER_NO_NAMESPACE 1
+#define DAXA_ENABLE_IMAGE_OVERLOADS_BASIC 1
 #include <shared/shared.inl>
 #include "common_func.glsl"
 
-DAXA_USE_PUSH_CONSTANT(TransmittancePush)
-BufferRef(AtmosphereParameters) params = push_constant.atmosphere_parameters;
+DAXA_USE_PUSH_CONSTANT(TransmittancePC)
+daxa_BufferPtr(AtmosphereParameters) params = daxa_push_constant.atmosphere_parameters;
 
 layout (local_size_x = 8, local_size_y = 4) in;
 
@@ -14,7 +15,7 @@ f32vec3 integrate_transmittance(f32vec3 world_position, f32vec3 world_direction,
         world_position,
         world_direction,
         f32vec3(0.0, 0.0, 0.0),
-        params.atmosphere_top);
+        deref(params).atmosphere_top);
 
     f32 integration_step = integration_length / f32(sample_count);
 
@@ -33,13 +34,13 @@ f32vec3 integrate_transmittance(f32vec3 world_position, f32vec3 world_direction,
 
 void main()
 {
-    if( gl_GlobalInvocationID.x >= push_constant.dimensions.x ||
-        gl_GlobalInvocationID.y >= push_constant.dimensions.y)
+    if( gl_GlobalInvocationID.x >= daxa_push_constant.dimensions.x ||
+        gl_GlobalInvocationID.y >= daxa_push_constant.dimensions.y)
     { return; } 
 
-    f32vec2 uv = f32vec2(gl_GlobalInvocationID.xy) / f32vec2(push_constant.dimensions.xy);
+    f32vec2 uv = f32vec2(gl_GlobalInvocationID.xy) / f32vec2(daxa_push_constant.dimensions.xy);
 
-    TransmittanceParams mapping = uv_to_transmittance_lut_params(uv, params.atmosphere_bottom, params.atmosphere_top);
+    TransmittanceParams mapping = uv_to_transmittance_lut_params(uv, deref(params).atmosphere_bottom, deref(params).atmosphere_top);
     f32vec3 world_position = f32vec3(0.0, 0.0, mapping.height);
     f32vec3 world_direction = f32vec3(
         0.0,
@@ -49,8 +50,5 @@ void main()
 
     f32vec3 transmittance = exp(-integrate_transmittance(world_position, world_direction, 400));
 
-    imageStore(
-        daxa_get_image(image2D, push_constant.transmittance_image),
-        i32vec2(gl_GlobalInvocationID.xy),
-        f32vec4(transmittance, 1.0));
+    imageStore(daxa_push_constant.transmittance_image, i32vec2(gl_GlobalInvocationID.xy), f32vec4(transmittance, 1.0));
 }

@@ -1,15 +1,8 @@
 {
   "name": "atmosphere-daxa",
   "version": "0.1.0",
-  "dependencies": [
-    {
-      "name": "daxa",
-      "features": [
-        "glslang",
-        "utils"
-      ]
-    },
-    "fmt",
+  "dependencies": [ 
+    "daxa",
     "glfw3",
     "glm",
     "stb",
@@ -22,10 +15,9 @@
     }
   ],
   "builtin-baseline": "01b29f6d8212bc845da64773b18665d682f5ab66",
-  "overrides": [
-    {
-      "name": "daxa",
-      "version-string": "nightly"
-    }
-  ]
+  "vcpkg-configuration": {
+    "overlay-ports": [
+      "/home/matejs/Projects/Daxa/cmake/vcpkg-port"
+    ]
+  }
 }

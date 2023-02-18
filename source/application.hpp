@@ -3,7 +3,7 @@
 #include <daxa/daxa.hpp>
 using namespace daxa::types;
 
-#include "renderer.hpp"
+#include "renderer/renderer.hpp"
 #include "window.hpp"
 
 struct Application 

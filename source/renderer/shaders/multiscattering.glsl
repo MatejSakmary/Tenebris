@@ -1,9 +1,10 @@
-#define DAXA_SHADER_NO_NAMESPACE
+#define DAXA_ENABLE_SHADER_NO_NAMESPACE 1
+#define DAXA_ENABLE_IMAGE_OVERLOADS_BASIC 1
 #include <shared/shared.inl>
 #include "common_func.glsl"
 
-DAXA_USE_PUSH_CONSTANT(MultiscatteringPush)
-BufferRef(AtmosphereParameters) params = push_constant.atmosphere_parameters;
+DAXA_USE_PUSH_CONSTANT(MultiscatteringPC)
+daxa_BufferPtr(AtmosphereParameters) params = daxa_push_constant.atmosphere_parameters;
 
 /* This number should match the number of local threads -> z dimension */
 const f32 SPHERE_SAMPLES = 64.0;
@@ -24,9 +25,9 @@ RaymarchResult integrate_scattered_luminance(f32vec3 world_position, f32vec3 wor
     RaymarchResult result = RaymarchResult(f32vec3(0.0, 0.0, 0.0), f32vec3(0.0, 0.0, 0.0));
     f32vec3 planet_zero = f32vec3(0.0, 0.0, 0.0);
     f32 planet_intersection_distance = ray_sphere_intersect_nearest(
-        world_position, world_direction, planet_zero, params.atmosphere_bottom);
+        world_position, world_direction, planet_zero, deref(params).atmosphere_bottom);
     f32 atmosphere_intersection_distance = ray_sphere_intersect_nearest(
-        world_position, world_direction, planet_zero, params.atmosphere_top);
+        world_position, world_direction, planet_zero, deref(params).atmosphere_top);
     
     f32 integration_length;
     /* ============================= CALCULATE INTERSECTIONS ============================ */
@@ -68,12 +69,9 @@ RaymarchResult integrate_scattered_luminance(f32vec3 world_position, f32vec3 wor
         TransmittanceParams transmittance_lut_params = TransmittanceParams(length(new_position), dot(sun_direction, up_vector));
 
         /* uv coordinates later used to sample transmittance texture */
-        f32vec2 trans_texture_uv = transmittance_lut_to_uv(transmittance_lut_params, params.atmosphere_bottom, params.atmosphere_top);
+        f32vec2 trans_texture_uv = transmittance_lut_to_uv(transmittance_lut_params, deref(params).atmosphere_bottom, deref(params).atmosphere_top);
 
-        f32vec3 transmittance_to_sun = f32vec3(texture( sampler2D (
-            daxa_get_texture(texture2D, push_constant.transmittance_image),
-            daxa_get_sampler(push_constant.sampler_id)),
-            trans_texture_uv).xyz);
+        f32vec3 transmittance_to_sun = texture( daxa_push_constant.transmittance_image, daxa_push_constant.sampler_id, trans_texture_uv).rgb;
 
         f32vec3 medium_scattering = sample_medium_scattering(params, new_position);
         f32vec3 medium_extinction = sample_medium_extinction(params, new_position);
@@ -82,7 +80,7 @@ RaymarchResult integrate_scattered_luminance(f32vec3 world_position, f32vec3 wor
         f32vec3 trans_increase_over_integration_step = exp(-(medium_extinction * integration_step));
         /* Check if current position is in earth's shadow */
         f32 earth_intersection_distance = ray_sphere_intersect_nearest(
-            new_position, sun_direction, planet_zero + PLANET_RADIUS_OFFSET * up_vector, params.atmosphere_bottom);
+            new_position, sun_direction, planet_zero + PLANET_RADIUS_OFFSET * up_vector, deref(params).atmosphere_bottom);
         f32 in_earth_shadow = earth_intersection_distance == -1.0 ? 1.0 : 0.0;
 
         /* Light arriving from the sun to this point */
@@ -110,16 +108,16 @@ RaymarchResult integrate_scattered_luminance(f32vec3 world_position, f32vec3 wor
 layout (local_size_x = 1, local_size_y = 1, local_size_z = 64) in;
 void main()
 {
-    if( gl_GlobalInvocationID.x >= push_constant.multiscattering_dimensions.x ||
-        gl_GlobalInvocationID.y >= push_constant.multiscattering_dimensions.y)
+    if( gl_GlobalInvocationID.x >= daxa_push_constant.multiscattering_dimensions.x ||
+        gl_GlobalInvocationID.y >= daxa_push_constant.multiscattering_dimensions.y)
     { return; } 
 
     const f32 sample_count = 20;
 
     f32vec2 uv = (f32vec2(gl_GlobalInvocationID.xy) + f32vec2(0.5, 0.5)) / 
-                  f32vec2(push_constant.multiscattering_dimensions.xy);
-    uv = f32vec2(from_subuv_to_unit(uv.x, push_constant.multiscattering_dimensions.x),
-                 from_subuv_to_unit(uv.y, push_constant.multiscattering_dimensions.y));
+                  f32vec2(daxa_push_constant.multiscattering_dimensions.xy);
+    uv = f32vec2(from_subuv_to_unit(uv.x, daxa_push_constant.multiscattering_dimensions.x),
+                 from_subuv_to_unit(uv.y, daxa_push_constant.multiscattering_dimensions.y));
     
     /* Mapping uv to multiscattering LUT parameters
        TODO -> Is the range from 0.0 to -1.0 really needed? */
@@ -130,9 +128,9 @@ void main()
         sun_cos_zenith_angle
     );
 
-   f32 view_height = params.atmosphere_bottom + 
+   f32 view_height = deref(params).atmosphere_bottom + 
         clamp(uv.y + PLANET_RADIUS_OFFSET, 0.0, 1.0) *
-        (params.atmosphere_top - params.atmosphere_bottom - PLANET_RADIUS_OFFSET);
+        (deref(params).atmosphere_top - deref(params).atmosphere_bottom - PLANET_RADIUS_OFFSET);
 
     f32vec3 world_position = f32vec3(0.0, 0.0, view_height);
 
@@ -219,8 +217,5 @@ void main()
     const f32vec3 sum_of_all_multiscattering_events_contribution = f32vec3(1.0/ (1.0 -r.x),1.0/ (1.0 -r.y),1.0/ (1.0 -r.z));
     f32vec3 lum = inscattered_luminance_sum * sum_of_all_multiscattering_events_contribution;
 
-    imageStore(
-        daxa_get_image(image2D, push_constant.multiscattering_image),
-        i32vec2(gl_GlobalInvocationID.xy),
-        f32vec4(lum, 1.0));
+    imageStore(daxa_push_constant.multiscattering_image, i32vec2(gl_GlobalInvocationID.xy), f32vec4(lum, 1.0));
 }
