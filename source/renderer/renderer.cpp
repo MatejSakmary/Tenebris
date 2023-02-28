@@ -1,5 +1,9 @@
 #include "renderer.hpp"
+
 #include <string.h>
+
+#include <imgui_impl_glfw.h>
+#include <daxa/utils/imgui.hpp>
 
 Renderer::Renderer(const AppWindow & window) :
     context { .daxa_context{daxa::create_context({.enable_validation = true})} }
@@ -39,6 +43,15 @@ Renderer::Renderer(const AppWindow & window) :
     context.pipelines.post_process = context.pipeline_manager.add_raster_pipeline(get_post_process_pipeline(context)).value();
 
     context.linear_sampler = context.device.create_sampler({});
+
+    ImGui::CreateContext();
+    ImGui_ImplGlfw_InitForVulkan(window.get_glfw_window_handle(), true);
+    auto &io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    context.imgui_renderer = daxa::ImGuiRenderer({
+        .device = context.device,
+        .format = context.swapchain.get_format(),
+    });
 
     create_resolution_independent_resources();
     create_resolution_dependent_resources();
@@ -81,9 +94,12 @@ void Renderer::draw()
     }
 }
 
+void Renderer::update_on_gui_state(const GuiState & gui_state)
+{
+}
+
 void Renderer::create_resolution_dependent_resources()
 {
-
 }
 
 void Renderer::create_resolution_independent_resources()
@@ -276,6 +292,7 @@ void Renderer::create_main_tasklist()
     task_compute_multiscattering_LUT(context);
     task_compute_skyview_LUT(context);
     task_post_process(context);
+    task_draw_imgui(context);
 
     context.main_task_list.task_list.submit({});
     context.main_task_list.task_list.present({});

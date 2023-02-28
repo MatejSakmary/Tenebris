@@ -4,13 +4,37 @@
 using namespace daxa::types;
 
 #include "renderer/renderer.hpp"
+#include "gui_state.hpp"
 #include "window.hpp"
 
+union KeyTable
+{
+    unsigned int data;
+    struct
+    {
+        unsigned int W : 1 = 0;
+        unsigned int A : 1 = 0;
+        unsigned int S : 1 = 0;
+        unsigned int D : 1 = 0;
+        unsigned int Q : 1 = 0;
+        unsigned int E : 1 = 0;
+        unsigned int CTRL : 1 = 0;
+        unsigned int SPACE : 1 = 0;
+        unsigned int LEFT_SHIFT : 1 = 0;
+    } bits;
+};
 struct Application 
 {
     struct AppState
     {
-        b32 minimized;
+        f64 last_frame_time = 0.0;
+        f64 delta_time = 0.0;
+
+        bool minimized = false;
+        bool fly_cam = false;
+        bool first_input = true;
+
+        KeyTable key_table;
     };
 
     public:
@@ -23,6 +47,12 @@ struct Application
         AppWindow window;
         AppState state;
         Renderer renderer;
+
+        GuiState prev_state;
+        GuiState curr_state;
+
+        void ui_update();
+        void process_input();
 
         void init_window();
         void mouse_callback(f64 x, f64 y);

@@ -8,6 +8,7 @@
 
 #include "../window.hpp"
 #include "../utils.hpp"
+#include "../gui_state.hpp"
 #include "shared/shared.inl"
 #include "context.hpp"
 
@@ -16,6 +17,7 @@
 #include "tasks/multiscattering_LUT.hpp"
 #include "tasks/skyview_LUT.hpp"
 #include "tasks/post_process.hpp"
+#include "tasks/imgui_task.hpp"
 
 using namespace daxa::types;
 
@@ -26,6 +28,7 @@ struct Renderer
 
     void resize();
     void draw();
+    void update_on_gui_state(const GuiState & gui_state);
 
     private:
         Context context;
