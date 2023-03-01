@@ -2,6 +2,7 @@
 
 #include <daxa/utils/imgui.hpp>
 #include <imgui_impl_glfw.h>
+#include "renderer/context.hpp"
 
 void Application::mouse_callback(f64 x, f64 y)
 {
@@ -42,10 +43,30 @@ Application::Application() :
     state{ .minimized = false },
     renderer{window}
 {
+    renderer.resize_LUT(Images::TRANSMITTANCE, state.gui_state.lut_dimensions.at(Images::TRANSMITTANCE)); 
+    renderer.resize_LUT(Images::MULTISCATTERING, state.gui_state.lut_dimensions.at(Images::MULTISCATTERING)); 
+    renderer.resize_LUT(Images::SKYVIEW, state.gui_state.lut_dimensions.at(Images::SKYVIEW)); 
 }
 
 void Application::ui_update()
 {
+    auto image_dimensions_slider = [&](Images::ID id)
+    {
+        ImGui::SliderInt2(
+            std::string(Images::get_image_name(id)).append(" LUT dimensions").c_str(),
+            reinterpret_cast<int*>(&state.gui_state.lut_dimensions.at(id)),
+            1,
+            1024,
+            "%d",
+            ImGuiSliderFlags_::ImGuiSliderFlags_AlwaysClamp
+        );
+
+        if(ImGui::IsItemDeactivatedAfterEdit()) 
+        { 
+            renderer.resize_LUT(id, state.gui_state.lut_dimensions.at(id));
+        }
+    };
+
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
@@ -70,6 +91,9 @@ void Application::ui_update()
     ImGui::End();    
 
     ImGui::Begin("LUT sizes");
+    image_dimensions_slider(Images::TRANSMITTANCE);
+    image_dimensions_slider(Images::MULTISCATTERING);
+    image_dimensions_slider(Images::SKYVIEW);
     ImGui::End();
 
     ImGui::Render();

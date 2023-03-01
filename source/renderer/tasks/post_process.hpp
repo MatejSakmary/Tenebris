@@ -28,12 +28,12 @@ inline void task_post_process(Context & context)
         .used_images = 
         { 
             { 
-                context.main_task_list.task_images.t_swapchain,
+                context.main_task_list.task_images.at(Images::SWAPCHAIN),
                 daxa::TaskImageAccess::SHADER_WRITE_ONLY,
                 daxa::ImageMipArraySlice{}
             },
             { 
-                context.main_task_list.task_images.t_offscreen,
+                context.main_task_list.task_images.at(Images::OFFSCREEN),
                 daxa::TaskImageAccess::SHADER_READ_ONLY,
                 daxa::ImageMipArraySlice{} 
             },
@@ -43,8 +43,8 @@ inline void task_post_process(Context & context)
             auto cmd_list = runtime.get_command_list();
             auto dimensions = context.swapchain.get_surface_extent();
 
-            auto swapchain_image = runtime.get_images(context.main_task_list.task_images.t_swapchain)[0];
-            auto offscreen_image = runtime.get_images(context.main_task_list.task_images.t_offscreen)[0];
+            auto swapchain_image = runtime.get_images(context.main_task_list.task_images.at(Images::SWAPCHAIN))[0];
+            auto offscreen_image = runtime.get_images(context.main_task_list.task_images.at(Images::OFFSCREEN))[0];
 
             cmd_list.begin_renderpass({
                 .color_attachments = {{

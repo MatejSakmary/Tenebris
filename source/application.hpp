@@ -35,6 +35,7 @@ struct Application
         bool first_input = true;
 
         KeyTable key_table;
+        GuiState gui_state;
     };
 
     public:
@@ -47,9 +48,6 @@ struct Application
         AppWindow window;
         AppState state;
         Renderer renderer;
-
-        GuiState prev_state;
-        GuiState curr_state;
 
         void ui_update();
         void process_input();

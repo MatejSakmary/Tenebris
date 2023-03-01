@@ -31,17 +31,17 @@ inline void task_compute_skyview_LUT(Context & context)
         .used_images = 
         { 
             {
-                context.main_task_list.task_images.t_transmittance,
+                context.main_task_list.task_images.at(Images::TRANSMITTANCE),
                 daxa::TaskImageAccess::COMPUTE_SHADER_READ_ONLY,
                 daxa::ImageMipArraySlice{} 
             },
             {
-                context.main_task_list.task_images.t_multiscattering,
+                context.main_task_list.task_images.at(Images::MULTISCATTERING),
                 daxa::TaskImageAccess::COMPUTE_SHADER_READ_ONLY,
                 daxa::ImageMipArraySlice{}
             },
             {
-                context.main_task_list.task_images.t_skyview,
+                context.main_task_list.task_images.at(Images::SKYVIEW),
                 daxa::TaskImageAccess::COMPUTE_SHADER_WRITE_ONLY,
                 daxa::ImageMipArraySlice{}
             },
@@ -50,9 +50,9 @@ inline void task_compute_skyview_LUT(Context & context)
         {
             auto cmd_list = runtime.get_command_list();
 
-            auto transmittance_image = runtime.get_images(context.main_task_list.task_images.t_transmittance)[0];
-            auto multiscattering_image = runtime.get_images(context.main_task_list.task_images.t_multiscattering)[0];
-            auto skyview_image = runtime.get_images(context.main_task_list.task_images.t_skyview)[0];
+            auto transmittance_image = runtime.get_images(context.main_task_list.task_images.at(Images::TRANSMITTANCE))[0];
+            auto multiscattering_image = runtime.get_images(context.main_task_list.task_images.at(Images::MULTISCATTERING))[0];
+            auto skyview_image = runtime.get_images(context.main_task_list.task_images.at(Images::SKYVIEW))[0];
             auto atmosphere_gpu_buffer = runtime.get_buffers(context.main_task_list.task_buffers.t_atmosphere_parameters)[0];
 
             auto skyview_dimensions = context.device.info_image(skyview_image).size;

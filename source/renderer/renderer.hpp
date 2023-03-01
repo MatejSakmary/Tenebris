@@ -28,7 +28,7 @@ struct Renderer
 
     void resize();
     void draw();
-    void update_on_gui_state(const GuiState & gui_state);
+    void resize_LUT(Images::ID id, i32vec3 new_size);
 
     private:
         Context context;

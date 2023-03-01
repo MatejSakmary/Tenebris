@@ -12,7 +12,7 @@ inline void task_draw_imgui(Context & context)
         .used_images =
         {
             { 
-                context.main_task_list.task_images.t_swapchain,
+                context.main_task_list.task_images.at(Images::SWAPCHAIN),
                 daxa::TaskImageAccess::SHADER_WRITE_ONLY,
                 daxa::ImageMipArraySlice{} 
             }
@@ -21,7 +21,7 @@ inline void task_draw_imgui(Context & context)
         {
             auto cmd_list = runtime.get_command_list();
             auto swapchain_image_dimensions = context.swapchain.get_surface_extent();
-            auto swapchain_image = runtime.get_images(context.main_task_list.task_images.t_swapchain)[0];
+            auto swapchain_image = runtime.get_images(context.main_task_list.task_images.at(Images::SWAPCHAIN))[0];
             context.imgui_renderer.record_commands(
                 ImGui::GetDrawData(), cmd_list, swapchain_image,
                 swapchain_image_dimensions.x, swapchain_image_dimensions.y);

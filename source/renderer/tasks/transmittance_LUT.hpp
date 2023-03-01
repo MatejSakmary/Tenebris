@@ -31,7 +31,7 @@ inline void task_compute_transmittance_LUT(Context & context)
         .used_images = 
         {
             {
-                context.main_task_list.task_images.t_transmittance,
+                context.main_task_list.task_images.at(Images::TRANSMITTANCE),
                 daxa::TaskImageAccess::COMPUTE_SHADER_WRITE_ONLY,
                 daxa::ImageMipArraySlice{}
             }
@@ -39,7 +39,7 @@ inline void task_compute_transmittance_LUT(Context & context)
         .task = [&](daxa::TaskRuntime const & runtime)
         {
             auto cmd_list = runtime.get_command_list();
-            auto transmittance_image = runtime.get_images(context.main_task_list.task_images.t_transmittance)[0];
+            auto transmittance_image = runtime.get_images(context.main_task_list.task_images.at(Images::TRANSMITTANCE))[0];
             auto atmosphere_gpu_buffer = runtime.get_buffers(context.main_task_list.task_buffers.t_atmosphere_parameters)[0];
 
             auto image_dimensions = context.device.info_image(transmittance_image).size;

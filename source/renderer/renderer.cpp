@@ -68,16 +68,16 @@ void Renderer::draw()
 {
 
     context.main_task_list.task_list.remove_runtime_image(
-        context.main_task_list.task_images.t_swapchain,
-        context.images.swapchain_image);
+        context.main_task_list.task_images.at(Images::SWAPCHAIN),
+        context.images.at(Images::SWAPCHAIN));
 
-    context.images.swapchain_image = context.swapchain.acquire_next_image();
+    context.images.at(Images::SWAPCHAIN) = context.swapchain.acquire_next_image();
 
     context.main_task_list.task_list.add_runtime_image(
-        context.main_task_list.task_images.t_swapchain,
-        context.images.swapchain_image);
+        context.main_task_list.task_images.at(Images::SWAPCHAIN),
+        context.images.at(Images::SWAPCHAIN));
 
-    if(!context.device.is_id_valid(context.images.swapchain_image))
+    if(!context.device.is_id_valid(context.images.at(Images::SWAPCHAIN)))
     {
         DEBUG_OUT("[Renderer::draw()] Got empty image from swapchain");
         return;
@@ -94,8 +94,58 @@ void Renderer::draw()
     }
 }
 
-void Renderer::update_on_gui_state(const GuiState & gui_state)
+void Renderer::resize_LUT(Images::ID id, i32vec3 new_size)
 {
+    auto daxa_image_id = context.images.at(id);
+
+    DEBUG_OUT("[Renderer::resize_LUT] Resizing " << Images::get_image_name(id));
+
+    // if the image already exists destroy it
+    if(context.device.is_id_valid(daxa_image_id))
+    {
+        context.device.wait_idle();
+
+        context.main_task_list.task_list.remove_runtime_image(
+            context.main_task_list.task_images.at(id),
+            context.images.at(id));
+    
+        // TODO: TEMPORARY - untill offscreen pass is added
+        if(id == Images::SKYVIEW)
+        {
+            context.main_task_list.task_list.remove_runtime_image(
+                context.main_task_list.task_images.at(Images::OFFSCREEN),
+                context.images.at(id));
+        }
+        // -------------------------------------------------
+
+        context.device.destroy_image(daxa_image_id);
+    }
+
+    context.images.at(id) = context.device.create_image({
+        .dimensions = 2,
+        .format = daxa::Format::R16G16B16A16_SFLOAT,
+        .aspect = daxa::ImageAspectFlagBits::COLOR,
+        .size = {u32(new_size.x), u32(new_size.y), u32(new_size.z)},
+        .mip_level_count = 1,
+        .array_layer_count = 1,
+        .sample_count = 1,
+        .usage = daxa::ImageUsageFlagBits::SHADER_READ_ONLY | daxa::ImageUsageFlagBits::SHADER_READ_WRITE,
+        .memory_flags = daxa::MemoryFlagBits::DEDICATED_MEMORY,
+        .debug_name = Images::get_image_name(id).data()
+    });
+
+    // TODO: TEMPORARY - untill offscreen pass is added
+    if(id == Images::SKYVIEW)
+    {
+        context.main_task_list.task_list.add_runtime_image(
+            context.main_task_list.task_images.at(Images::OFFSCREEN),
+            context.images.at(id));
+    }
+    // -------------------------------------------------
+
+    context.main_task_list.task_list.add_runtime_image(
+        context.main_task_list.task_images.at(id),
+        context.images.at(id));
 }
 
 void Renderer::create_resolution_dependent_resources()
@@ -104,45 +154,6 @@ void Renderer::create_resolution_dependent_resources()
 
 void Renderer::create_resolution_independent_resources()
 {
-    context.images.transmittance = context.device.create_image({
-        .dimensions = 2,
-        .format = daxa::Format::R16G16B16A16_SFLOAT,
-        .aspect = daxa::ImageAspectFlagBits::COLOR,
-        .size = {256, 64, 1},
-        .mip_level_count = 1,
-        .array_layer_count = 1,
-        .sample_count = 1,
-        .usage = daxa::ImageUsageFlagBits::SHADER_READ_ONLY | daxa::ImageUsageFlagBits::SHADER_READ_WRITE,
-        .memory_flags = daxa::MemoryFlagBits::DEDICATED_MEMORY,
-        .debug_name = "transmittance"
-    });
-
-    context.images.multiscattering = context.device.create_image({
-        .dimensions = 2,
-        .format = daxa::Format::R16G16B16A16_SFLOAT,
-        .aspect = daxa::ImageAspectFlagBits::COLOR,
-        .size = {32, 32, 1},
-        .mip_level_count = 1,
-        .array_layer_count = 1,
-        .sample_count = 1,
-        .usage = daxa::ImageUsageFlagBits::SHADER_READ_ONLY | daxa::ImageUsageFlagBits::SHADER_READ_WRITE,
-        .memory_flags = daxa::MemoryFlagBits::DEDICATED_MEMORY,
-        .debug_name = "multiscattering"
-    });
-
-    context.images.skyview = context.device.create_image({
-        .dimensions = 2,
-        .format = daxa::Format::R16G16B16A16_SFLOAT,
-        .aspect = daxa::ImageAspectFlagBits::COLOR,
-        .size = {192, 128, 1},
-        .mip_level_count = 1,
-        .array_layer_count = 1,
-        .sample_count = 1,
-        .usage = daxa::ImageUsageFlagBits::SHADER_READ_ONLY | daxa::ImageUsageFlagBits::SHADER_READ_WRITE,
-        .memory_flags = daxa::MemoryFlagBits::DEDICATED_MEMORY,
-        .debug_name = "skyview"
-    });
-
     context.buffers.atmosphere_parameters.gpu_buffer = context.device.create_buffer(daxa::BufferInfo{
         .size = sizeof(AtmosphereParameters),
         .debug_name = "atmosphere_parameters",
@@ -212,6 +223,17 @@ void Renderer::create_resolution_independent_resources()
 
 void Renderer::create_main_tasklist()
 {
+    auto create_task_image = [&](Images::ID id) -> void
+    {
+        context.main_task_list.task_images.at(id) = 
+            context.main_task_list.task_list.create_task_image({
+                .initial_access = daxa::AccessConsts::NONE,
+                .initial_layout = daxa::ImageLayout::UNDEFINED,
+                .swapchain_image = id == Images::SWAPCHAIN ? true : false,
+                .debug_name = std::string("task").append(Images::get_image_name(id))
+            });
+    };
+
     context.main_task_list.task_list = daxa::TaskList({
         .device = context.device,
         .reorder_tasks = true,
@@ -220,45 +242,10 @@ void Renderer::create_main_tasklist()
         .debug_name = "main task list"
     });
 
-    context.main_task_list.task_images.t_swapchain =
-        context.main_task_list.task_list.create_task_image({
-        .initial_access = daxa::AccessConsts::NONE,
-        .initial_layout = daxa::ImageLayout::UNDEFINED,
-        .swapchain_image = true,
-        .debug_name = "swapchain task image"
-    });
-
-    context.main_task_list.task_images.t_offscreen = 
-        context.main_task_list.task_list.create_task_image({
-        .initial_access = daxa::AccessConsts::NONE,
-        .initial_layout = daxa::ImageLayout::UNDEFINED,
-        .swapchain_image = false,
-        .debug_name = "backbuffer image"
-    });
-
-    context.main_task_list.task_images.t_transmittance = 
-        context.main_task_list.task_list.create_task_image({
-            .initial_access = daxa::AccessConsts::NONE,
-            .initial_layout = daxa::ImageLayout::UNDEFINED,
-            .swapchain_image = false,
-            .debug_name = "transmittance task image"
-    });
-
-    context.main_task_list.task_images.t_multiscattering =
-        context.main_task_list.task_list.create_task_image({
-            .initial_access = daxa::AccessConsts::NONE,
-            .initial_layout = daxa::ImageLayout::UNDEFINED,
-            .swapchain_image = false,
-            .debug_name = "multiscattering task image"
-    });
-
-    context.main_task_list.task_images.t_skyview = 
-        context.main_task_list.task_list.create_task_image({
-            .initial_access = daxa::AccessConsts::NONE,
-            .initial_layout = daxa::ImageLayout::UNDEFINED,
-            .swapchain_image = false,
-            .debug_name = "skyview task image"
-    });
+    for(i32 i = Images::BEGIN; i < Images::IMAGE_COUNT; i++)
+    {
+        create_task_image(static_cast<Images::ID>(i));
+    }
 
     // TASK BUFFERS
     context.main_task_list.task_buffers.t_atmosphere_parameters = 
@@ -270,22 +257,6 @@ void Renderer::create_main_tasklist()
     context.main_task_list.task_list.add_runtime_buffer(
         context.main_task_list.task_buffers.t_atmosphere_parameters,
         context.buffers.atmosphere_parameters.gpu_buffer);
-
-    context.main_task_list.task_list.add_runtime_image(
-        context.main_task_list.task_images.t_transmittance,
-        context.images.transmittance);
-
-    context.main_task_list.task_list.add_runtime_image(
-        context.main_task_list.task_images.t_multiscattering,
-        context.images.multiscattering);
-
-    context.main_task_list.task_list.add_runtime_image(
-        context.main_task_list.task_images.t_skyview,
-        context.images.skyview);
-
-    context.main_task_list.task_list.add_runtime_image(
-        context.main_task_list.task_images.t_offscreen,
-        context.images.skyview);
 
     task_upload_input_data(context);
     task_compute_transmittance_LUT(context);
@@ -304,9 +275,9 @@ Renderer::~Renderer()
     context.device.wait_idle();
     ImGui_ImplGlfw_Shutdown();
     context.device.destroy_buffer(context.buffers.atmosphere_parameters.gpu_buffer);
-    context.device.destroy_image(context.images.transmittance);
-    context.device.destroy_image(context.images.multiscattering);
-    context.device.destroy_image(context.images.skyview);
+    context.device.destroy_image(context.images.at(Images::TRANSMITTANCE));
+    context.device.destroy_image(context.images.at(Images::MULTISCATTERING));
+    context.device.destroy_image(context.images.at(Images::SKYVIEW));
     context.device.destroy_sampler(context.linear_sampler);
     context.device.collect_garbage();
 }
