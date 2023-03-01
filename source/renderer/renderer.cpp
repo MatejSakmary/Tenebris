@@ -302,6 +302,7 @@ void Renderer::create_main_tasklist()
 Renderer::~Renderer()
 {
     context.device.wait_idle();
+    ImGui_ImplGlfw_Shutdown();
     context.device.destroy_buffer(context.buffers.atmosphere_parameters.gpu_buffer);
     context.device.destroy_image(context.images.transmittance);
     context.device.destroy_image(context.images.multiscattering);

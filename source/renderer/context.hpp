@@ -17,7 +17,7 @@ struct Context
         daxa::ImageId transmittance;
         daxa::ImageId multiscattering;
         daxa::ImageId skyview;
-    } images;
+    };
 
     struct Buffers
     {
@@ -29,7 +29,15 @@ struct Context
         };
 
         SharedBuffer<AtmosphereParameters> atmosphere_parameters;
-    } buffers;
+    };
+
+    struct Pipelines
+    {
+        std::shared_ptr<daxa::ComputePipeline> transmittance;
+        std::shared_ptr<daxa::ComputePipeline> multiscattering;
+        std::shared_ptr<daxa::ComputePipeline> skyview;
+        std::shared_ptr<daxa::RasterPipeline> post_process;
+    };
 
     struct MainTaskList
     {
@@ -48,22 +56,19 @@ struct Context
         } task_buffers;
 
         daxa::TaskList task_list;
-    } main_task_list;
-
-    struct Pipelines
-    {
-        std::shared_ptr<daxa::ComputePipeline> transmittance;
-        std::shared_ptr<daxa::ComputePipeline> multiscattering;
-        std::shared_ptr<daxa::ComputePipeline> skyview;
-        std::shared_ptr<daxa::RasterPipeline> post_process;
-    } pipelines;
-
-    daxa::SamplerId linear_sampler;
+    };
 
     daxa::Context daxa_context;
     daxa::Device device;
     daxa::Swapchain swapchain;
     daxa::PipelineManager pipeline_manager;
 
+    Images images;
+    Buffers buffers;
+
+    MainTaskList main_task_list;
+    Pipelines pipelines;
+
+    daxa::SamplerId linear_sampler;
     daxa::ImGuiRenderer imgui_renderer;
 };
