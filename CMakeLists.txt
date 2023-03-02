@@ -5,6 +5,7 @@ project(atmosphere)
 add_executable( ${PROJECT_NAME} 
     "source/main.cpp"
     "source/application.cpp"
+    "source/camera.cpp"
     "source/renderer/renderer.cpp"
 )
 

@@ -6,6 +6,7 @@ using namespace daxa::types;
 #include "renderer/renderer.hpp"
 #include "gui_state.hpp"
 #include "window.hpp"
+#include "camera.hpp"
 
 union KeyTable
 {
@@ -33,6 +34,7 @@ struct Application
         bool minimized = false;
         bool fly_cam = false;
         bool first_input = true;
+        f32vec2 last_mouse_pos;
 
         KeyTable key_table;
         GuiState gui_state;
@@ -48,6 +50,7 @@ struct Application
         AppWindow window;
         AppState state;
         Renderer renderer;
+        Camera camera;
 
         void ui_update();
         void process_input();

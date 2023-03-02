@@ -9,6 +9,7 @@
 #include "../window.hpp"
 #include "../utils.hpp"
 #include "../gui_state.hpp"
+#include "../camera.hpp"
 #include "shared/shared.inl"
 #include "context.hpp"
 
@@ -16,6 +17,7 @@
 #include "tasks/transmittance_LUT.hpp"
 #include "tasks/multiscattering_LUT.hpp"
 #include "tasks/skyview_LUT.hpp"
+#include "tasks/draw_far_sky.hpp"
 #include "tasks/post_process.hpp"
 #include "tasks/imgui_task.hpp"
 
@@ -27,7 +29,7 @@ struct Renderer
     ~Renderer();
 
     void resize();
-    void draw();
+    void draw(const Camera & camera);
     void resize_LUT(Images::ID id, i32vec3 new_size);
 
     private:

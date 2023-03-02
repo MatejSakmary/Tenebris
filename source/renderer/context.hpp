@@ -58,6 +58,7 @@ struct Context
         };
 
         SharedBuffer<AtmosphereParameters> atmosphere_parameters;
+        SharedBuffer<CameraParameters> camera_parameters;
     };
 
     struct Pipelines
@@ -66,6 +67,7 @@ struct Context
         std::shared_ptr<daxa::ComputePipeline> multiscattering;
         std::shared_ptr<daxa::ComputePipeline> skyview;
         std::shared_ptr<daxa::RasterPipeline> post_process;
+        std::shared_ptr<daxa::RasterPipeline> draw_far_sky;
     };
 
     struct MainTaskList
@@ -73,6 +75,7 @@ struct Context
         struct Buffers
         {
             daxa::TaskBufferId t_atmosphere_parameters;
+            daxa::TaskBufferId t_camera_parameters;
         } task_buffers;
 
         std::array<daxa::TaskImageId, Images::IMAGE_COUNT> task_images;

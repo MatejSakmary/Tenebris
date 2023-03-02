@@ -76,6 +76,38 @@ struct SkyviewParams
     f32 view_zenith_angle;
     f32 light_view_angle;
 };
+
+/// Get skyview LUT uv from skyview parameters
+/// @param intersects_ground - true if ray intersects ground false otherwise
+/// @param params - SkyviewParams structure
+/// @param atmosphere_bottom - bottom of the atmosphere in km
+/// @param atmosphere_top - top of the atmosphere in km
+/// @param skyview_dimensions - skyViewLUT dimensions
+/// @param view_height - view_height in world coordinates -> distance from planet center 
+/// @return - uv for the skyview LUT sampling
+f32vec2 skyview_lut_params_to_uv(bool intersects_ground, SkyviewParams params,
+    f32 atmosphere_bottom, f32 atmosphere_top, f32vec2 skyview_dimensions, f32 view_height)
+{
+	f32vec2 uv;
+	f32 beta = asin(atmosphere_bottom / view_height);
+	f32 zenith_horizon_angle = PI - beta;
+
+	if(!intersects_ground)
+	{
+		f32 coord = params.view_zenith_angle / zenith_horizon_angle;
+		coord = (1.0 - safe_sqrt(1.0 - coord)) / 2.0;
+		uv.y = coord;
+	} else {
+		f32 coord = (params.view_zenith_angle - zenith_horizon_angle) / beta;
+		coord = (safe_sqrt(coord) + 1.0) / 2.0;
+		uv.y = coord;
+	}
+	uv.x = safe_sqrt(params.light_view_angle / PI);
+	uv = f32vec2(from_unit_to_subuv(uv.x, skyview_dimensions.x),
+			     from_unit_to_subuv(uv.y, skyview_dimensions.y));
+	return uv;
+}
+
 /// Get parameters used for skyview LUT computation from uv coords
 /// @param uv - texel uv in the range [0,1]
 /// @param atmosphere_bottom - bottom of the atmosphere in km

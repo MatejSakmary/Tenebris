@@ -5,6 +5,7 @@
 
 DAXA_USE_PUSH_CONSTANT(SkyviewPC)
 daxa_BufferPtr(AtmosphereParameters) params = daxa_push_constant.atmosphere_parameters;
+daxa_BufferPtr(CameraParameters) camera_params = daxa_push_constant.camera_parameters;
 
 /* ============================= PHASE FUNCTIONS ============================ */
 f32 cornette_shanks_mie_phase_function(f32 g, f32 cos_theta)
@@ -128,7 +129,7 @@ void main()
     { return; } 
 
     /* TODO: change to represent real camera position */
-    const f32 camera_height = deref(params).camera_position.z; // * cameraScale;
+    const f32 camera_height = deref(camera_params).camera_position.z;
     f32vec3 world_position = f32vec3(0.0, 0.0, camera_height + deref(params).atmosphere_bottom);
 
     f32vec2 uv = f32vec2(gl_GlobalInvocationID.xy) / f32vec2(daxa_push_constant.skyview_dimensions.xy);

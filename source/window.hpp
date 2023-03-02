@@ -68,6 +68,7 @@ struct AppWindow
                 }
             );
         }
+        void set_input_mode(i32 mode, i32 value) { glfwSetInputMode(window, mode, value); }
 
         [[nodiscard]] i32 get_key_state(i32 key) { return glfwGetKey(window, key); }
         [[nodiscard]] auto get_window_should_close() const -> bool { return glfwWindowShouldClose(window); }

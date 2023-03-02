@@ -40,6 +40,7 @@ Renderer::Renderer(const AppWindow & window) :
     context.pipelines.transmittance = context.pipeline_manager.add_compute_pipeline(get_transmittance_LUT_pipeline()).value();
     context.pipelines.multiscattering = context.pipeline_manager.add_compute_pipeline(get_multiscattering_LUT_pipeline()).value();
     context.pipelines.skyview = context.pipeline_manager.add_compute_pipeline(get_skyview_LUT_pipeline()).value();
+    context.pipelines.draw_far_sky = context.pipeline_manager.add_raster_pipeline(get_draw_far_sky_pipeline(context)).value();
     context.pipelines.post_process = context.pipeline_manager.add_raster_pipeline(get_post_process_pipeline(context)).value();
 
     context.linear_sampler = context.device.create_sampler({});
@@ -54,8 +55,10 @@ Renderer::Renderer(const AppWindow & window) :
     });
 
     create_resolution_independent_resources();
-    create_resolution_dependent_resources();
     create_main_tasklist();
+    // TODO(msakmary) this needs to come after tasklist (I need to add into the runtime image) - rethink and improve
+    // maybe it would be smart to move independent resource below also and make them add themselves in
+    create_resolution_dependent_resources();
 }
 
 void Renderer::resize()
@@ -64,8 +67,19 @@ void Renderer::resize()
     create_resolution_dependent_resources();
 }
 
-void Renderer::draw() 
+void Renderer::draw(const Camera & camera) 
 {
+    auto extent = context.swapchain.get_surface_extent();
+    GetProjectionInfo info {
+        .near_plane = 0.1f,
+        .far_plane = 500.0f,
+        .swapchain_extent = {extent.x, extent.y}
+    };
+
+    context.buffers.camera_parameters.cpu_buffer.view = camera.get_view_matrix();
+    context.buffers.camera_parameters.cpu_buffer.projection = camera.get_projection_matrix(info);
+    context.buffers.camera_parameters.cpu_buffer.inv_view_projection = camera.get_inv_view_proj_matrix(info); 
+    context.buffers.camera_parameters.cpu_buffer.camera_position = camera.get_camera_position();
 
     context.main_task_list.task_list.remove_runtime_image(
         context.main_task_list.task_images.at(Images::SWAPCHAIN),
@@ -82,6 +96,7 @@ void Renderer::draw()
         DEBUG_OUT("[Renderer::draw()] Got empty image from swapchain");
         return;
     }
+
     context.main_task_list.task_list.execute();
     auto result = context.pipeline_manager.reload_all();
     if(result.is_ok()) {
@@ -100,7 +115,6 @@ void Renderer::resize_LUT(Images::ID id, i32vec3 new_size)
 
     DEBUG_OUT("[Renderer::resize_LUT] Resizing " << Images::get_image_name(id));
 
-    // if the image already exists destroy it
     if(context.device.is_id_valid(daxa_image_id))
     {
         context.device.wait_idle();
@@ -108,15 +122,6 @@ void Renderer::resize_LUT(Images::ID id, i32vec3 new_size)
         context.main_task_list.task_list.remove_runtime_image(
             context.main_task_list.task_images.at(id),
             context.images.at(id));
-    
-        // TODO: TEMPORARY - untill offscreen pass is added
-        if(id == Images::SKYVIEW)
-        {
-            context.main_task_list.task_list.remove_runtime_image(
-                context.main_task_list.task_images.at(Images::OFFSCREEN),
-                context.images.at(id));
-        }
-        // -------------------------------------------------
 
         context.device.destroy_image(daxa_image_id);
     }
@@ -134,15 +139,6 @@ void Renderer::resize_LUT(Images::ID id, i32vec3 new_size)
         .debug_name = Images::get_image_name(id).data()
     });
 
-    // TODO: TEMPORARY - untill offscreen pass is added
-    if(id == Images::SKYVIEW)
-    {
-        context.main_task_list.task_list.add_runtime_image(
-            context.main_task_list.task_images.at(Images::OFFSCREEN),
-            context.images.at(id));
-    }
-    // -------------------------------------------------
-
     context.main_task_list.task_list.add_runtime_image(
         context.main_task_list.task_images.at(id),
         context.images.at(id));
@@ -150,6 +146,38 @@ void Renderer::resize_LUT(Images::ID id, i32vec3 new_size)
 
 void Renderer::create_resolution_dependent_resources()
 {
+    auto daxa_image_id = context.images.at(Images::OFFSCREEN);
+    if(context.device.is_id_valid(daxa_image_id))
+    {
+        context.device.wait_idle();
+
+        context.main_task_list.task_list.remove_runtime_image(
+            context.main_task_list.task_images.at(Images::OFFSCREEN),
+            context.images.at(Images::OFFSCREEN));
+
+        context.device.destroy_image(daxa_image_id);
+    }
+    
+    auto extent = context.swapchain.get_surface_extent();
+    context.images.at(Images::OFFSCREEN) = context.device.create_image({
+        .dimensions = 2,
+        .format = daxa::Format::R16G16B16A16_SFLOAT,
+        .aspect = daxa::ImageAspectFlagBits::COLOR,
+        .size = {extent.x, extent.y, 1},
+        .mip_level_count = 1,
+        .array_layer_count = 1,
+        .sample_count = 1,
+        .usage = 
+            daxa::ImageUsageFlagBits::SHADER_READ_ONLY  |
+            daxa::ImageUsageFlagBits::SHADER_READ_WRITE |
+            daxa::ImageUsageFlagBits::COLOR_ATTACHMENT,
+        .memory_flags = daxa::MemoryFlagBits::DEDICATED_MEMORY,
+        .debug_name = Images::get_image_name(Images::OFFSCREEN).data()
+    });
+
+    context.main_task_list.task_list.add_runtime_image(
+        context.main_task_list.task_images.at(Images::OFFSCREEN),
+        context.images.at(Images::OFFSCREEN));
 }
 
 void Renderer::create_resolution_independent_resources()
@@ -159,10 +187,14 @@ void Renderer::create_resolution_independent_resources()
         .debug_name = "atmosphere_parameters",
     }); 
 
+    context.buffers.camera_parameters.gpu_buffer = context.device.create_buffer(daxa::BufferInfo{
+        .size = sizeof(CameraParameters),
+        .debug_name = "camera parameters"
+    });
+
     f32 mie_scale_height = 1.2f;
     f32 rayleigh_scale_height = 8.0f;
     context.buffers.atmosphere_parameters.cpu_buffer = {
-        .camera_position = {0.0, 0.0, 0.11},
         .sun_direction = {0.99831, 0.0, 0.05814},
         .atmosphere_bottom = 6360.0f,
         .atmosphere_top = 6460.0f,
@@ -251,17 +283,28 @@ void Renderer::create_main_tasklist()
     context.main_task_list.task_buffers.t_atmosphere_parameters = 
         context.main_task_list.task_list.create_task_buffer({
             .initial_access = daxa::AccessConsts::NONE,
-            .debug_name = "atmosphere_parameters"
+            .debug_name = "atmosphere parameters"
     });
 
     context.main_task_list.task_list.add_runtime_buffer(
         context.main_task_list.task_buffers.t_atmosphere_parameters,
         context.buffers.atmosphere_parameters.gpu_buffer);
 
+    context.main_task_list.task_buffers.t_camera_parameters = 
+        context.main_task_list.task_list.create_task_buffer({
+            .initial_access = daxa::AccessConsts::NONE,
+            .debug_name = "camera parameters"
+    });
+
+    context.main_task_list.task_list.add_runtime_buffer(
+        context.main_task_list.task_buffers.t_camera_parameters,
+        context.buffers.camera_parameters.gpu_buffer);
+
     task_upload_input_data(context);
     task_compute_transmittance_LUT(context);
     task_compute_multiscattering_LUT(context);
     task_compute_skyview_LUT(context);
+    task_draw_far_sky(context);
     task_post_process(context);
     task_draw_imgui(context);
 
@@ -275,9 +318,11 @@ Renderer::~Renderer()
     context.device.wait_idle();
     ImGui_ImplGlfw_Shutdown();
     context.device.destroy_buffer(context.buffers.atmosphere_parameters.gpu_buffer);
+    context.device.destroy_buffer(context.buffers.camera_parameters.gpu_buffer);
     context.device.destroy_image(context.images.at(Images::TRANSMITTANCE));
     context.device.destroy_image(context.images.at(Images::MULTISCATTERING));
     context.device.destroy_image(context.images.at(Images::SKYVIEW));
+    context.device.destroy_image(context.images.at(Images::OFFSCREEN));
     context.device.destroy_sampler(context.linear_sampler);
     context.device.collect_garbage();
 }

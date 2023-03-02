@@ -15,7 +15,6 @@ struct DensityProfileLayer
 
 struct AtmosphereParameters
 {
-    daxa_f32vec3 camera_position;
     daxa_f32vec3 sun_direction;
 
     daxa_f32 atmosphere_bottom;
@@ -36,6 +35,17 @@ struct AtmosphereParameters
 };
 
 DAXA_ENABLE_BUFFER_PTR(AtmosphereParameters)
+
+struct CameraParameters
+{
+    daxa_f32vec3 camera_position;
+    daxa_f32mat4x4 view;
+    daxa_f32mat4x4 projection;
+    daxa_f32mat4x4 inv_view_projection;
+    daxa_f32 time;
+};
+
+DAXA_ENABLE_BUFFER_PTR(CameraParameters)
 
 struct TransmittancePC
 {
@@ -62,6 +72,16 @@ struct SkyviewPC
     daxa_u32vec2 multiscattering_dimensions;
     daxa_SamplerId sampler_id;
     daxa_BufferPtr(AtmosphereParameters) atmosphere_parameters;
+    daxa_BufferPtr(CameraParameters) camera_parameters;
+};
+
+struct DrawSkyPC
+{
+    daxa_Image2Df32 skyview_image;
+    daxa_SamplerId sampler_id;
+    daxa_u32vec2 skyview_dimensions;
+    daxa_BufferPtr(AtmosphereParameters) atmosphere_parameters;
+    daxa_BufferPtr(CameraParameters) camera_parameters;
 };
 
 struct PostProcessPC
