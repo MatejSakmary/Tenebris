@@ -13,4 +13,5 @@ struct GuiState
         {32, 32, 1},
         {192, 128, 1}
     }};
+    f32vec2 sun_angle = {180.0f, 0.0f};
 };

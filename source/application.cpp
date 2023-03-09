@@ -83,7 +83,7 @@ void update_input()
 }
 
 Application::Application() : 
-    window({1080, 720},
+    window(INIT_WINDOW_DIMENSIONS,
     WindowVTable {
         .mouse_pos_callback = [this](const f64 x, const f64 y)
             {this->mouse_callback(x, y);},
@@ -157,6 +157,11 @@ void Application::ui_update()
     image_dimensions_slider(Images::SKYVIEW);
     ImGui::End();
 
+    ImGui::Begin("Sun Angle");
+    ImGui::SliderFloat("Horizontal angle", &state.gui_state.sun_angle.x, 0.0f, 360.0f);
+    ImGui::SliderFloat("Vertical angle", &state.gui_state.sun_angle.y, 0.0f, 180.0f);
+    ImGui::End();
+
     ImGui::Render();
 }
 
@@ -183,13 +188,14 @@ void Application::main_loop()
 {
     while (!window.get_window_should_close())
     {
-       glfwPollEvents();
-       process_input();
-       ui_update();
+        glfwPollEvents();
+        process_input();
+        ui_update();
 
-       if (state.minimized) { continue; } 
-
-       renderer.draw(camera);
+        if (state.minimized) { continue; } 
+    
+        renderer.update(state.gui_state);
+        renderer.draw(camera);
     }
 }
 

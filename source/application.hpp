@@ -8,6 +8,8 @@ using namespace daxa::types;
 #include "window.hpp"
 #include "camera.hpp"
 
+static constexpr i32vec2 INIT_WINDOW_DIMENSIONS = {1920, 1080};
+
 union KeyTable
 {
     unsigned int data;

@@ -25,7 +25,7 @@ struct WindowVTable
 struct AppWindow
 {
     public:
-        AppWindow(const u32vec2 dimensions, const WindowVTable & vtable ) :
+        AppWindow(const i32vec2 dimensions, const WindowVTable & vtable ) :
             dimensions{dimensions},
             vtable{vtable}
         {
@@ -89,6 +89,6 @@ struct AppWindow
         }
     private:
         GLFWwindow* window;
-        u32vec2 dimensions;
+        i32vec2 dimensions;
         WindowVTable vtable;
 };

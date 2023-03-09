@@ -29,6 +29,7 @@ struct Renderer
     ~Renderer();
 
     void resize();
+    void update(const GuiState & state);
     void draw(const Camera & camera);
     void resize_LUT(Images::ID id, i32vec3 new_size);
 

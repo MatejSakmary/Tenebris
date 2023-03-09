@@ -67,6 +67,16 @@ void Renderer::resize()
     create_resolution_dependent_resources();
 }
 
+void Renderer::update(const GuiState & state)
+{
+    context.buffers.atmosphere_parameters.cpu_buffer.sun_direction =
+    {
+        glm::cos(glm::radians(state.sun_angle.x)) * glm::sin(glm::radians(state.sun_angle.y)),
+        glm::sin(glm::radians(state.sun_angle.x)) * glm::sin(glm::radians(state.sun_angle.y)),
+        glm::cos(glm::radians(state.sun_angle.y))
+    };
+}
+
 void Renderer::draw(const Camera & camera) 
 {
     auto extent = context.swapchain.get_surface_extent();
