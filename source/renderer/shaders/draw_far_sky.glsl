@@ -32,11 +32,12 @@ void main()
     const f32vec3 camera = deref(camera_params).camera_position;
     f32vec3 sun_direction = deref(atmosphere_params).sun_direction;
 
-    f32vec3 clip_space = f32vec3(in_uv * f32vec2(2.0) - f32vec2(1.0), 1.0);
-    
-    f32vec4 h_pos = deref(camera_params).inv_view_projection * f32vec4(clip_space, 1.0);
+    f32vec2 remap_uv = (in_uv * 2.0) - 1.0;
+    f32vec3 world_dir = normalize(
+        deref(camera_params).camera_front +
+        remap_uv.x * deref(camera_params).camera_frust_right_offset +
+        -remap_uv.y * deref(camera_params).camera_frust_top_offset);
 
-    f32vec3 world_dir = normalize(h_pos.xyz/h_pos.w - camera); 
     f32vec3 world_pos = camera + f32vec3(0, 0, deref(atmosphere_params).atmosphere_bottom);
 
     f32 view_height = length(world_pos);
@@ -66,7 +67,6 @@ void main()
     //     L += sunWithBloom(WorldDir, sun_direction);
     // };
 
-    // out_color = f32vec4(L, 1.0);
-    // out_color = f32vec4(h_pos.xyz, 1.0);
+    // out_color = f32vec4(world_dir.xyz - new_world_dir.xyz, 1.0);
     out_color = f32vec4(L, 1.0);
 }

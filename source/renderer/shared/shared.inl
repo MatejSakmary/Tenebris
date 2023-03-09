@@ -39,6 +39,9 @@ DAXA_ENABLE_BUFFER_PTR(AtmosphereParameters)
 struct CameraParameters
 {
     daxa_f32vec3 camera_position;
+    daxa_f32vec3 camera_front;
+    daxa_f32vec3 camera_frust_top_offset;
+    daxa_f32vec3 camera_frust_right_offset;
     daxa_f32mat4x4 view;
     daxa_f32mat4x4 projection;
     daxa_f32mat4x4 inv_view_projection;

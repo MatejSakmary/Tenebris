@@ -87,6 +87,10 @@ void Renderer::draw(const Camera & camera)
     };
 
     context.buffers.camera_parameters.cpu_buffer.view = camera.get_view_matrix();
+    auto [front, top, right] = camera.get_frustum_info();
+    context.buffers.camera_parameters.cpu_buffer.camera_front = front;
+    context.buffers.camera_parameters.cpu_buffer.camera_frust_top_offset = top;
+    context.buffers.camera_parameters.cpu_buffer.camera_frust_right_offset = right;
     context.buffers.camera_parameters.cpu_buffer.projection = camera.get_projection_matrix(info);
     context.buffers.camera_parameters.cpu_buffer.inv_view_projection = camera.get_inv_view_proj_matrix(info); 
     context.buffers.camera_parameters.cpu_buffer.camera_position = camera.get_camera_position();

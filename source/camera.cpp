@@ -110,6 +110,24 @@ auto Camera::get_inv_view_proj_matrix(const GetProjectionInfo & info) const -> f
     return mat_from_span<f32, 4, 4>(std::span<f32, 4 * 4>{ glm::value_ptr(inv_proj_view_mat), 4 * 4 });
 }
 
+auto Camera::get_frustum_info() const -> CameraFrustumInfo
+{
+    f32 fov_tan = glm::tan(fov / 2.0f);
+    auto right = glm::cross(front, up);
+    auto right_aspect_correct = right * aspect_ratio;
+    auto right_aspect_fov_correct = right_aspect_correct * fov_tan;
+
+    auto up_fov_correct = up * fov_tan;
+
+    auto glm_vec_to_daxa = [](glm::vec3 v) -> f32vec3 { return {v.x, v.y, v.z}; };
+
+    return {
+        .forward = glm_vec_to_daxa(front),
+        .top_frustum_offset = glm_vec_to_daxa(up_fov_correct),
+        .right_frustum_offset = glm_vec_to_daxa(right_aspect_fov_correct)
+    };
+}
+
 auto Camera::get_camera_position() const -> f32vec3
 {
     return f32vec3{position.x, position.y, position.z};

@@ -49,6 +49,13 @@ struct CameraInfo
     f32 fov;
 };
 
+struct CameraFrustumInfo
+{
+    f32vec3 forward;
+    f32vec3 top_frustum_offset;
+    f32vec3 right_frustum_offset;
+};
+
 struct Camera
 {
     f32 aspect_ratio;
@@ -64,6 +71,7 @@ struct Camera
     [[nodiscard]] auto get_view_matrix() const -> f32mat4x4;
     [[nodiscard]] auto get_projection_matrix(const GetProjectionInfo & info) const -> f32mat4x4;
     [[nodiscard]] auto get_inv_view_proj_matrix(const GetProjectionInfo & info) const -> f32mat4x4;
+    [[nodiscard]] auto get_frustum_info() const -> CameraFrustumInfo;
 
     private:
         glm::vec3 position;
