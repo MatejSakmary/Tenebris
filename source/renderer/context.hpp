@@ -40,6 +40,7 @@ struct Images
             case SKYVIEW:           return "Skyview";
             case SWAPCHAIN:         return "Swaphcain";
             case OFFSCREEN:         return "Offscreen";
+            case END:               throw std::runtime_error("[get_image_name()] Invalid enum");
         }
         return "Invalid image enum";
     };

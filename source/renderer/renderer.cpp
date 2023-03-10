@@ -6,7 +6,7 @@
 #include <daxa/utils/imgui.hpp>
 
 Renderer::Renderer(const AppWindow & window) :
-    context { .daxa_context{daxa::create_context({.enable_validation = true})} }
+    context { .daxa_context{daxa::create_context({.enable_validation = false})} }
 {
     context.device = context.daxa_context.create_device({ .debug_name = "Daxa device" });
 
@@ -17,7 +17,7 @@ Renderer::Renderer(const AppWindow & window) :
 #elif defined(__linux__)
         .native_window_platform = daxa::NativeWindowPlatform::XLIB_API,
 #endif
-        .present_mode = daxa::PresentMode::DOUBLE_BUFFER_WAIT_FOR_VBLANK,
+        .present_mode = daxa::PresentMode::FIFO,
         .image_usage = daxa::ImageUsageFlagBits::TRANSFER_DST | daxa::ImageUsageFlagBits::COLOR_ATTACHMENT,
         .debug_name = "Swapchain",
     });
