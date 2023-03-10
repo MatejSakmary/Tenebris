@@ -65,7 +65,7 @@ struct Camera
 
     void move_camera(f32 delta_time, Direction direction);
     void update_front_vector(f32 x_offset, f32 y_offset);
-    void set_info(const CameraInfo & info);
+    void set_position(f32vec3 new_position);
     void parse_view_file(const std::string file_path);
     [[nodiscard]] auto get_camera_position() const -> f32vec3;
     [[nodiscard]] auto get_view_matrix() const -> f32mat4x4;

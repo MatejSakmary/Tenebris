@@ -34,7 +34,6 @@ f32vec3 get_multiple_scattering(f32vec3 world_position, f32 view_zenith_cos_angl
     return texture( daxa_push_constant.multiscattering_image, daxa_push_constant.sampler_id, uv).rgb;
 }
 
-
 f32vec3 integrate_scattered_luminance(f32vec3 world_position, 
     f32vec3 world_direction, f32vec3 sun_direction, i32 sample_count)
 {
@@ -91,7 +90,6 @@ f32vec3 integrate_scattered_luminance(f32vec3 world_position,
         ScatteringSample medium_scattering = sample_medium_scattering_detailed(params, new_position);
         f32vec3 medium_extinction = sample_medium_extinction(params, new_position);
 
-        /* Raymarch shifts the angle to the sun a bit recalculate */
         f32vec3 up_vector = normalize(new_position);
         TransmittanceParams transmittance_lut_params = TransmittanceParams(length(new_position), dot(sun_direction, up_vector));
 
@@ -103,7 +101,7 @@ f32vec3 integrate_scattered_luminance(f32vec3 world_position,
         f32vec3 phase_times_scattering = medium_scattering.mie * mie_phase_value + medium_scattering.ray * rayleigh_phase_value;
 
         f32 earth_intersection_distance = ray_sphere_intersect_nearest(
-            new_position, sun_direction, planet_zero + PLANET_RADIUS_OFFSET * up_vector, deref(params).atmosphere_bottom);
+            new_position, sun_direction, planet_zero, deref(params).atmosphere_bottom);
         f32 in_earth_shadow = earth_intersection_distance == -1.0 ? 1.0 : 0.0;
 
         f32vec3 multiscattered_luminance = get_multiple_scattering(new_position, dot(sun_direction, up_vector)); 
@@ -128,15 +126,20 @@ void main()
         gl_GlobalInvocationID.y >= daxa_push_constant.skyview_dimensions.y)
     { return; } 
 
-    /* TODO: change to represent real camera position */
-    const f32 camera_height = deref(camera_params).camera_position.z;
-    f32vec3 world_position = f32vec3(0.0, 0.0, camera_height + deref(params).atmosphere_bottom);
+    f32vec3 world_position = deref(camera_params).camera_position;
 
     f32vec2 uv = f32vec2(gl_GlobalInvocationID.xy) / f32vec2(daxa_push_constant.skyview_dimensions.xy);
-    SkyviewParams skyview_params = uv_to_skyview_lut_params(uv, deref(params).atmosphere_bottom,
-        deref(params).atmosphere_top, daxa_push_constant.skyview_dimensions, length(world_position));
+    SkyviewParams skyview_params = uv_to_skyview_lut_params(
+        uv,
+        deref(params).atmosphere_bottom,
+        deref(params).atmosphere_top,
+        daxa_push_constant.skyview_dimensions,
+        length(world_position)
+    );
 
     f32 sun_zenith_cos_angle = dot(normalize(world_position), deref(params).sun_direction);
+    // sin^2 + cos^2 = 1 -> sqrt(1 - cos^2) = sin
+    // rotate the sun direction so that we are aligned with the y = 0 axis
     f32vec3 local_sun_direction = normalize(f32vec3(
         safe_sqrt(1.0 - sun_zenith_cos_angle * sun_zenith_cos_angle),
         0.0,
@@ -147,6 +150,8 @@ void main()
         sin(skyview_params.light_view_angle) * sin(skyview_params.view_zenith_angle),
         cos(skyview_params.view_zenith_angle));
     
+    world_position = f32vec3(0, 0, length(world_position));
+
     if (!move_to_top_atmosphere(world_position, world_direction, deref(params).atmosphere_bottom, deref(params).atmosphere_top))
     {
         /* No intersection with the atmosphere */

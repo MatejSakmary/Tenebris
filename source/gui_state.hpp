@@ -14,4 +14,5 @@ struct GuiState
         {192, 128, 1}
     }};
     f32vec2 sun_angle = {180.0f, 0.0f};
+    f32vec3 new_camera_position;
 };

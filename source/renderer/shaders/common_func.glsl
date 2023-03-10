@@ -88,24 +88,24 @@ struct SkyviewParams
 f32vec2 skyview_lut_params_to_uv(bool intersects_ground, SkyviewParams params,
     f32 atmosphere_bottom, f32 atmosphere_top, f32vec2 skyview_dimensions, f32 view_height)
 {
-	f32vec2 uv;
-	f32 beta = asin(atmosphere_bottom / view_height);
-	f32 zenith_horizon_angle = PI - beta;
+    f32vec2 uv;
+    f32 beta = asin(atmosphere_bottom / view_height);
+    f32 zenith_horizon_angle = PI - beta;
 
-	if(!intersects_ground)
-	{
-		f32 coord = params.view_zenith_angle / zenith_horizon_angle;
-		coord = (1.0 - safe_sqrt(1.0 - coord)) / 2.0;
-		uv.y = coord;
-	} else {
-		f32 coord = (params.view_zenith_angle - zenith_horizon_angle) / beta;
-		coord = (safe_sqrt(coord) + 1.0) / 2.0;
-		uv.y = coord;
-	}
-	uv.x = safe_sqrt(params.light_view_angle / PI);
-	uv = f32vec2(from_unit_to_subuv(uv.x, skyview_dimensions.x),
-			     from_unit_to_subuv(uv.y, skyview_dimensions.y));
-	return uv;
+    if(!intersects_ground)
+    {
+        f32 coord = params.view_zenith_angle / zenith_horizon_angle;
+        coord = (1.0 - safe_sqrt(1.0 - coord)) / 2.0;
+        uv.y = coord;
+    } else {
+        f32 coord = (params.view_zenith_angle - zenith_horizon_angle) / beta;
+        coord = (safe_sqrt(coord) + 1.0) / 2.0;
+        uv.y = coord;
+    }
+    uv.x = safe_sqrt(params.light_view_angle / PI);
+    uv = f32vec2(from_unit_to_subuv(uv.x, skyview_dimensions.x),
+                 from_unit_to_subuv(uv.y, skyview_dimensions.y));
+    return uv;
 }
 
 /// Get parameters used for skyview LUT computation from uv coords
@@ -121,7 +121,7 @@ SkyviewParams uv_to_skyview_lut_params(f32vec2 uv, f32 atmosphere_bottom,
     /* Constrain uvs to valid sub texel range 
     (avoid zenith derivative issue making LUT usage visible) */
     uv = f32vec2(from_subuv_to_unit(uv.x, skyview_dimensions.x),
-                   from_subuv_to_unit(uv.y, skyview_dimensions.y));
+                 from_subuv_to_unit(uv.y, skyview_dimensions.y));
             
     f32 beta = asin(atmosphere_bottom / view_height);
     f32 zenith_horizon_angle = PI - beta;

@@ -97,10 +97,10 @@ Application::Application() :
     state{ .minimized = false },
     renderer{window},
     camera{{
-        .position = {0.0, 10.0, 0.0},
+        .position = {0.0, 0.0, 6361.0},
         .front = {0.0, 1.0, 0.0},
         .up = {0.0, 0.0, 1.0}, 
-        .aspect_ratio = 1080.0f/720.0f,
+        .aspect_ratio = f32(INIT_WINDOW_DIMENSIONS.x)/f32(INIT_WINDOW_DIMENSIONS.y),
         .fov = glm::radians(70.0f)
     }}
 {
@@ -150,6 +150,14 @@ void Application::ui_update()
     ImGui::PopStyleVar(3);
     ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
     ImGui::End();    
+
+    ImGui::Begin("Camera info");
+    auto camera_position = camera.get_camera_position();
+    ImGui::InputFloat3("New camera pos: ", reinterpret_cast<f32*>(&state.gui_state.new_camera_position));
+    if(ImGui::Button("Set Camera Params", {150, 20})) { camera.set_position(state.gui_state.new_camera_position);}
+
+    ImGui::Text("Camera position is x: %f y: %f z: %f", camera_position.x, camera_position.y, camera_position.z);
+    ImGui::End();
 
     ImGui::Begin("LUT sizes");
     image_dimensions_slider(Images::TRANSMITTANCE);

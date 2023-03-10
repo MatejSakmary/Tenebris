@@ -19,12 +19,9 @@ Camera::Camera(const CameraInfo & info) :
 {
 }
 
-void Camera::set_info(const CameraInfo & info)
+void Camera::set_position(f32vec3 new_position)
 {
-    position = daxa_vec3_to_glm(info.position);
-    front = daxa_vec3_to_glm(info.front);
-    up = daxa_vec3_to_glm(info.up);
-    fov = info.fov;
+    position = daxa_vec3_to_glm(new_position);
 }
 
 void Camera::move_camera(f32 delta_time, Direction direction)
@@ -64,7 +61,6 @@ void Camera::move_camera(f32 delta_time, Direction direction)
 
 void Camera::update_front_vector(f32 x_offset, f32 y_offset)
 {
-
     glm::vec3 front_ = glm::rotate(front, glm::radians(-sensitivity * x_offset), up);
     front_ = glm::rotate(front_, glm::radians(-sensitivity * y_offset), glm::cross(front,up));
 
@@ -106,24 +102,37 @@ auto Camera::get_inv_view_proj_matrix(const GetProjectionInfo & info) const -> f
 
     auto inv_proj_view_mat = glm::inverse(proj_mat * view_mat);
 
-    auto res = inv_proj_view_mat * (proj_mat * view_mat);
+    auto [forw, top, right] = get_frustum_info();
+    auto clip_space = glm::vec3(glm::vec2(1.0, 1.0) * glm::vec2(2.0) - glm::vec2(1.0), 1.0);
+    auto h_pos = inv_proj_view_mat * glm::vec4(clip_space, 1.0);
+
+    auto world_dir = glm::normalize(glm::vec3(h_pos/h_pos.w) - position); 
+    auto frust = forw + top + right; 
+    glm::vec3 frust_ = glm::normalize(glm::vec3(frust.x, frust.y, frust.z));
+
     return mat_from_span<f32, 4, 4>(std::span<f32, 4 * 4>{ glm::value_ptr(inv_proj_view_mat), 4 * 4 });
 }
 
 auto Camera::get_frustum_info() const -> CameraFrustumInfo
 {
-    f32 fov_tan = glm::tan(fov / 2.0f);
-    auto right = glm::cross(front, up);
-    auto right_aspect_correct = right * aspect_ratio;
-    auto right_aspect_fov_correct = right_aspect_correct * fov_tan;
+    glm::vec3 right;
+    if(front.x != 0 && front.y != 0)      { right = glm::vec3(front.y, -front.x, 0.0f); }
+    else if(front.x != 0 && front.z != 0) { right = glm::vec3(-front.z, 0.0f, front.x); }
+    else                                  { right = glm::vec3(0.0f, -front.z, front.y); }
 
-    auto up_fov_correct = up * fov_tan;
+    glm::vec3 up_ = glm::normalize(glm::cross(right, front));
+    glm::vec3 right_ = glm::normalize(glm::cross(front, up));
+
+    f32 fov_tan = glm::tan(fov / 2.0f);
+
+    auto right_aspect_fov_correct = right_ * aspect_ratio * fov_tan;
+    auto up_fov_correct = glm::normalize(up_) * fov_tan;
 
     auto glm_vec_to_daxa = [](glm::vec3 v) -> f32vec3 { return {v.x, v.y, v.z}; };
 
     return {
         .forward = glm_vec_to_daxa(front),
-        .top_frustum_offset = glm_vec_to_daxa(up_fov_correct),
+        .top_frustum_offset = glm_vec_to_daxa(-up_fov_correct),
         .right_frustum_offset = glm_vec_to_daxa(right_aspect_fov_correct)
     };
 }

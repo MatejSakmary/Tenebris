@@ -43,8 +43,8 @@ void main()
     TransmittanceParams mapping = uv_to_transmittance_lut_params(uv, deref(params).atmosphere_bottom, deref(params).atmosphere_top);
     f32vec3 world_position = f32vec3(0.0, 0.0, mapping.height);
     f32vec3 world_direction = f32vec3(
-        0.0,
         safe_sqrt(1.0 - mapping.zenith_cos_angle * mapping.zenith_cos_angle),
+        0.0,
         mapping.zenith_cos_angle
     );
 
