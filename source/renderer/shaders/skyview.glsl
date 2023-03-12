@@ -80,8 +80,7 @@ f32vec3 integrate_scattered_luminance(f32vec3 world_position,
 
         step_0 = step_0 * integration_length;
         step_1 = step_1 > 1.0 ? integration_length : step_1 * integration_length;
-        /* Sample at one third of the integrated interval -> better results for
-           exponential functions */
+        /* Sample at one third of the integrated interval -> better results for exponential functions */
         f32 integration_step = step_0 + (step_1 - step_0) * 0.3;
         f32 d_int_step = step_1 - step_0;
 
@@ -95,7 +94,6 @@ f32vec3 integrate_scattered_luminance(f32vec3 world_position,
 
         /* uv coordinates later used to sample transmittance texture */
         f32vec2 trans_texture_uv = transmittance_lut_to_uv(transmittance_lut_params, deref(params).atmosphere_bottom, deref(params).atmosphere_top);
-
         f32vec3 transmittance_to_sun = texture( daxa_push_constant.transmittance_image, daxa_push_constant.sampler_id, trans_texture_uv).rgb;
 
         f32vec3 phase_times_scattering = medium_scattering.mie * mie_phase_value + medium_scattering.ray * rayleigh_phase_value;
@@ -112,7 +110,13 @@ f32vec3 integrate_scattered_luminance(f32vec3 world_position,
 
         /* TODO: This probably should be a texture lookup*/
         f32vec3 trans_increase_over_integration_step = exp(-(medium_extinction * d_int_step));
+
         f32vec3 sun_light_integ = (sun_light - sun_light * trans_increase_over_integration_step) / medium_extinction;
+
+        if(medium_extinction.r == 0.0) { sun_light_integ.r = 0.0; }
+        if(medium_extinction.g == 0.0) { sun_light_integ.g = 0.0; }
+        if(medium_extinction.b == 0.0) { sun_light_integ.b = 0.0; }
+
         accum_light += accum_transmittance * sun_light_integ;
         accum_transmittance *= trans_increase_over_integration_step;
     }

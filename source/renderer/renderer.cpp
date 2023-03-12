@@ -69,12 +69,20 @@ void Renderer::resize()
 
 void Renderer::update(const GuiState & state)
 {
-    context.buffers.atmosphere_parameters.cpu_buffer.sun_direction =
+    auto & atmo_params = context.buffers.atmosphere_parameters.cpu_buffer;
+    atmo_params.sun_direction =
     {
         glm::cos(glm::radians(state.sun_angle.x)) * glm::sin(glm::radians(state.sun_angle.y)),
         glm::sin(glm::radians(state.sun_angle.x)) * glm::sin(glm::radians(state.sun_angle.y)),
         glm::cos(glm::radians(state.sun_angle.y))
     };
+    atmo_params.atmosphere_bottom = state.atmosphere_bottom;
+    atmo_params.atmosphere_top = state.atmosphere_top;
+    atmo_params.mie_scale_height = state.mie_scale_height;
+    atmo_params.rayleigh_scale_height = state.rayleigh_scale_height;
+
+    atmo_params.mie_density[1].exp_scale = -1.0 / atmo_params.mie_scale_height;
+    atmo_params.rayleigh_density[1].exp_scale = -1.0 / atmo_params.rayleigh_scale_height;
 }
 
 void Renderer::draw(const Camera & camera) 

@@ -1,7 +1,7 @@
 {
   "name": "atmosphere-daxa",
   "version": "0.1.0",
-  "dependencies": [ 
+  "dependencies": [
     "daxa",
     "glfw3",
     "glm",
@@ -14,10 +14,10 @@
       ]
     }
   ],
-  "builtin-baseline": "01b29f6d8212bc845da64773b18665d682f5ab66",
+  "builtin-baseline": "a325228200d7f229f3337e612e0077f2a5307090",
   "vcpkg-configuration": {
     "overlay-ports": [
-      "../Daxa/cmake/vcpkg-port"
+      "/home/matejs/Projects/atmosphere-daxa/../Daxa/cmake/vcpkg-port"
     ]
   }
 }

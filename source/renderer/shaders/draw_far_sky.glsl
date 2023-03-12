@@ -22,18 +22,12 @@ f32vec3 add_sun_circle(f32vec3 world_dir, f32vec3 sun_dir)
     else {return f32vec3(0.0);}
 }
 
-/* One unit in global space should be 100 meters in camera coords */
-
 void main() 
 {
     f32vec3 camera = deref(camera_params).camera_position;
     f32vec3 sun_direction = normalize(deref(atmosphere_params).sun_direction);
 
     f32vec2 remap_uv = (in_uv * 2.0) - 1.0;
-
-    // f32vec3 clip_space = f32vec3(in_uv * f32vec2(2.0) - f32vec2(1.0), 1.0);
-    // f32vec4 h_pos = deref(camera_params).inv_view_projection * f32vec4(clip_space, 1.0);
-    // f32vec3 world_dir = normalize(h_pos.xyz/h_pos.w - camera); 
 
     f32vec3 world_dir = normalize(
         deref(camera_params).camera_front +

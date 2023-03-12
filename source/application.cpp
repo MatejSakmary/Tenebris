@@ -168,6 +168,11 @@ void Application::ui_update()
     ImGui::Begin("Sun Angle");
     ImGui::SliderFloat("Horizontal angle", &state.gui_state.sun_angle.x, 0.0f, 360.0f);
     ImGui::SliderFloat("Vertical angle", &state.gui_state.sun_angle.y, 0.0f, 180.0f);
+    ImGui::SliderFloat("Atmosphere bottom", &state.gui_state.atmosphere_bottom, 1.0f, 20000.0f);
+    state.gui_state.atmosphere_top = glm::max(state.gui_state.atmosphere_bottom + 10.0f, state.gui_state.atmosphere_top);
+    ImGui::SliderFloat("Atmosphere top", &state.gui_state.atmosphere_top, state.gui_state.atmosphere_bottom + 10.0f, 20000.0f);
+    ImGui::SliderFloat("mie scale height", &state.gui_state.mie_scale_height, 0.1f, 100.0f);
+    ImGui::SliderFloat("rayleigh scale height", &state.gui_state.rayleigh_scale_height, 0.1f, 100.0f);
     ImGui::End();
 
     ImGui::Render();

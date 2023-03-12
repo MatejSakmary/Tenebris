@@ -85,16 +85,13 @@ RaymarchResult integrate_scattered_luminance(f32vec3 world_position, f32vec3 wor
 
         /* Light arriving from the sun to this point */
         f32vec3 sunLight = in_earth_shadow * transmittance_to_sun * medium_scattering * uniformPhase;
-        f32vec3 multiscattered_cont_int = 
-            (medium_scattering - medium_scattering * trans_increase_over_integration_step) / medium_extinction;
-        f32vec3 inscatteredContInt = 
-            (sunLight - sunLight * trans_increase_over_integration_step) / medium_extinction;
-        /* For some reson I need to do this to avoid nans in multiscatteredLightInt -> 
-           precision error? */
-        if(all(equal(trans_increase_over_integration_step, f32vec3(1.0)))) { 
-            multiscattered_cont_int = f32vec3(0.0); 
-            inscatteredContInt = f32vec3(0.0);
-        }
+        f32vec3 multiscattered_cont_int = (medium_scattering - medium_scattering * trans_increase_over_integration_step) / medium_extinction;
+        f32vec3 inscatteredContInt = (sunLight - sunLight * trans_increase_over_integration_step) / medium_extinction;
+
+        if(medium_extinction.r == 0.0) { multiscattered_cont_int.r = 0.0; inscatteredContInt.r = 0.0; }
+        if(medium_extinction.g == 0.0) { multiscattered_cont_int.g = 0.0; inscatteredContInt.g = 0.0; }
+        if(medium_extinction.b == 0.0) { multiscattered_cont_int.b = 0.0; inscatteredContInt.b = 0.0; }
+
         result.multiscattering += accum_transmittance * multiscattered_cont_int;
         accum_light += accum_transmittance * inscatteredContInt;
         // accum_light = accum_transmittance;
