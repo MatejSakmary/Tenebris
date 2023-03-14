@@ -3,6 +3,7 @@
 #include <daxa/daxa.hpp>
 using namespace daxa::types;
 
+#include "terrain_gen/planet_generator.hpp"
 #include "renderer/renderer.hpp"
 #include "gui_state.hpp"
 #include "window.hpp"
@@ -53,6 +54,7 @@ struct Application
         AppState state;
         Renderer renderer;
         Camera camera;
+        PlanetGeometry geometry;
 
         void ui_update();
         void process_input();
