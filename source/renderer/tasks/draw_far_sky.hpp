@@ -40,11 +40,16 @@ inline void task_draw_far_sky(Context & context)
         { 
             { 
                 context.main_task_list.task_images.at(Images::OFFSCREEN),
-                daxa::TaskImageAccess::SHADER_WRITE_ONLY,
+                daxa::TaskImageAccess::COLOR_ATTACHMENT,
                 daxa::ImageMipArraySlice{}
             },
             { 
                 context.main_task_list.task_images.at(Images::SKYVIEW),
+                daxa::TaskImageAccess::SHADER_READ_ONLY,
+                daxa::ImageMipArraySlice{} 
+            },
+            { 
+                context.main_task_list.task_images.at(Images::DEPTH),
                 daxa::TaskImageAccess::SHADER_READ_ONLY,
                 daxa::ImageMipArraySlice{} 
             },
@@ -64,8 +69,7 @@ inline void task_draw_far_sky(Context & context)
             cmd_list.begin_renderpass({
                 .color_attachments = {{
                     .image_view = offscreen_image.default_view(),
-                    .load_op = daxa::AttachmentLoadOp::CLEAR,
-                    .clear_value = std::array<f32, 4>{0.0, 0.0, 0.0, 1.0}
+                    .load_op = daxa::AttachmentLoadOp::LOAD
                 }},
                 .depth_attachment = {},
                 .render_area = {.x = 0, .y = 0, .width = dimensions.x , .height = dimensions.y}

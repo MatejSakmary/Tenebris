@@ -40,6 +40,7 @@ Renderer::Renderer(const AppWindow & window) :
     context.pipelines.transmittance = context.pipeline_manager.add_compute_pipeline(get_transmittance_LUT_pipeline()).value();
     context.pipelines.multiscattering = context.pipeline_manager.add_compute_pipeline(get_multiscattering_LUT_pipeline()).value();
     context.pipelines.skyview = context.pipeline_manager.add_compute_pipeline(get_skyview_LUT_pipeline()).value();
+    context.pipelines.draw_terrain = context.pipeline_manager.add_raster_pipeline(get_draw_terrain_pipeline(context)).value();
     context.pipelines.draw_far_sky = context.pipeline_manager.add_raster_pipeline(get_draw_far_sky_pipeline(context)).value();
     context.pipelines.post_process = context.pipeline_manager.add_raster_pipeline(get_post_process_pipeline(context)).value();
 
@@ -83,6 +84,67 @@ void Renderer::update(const GuiState & state)
 
     atmo_params.mie_density[1].exp_scale = -1.0 / atmo_params.mie_scale_height;
     atmo_params.rayleigh_density[1].exp_scale = -1.0 / atmo_params.rayleigh_scale_height;
+}
+
+// TODO(msakmary) rething a better way to do this - without copying the geometry data
+void Renderer::upload_planet_geometry(const PlanetGeometry & geometry)
+{
+    if(context.device.is_id_valid(context.buffers.terrain_vertices.gpu_buffer))
+    {
+        context.main_task_list.task_list.remove_runtime_buffer(
+            context.main_task_list.task_buffers.t_terrain_vertices,
+            context.buffers.terrain_vertices.gpu_buffer);
+
+        context.device.destroy_buffer(context.buffers.terrain_vertices.gpu_buffer);
+        context.buffers.terrain_vertices.cpu_buffer.clear();
+    }
+
+    if(context.device.is_id_valid(context.buffers.terrain_indices.gpu_buffer))
+    {
+        context.main_task_list.task_list.remove_runtime_buffer(
+            context.main_task_list.task_buffers.t_terrain_indices,
+            context.buffers.terrain_indices.gpu_buffer);
+
+        context.device.destroy_buffer(context.buffers.terrain_indices.gpu_buffer);
+        context.buffers.terrain_indices.cpu_buffer.clear();
+    }
+
+    // TODO(msakmary) TEMPORARY
+    context.buffers.terrain_vertices.cpu_buffer.reserve(geometry.vertices.size());
+    for(int i = 0; i < geometry.vertices.size(); i++)
+    {
+        auto v = geometry.vertices.at(i);
+        context.buffers.terrain_vertices.cpu_buffer.push_back(TerrainVertex{.position = {v.x, v.y, 0.0}});
+    }
+
+    for(int i = 0; i < geometry.indices.size(); i++)
+    {
+        context.buffers.terrain_indices.cpu_buffer.push_back(TerrainIndex{.index = geometry.indices.at(i)});
+    }
+
+    context.buffers.terrain_vertices.gpu_buffer = context.device.create_buffer({
+        .memory_flags = daxa::MemoryFlagBits::DEDICATED_MEMORY,
+        .size = static_cast<u32>(sizeof(TerrainVertex) * context.buffers.terrain_vertices.cpu_buffer.size()),
+        .debug_name = "terrain vertices",
+    });
+
+    context.buffers.terrain_indices.gpu_buffer = context.device.create_buffer({
+        .memory_flags = daxa::MemoryFlagBits::DEDICATED_MEMORY,
+        .size = static_cast<u32>(sizeof(TerrainIndex) * context.buffers.terrain_indices.cpu_buffer.size()),
+        .debug_name = "terrain indices",
+    });
+
+    context.main_task_list.task_list.add_runtime_buffer(
+        context.main_task_list.task_buffers.t_terrain_vertices,
+        context.buffers.terrain_vertices.gpu_buffer
+    );
+
+    context.main_task_list.task_list.add_runtime_buffer(
+        context.main_task_list.task_buffers.t_terrain_indices,
+        context.buffers.terrain_indices.gpu_buffer
+    );
+
+    context.conditionals.copy_planet_geometry = true;
 }
 
 void Renderer::draw(const Camera & camera) 
@@ -179,6 +241,18 @@ void Renderer::create_resolution_dependent_resources()
 
         context.device.destroy_image(daxa_image_id);
     }
+
+    auto daxa_depth_id = context.images.at(Images::DEPTH);
+    if(context.device.is_id_valid(daxa_depth_id))
+    {
+        context.device.wait_idle();
+
+        context.main_task_list.task_list.remove_runtime_image(
+            context.main_task_list.task_images.at(Images::DEPTH),
+            context.images.at(Images::DEPTH));
+
+        context.device.destroy_image(daxa_depth_id);
+    }
     
     auto extent = context.swapchain.get_surface_extent();
     context.images.at(Images::OFFSCREEN) = context.device.create_image({
@@ -197,9 +271,21 @@ void Renderer::create_resolution_dependent_resources()
         .debug_name = Images::get_image_name(Images::OFFSCREEN).data()
     });
 
+    context.images.at(Images::DEPTH) = context.device.create_image({
+        .format = daxa::Format::D32_SFLOAT,
+        .aspect = daxa::ImageAspectFlagBits::DEPTH,
+        .size = {extent.x, extent.y, 1},
+        .usage = daxa::ImageUsageFlagBits::DEPTH_STENCIL_ATTACHMENT,
+        .debug_name = "debug image"
+    });
+
     context.main_task_list.task_list.add_runtime_image(
         context.main_task_list.task_images.at(Images::OFFSCREEN),
         context.images.at(Images::OFFSCREEN));
+
+    context.main_task_list.task_list.add_runtime_image(
+        context.main_task_list.task_images.at(Images::DEPTH),
+        context.images.at(Images::DEPTH));
 }
 
 void Renderer::create_resolution_independent_resources()
@@ -302,6 +388,18 @@ void Renderer::create_main_tasklist()
     }
 
     // TASK BUFFERS
+    context.main_task_list.task_buffers.t_terrain_indices = 
+        context.main_task_list.task_list.create_task_buffer({
+            .initial_access = daxa::AccessConsts::NONE,
+            .debug_name = "terrain_indices"
+    });
+
+    context.main_task_list.task_buffers.t_terrain_vertices = 
+        context.main_task_list.task_list.create_task_buffer({
+            .initial_access = daxa::AccessConsts::NONE,
+            .debug_name = "terrain_vertices"
+    });
+
     context.main_task_list.task_buffers.t_atmosphere_parameters = 
         context.main_task_list.task_list.create_task_buffer({
             .initial_access = daxa::AccessConsts::NONE,
@@ -326,6 +424,7 @@ void Renderer::create_main_tasklist()
     task_compute_transmittance_LUT(context);
     task_compute_multiscattering_LUT(context);
     task_compute_skyview_LUT(context);
+    task_draw_terrain(context);
     task_draw_far_sky(context);
     task_post_process(context);
     task_draw_imgui(context);
@@ -339,12 +438,21 @@ Renderer::~Renderer()
 {
     context.device.wait_idle();
     ImGui_ImplGlfw_Shutdown();
+    if(context.device.is_id_valid(context.buffers.terrain_vertices.gpu_buffer))
+    {
+        context.device.destroy_buffer(context.buffers.terrain_vertices.gpu_buffer);
+    }
+    if(context.device.is_id_valid(context.buffers.terrain_indices.gpu_buffer))
+    {
+        context.device.destroy_buffer(context.buffers.terrain_indices.gpu_buffer);
+    }
     context.device.destroy_buffer(context.buffers.atmosphere_parameters.gpu_buffer);
     context.device.destroy_buffer(context.buffers.camera_parameters.gpu_buffer);
     context.device.destroy_image(context.images.at(Images::TRANSMITTANCE));
     context.device.destroy_image(context.images.at(Images::MULTISCATTERING));
     context.device.destroy_image(context.images.at(Images::SKYVIEW));
     context.device.destroy_image(context.images.at(Images::OFFSCREEN));
+    context.device.destroy_image(context.images.at(Images::DEPTH));
     context.device.destroy_sampler(context.linear_sampler);
     context.device.collect_garbage();
 }

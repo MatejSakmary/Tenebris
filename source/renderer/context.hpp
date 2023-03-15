@@ -25,6 +25,7 @@ struct Images
 
         SWAPCHAIN,
         OFFSCREEN,
+        DEPTH,
         END,
 
         IMAGE_COUNT = END,
@@ -40,6 +41,7 @@ struct Images
             case SKYVIEW:           return "Skyview";
             case SWAPCHAIN:         return "Swaphcain";
             case OFFSCREEN:         return "Offscreen";
+            case DEPTH:             return "Depth";
             case END:               throw std::runtime_error("[get_image_name()] Invalid enum");
         }
         return "Invalid image enum";
@@ -60,6 +62,8 @@ struct Context
 
         SharedBuffer<AtmosphereParameters> atmosphere_parameters;
         SharedBuffer<CameraParameters> camera_parameters;
+        SharedBuffer<std::vector<TerrainVertex>> terrain_vertices;
+        SharedBuffer<std::vector<TerrainIndex>> terrain_indices;
     };
 
     struct Pipelines
@@ -69,6 +73,7 @@ struct Context
         std::shared_ptr<daxa::ComputePipeline> skyview;
         std::shared_ptr<daxa::RasterPipeline> post_process;
         std::shared_ptr<daxa::RasterPipeline> draw_far_sky;
+        std::shared_ptr<daxa::RasterPipeline> draw_terrain;
     };
 
     struct MainTaskList
@@ -77,10 +82,17 @@ struct Context
         {
             daxa::TaskBufferId t_atmosphere_parameters;
             daxa::TaskBufferId t_camera_parameters;
+            daxa::TaskBufferId t_terrain_vertices;
+            daxa::TaskBufferId t_terrain_indices;
         } task_buffers;
 
         std::array<daxa::TaskImageId, Images::IMAGE_COUNT> task_images;
         daxa::TaskList task_list;
+    };
+
+    struct Conditionals
+    {
+        bool copy_planet_geometry = false;
     };
 
     daxa::Context daxa_context;
@@ -93,6 +105,7 @@ struct Context
 
     MainTaskList main_task_list;
     Pipelines pipelines;
+    Conditionals conditionals;
 
     daxa::SamplerId linear_sampler;
     daxa::ImGuiRenderer imgui_renderer;

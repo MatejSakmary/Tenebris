@@ -14,7 +14,7 @@ struct GeneratePlanetInfo
 struct PlanetGeometry
 {
     std::vector<f32vec2> vertices;
-    std::vector<i32> indices;
+    std::vector<u32> indices;
 };
 
 auto generate_planet() -> PlanetGeometry;

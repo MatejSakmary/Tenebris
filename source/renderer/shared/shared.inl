@@ -50,6 +50,18 @@ struct CameraParameters
 
 DAXA_ENABLE_BUFFER_PTR(CameraParameters)
 
+struct TerrainVertex
+{
+    daxa_f32vec3 position;
+};
+DAXA_ENABLE_BUFFER_PTR(TerrainVertex)
+
+struct TerrainIndex
+{
+    daxa_u32 index;
+};
+DAXA_ENABLE_BUFFER_PTR(TerrainIndex)
+
 struct TransmittancePC
 {
     daxa_RWImage2Df32 transmittance_image;
@@ -75,6 +87,12 @@ struct SkyviewPC
     daxa_u32vec2 multiscattering_dimensions;
     daxa_SamplerId sampler_id;
     daxa_BufferPtr(AtmosphereParameters) atmosphere_parameters;
+    daxa_BufferPtr(CameraParameters) camera_parameters;
+};
+
+struct DrawTerrainPC
+{
+    daxa_BufferPtr(TerrainVertex) vertices;
     daxa_BufferPtr(CameraParameters) camera_parameters;
 };
 
