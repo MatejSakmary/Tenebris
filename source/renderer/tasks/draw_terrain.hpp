@@ -30,7 +30,7 @@ inline auto get_draw_terrain_pipeline(const Context & context) -> daxa::RasterPi
         .raster = { 
             .primitive_topology = daxa::PrimitiveTopology::TRIANGLE_LIST,
             .primitive_restart_enable = false,
-            .polygon_mode = daxa::PolygonMode::FILL,
+            .polygon_mode = daxa::PolygonMode::LINE,
             .face_culling = daxa::FaceCullFlagBits::BACK_BIT,
         },
         .push_constant_size = sizeof(DrawTerrainPC),

@@ -114,7 +114,7 @@ void Renderer::upload_planet_geometry(const PlanetGeometry & geometry)
     for(int i = 0; i < geometry.vertices.size(); i++)
     {
         auto v = geometry.vertices.at(i);
-        context.buffers.terrain_vertices.cpu_buffer.push_back(TerrainVertex{.position = {v.x, v.y, 0.0}});
+        context.buffers.terrain_vertices.cpu_buffer.push_back(TerrainVertex{.position = {v.x, v.y, 6361.0}});
     }
 
     for(int i = 0; i < geometry.indices.size(); i++)

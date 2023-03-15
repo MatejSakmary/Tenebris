@@ -11,6 +11,6 @@ f32vec2 vertices[3] = f32vec2[](
 
 void main()
 {
-    gl_Position = vec4(vertices[gl_VertexIndex], 0.0, 1.0);
+    gl_Position = vec4(vertices[gl_VertexIndex], 1.0, 1.0);
     out_uv = (vertices[gl_VertexIndex] + 1.0) * 0.5;
 }

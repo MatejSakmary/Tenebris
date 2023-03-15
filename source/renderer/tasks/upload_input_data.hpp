@@ -68,8 +68,8 @@ inline void task_upload_input_data(Context & context)
                     .debug_name = "staging vertices gpu buffer"
                 });
                 // copy data into staging buffer
-                auto buffer_ptr_ = context.device.get_host_address_as<TerrainVertex>(staging_vertices_gpu_buffer);
-                memcpy(buffer_ptr_, &context.buffers.terrain_vertices.cpu_buffer, vertex_buffer_size);
+                auto * vertices_buffer_ptr = context.device.get_host_address_as<TerrainVertex>(staging_vertices_gpu_buffer);
+                memcpy(vertices_buffer_ptr, context.buffers.terrain_vertices.cpu_buffer.data(), vertex_buffer_size);
                 // copy staging buffer into gpu_buffer
                 cmd_list.copy_buffer_to_buffer({
                     .src_buffer = staging_vertices_gpu_buffer,
@@ -86,8 +86,8 @@ inline void task_upload_input_data(Context & context)
                     .debug_name = "staging index gpu buffer"
                 });
                 // copy data into staging buffer
-                auto buffer_ptr__ = context.device.get_host_address_as<TerrainIndex>(staging_indices_gpu_buffer);
-                memcpy(buffer_ptr__, &context.buffers.terrain_indices.cpu_buffer, index_buffer_size);
+                auto indices_buffer_ptr = context.device.get_host_address_as<TerrainIndex>(staging_indices_gpu_buffer);
+                memcpy(indices_buffer_ptr, context.buffers.terrain_indices.cpu_buffer.data(), index_buffer_size);
                 // copy staging buffer into gpu_buffer
                 cmd_list.copy_buffer_to_buffer({
                     .src_buffer = staging_indices_gpu_buffer,

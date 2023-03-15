@@ -11,7 +11,7 @@ struct GeneratePointsInfo
 {
     i32 num_points;
     f32 min_dist = -1.0f;
-    i32 retries = 30;
+    i32 retries = 100;
     u32 seed = 1;
 };
 
@@ -88,8 +88,7 @@ inline auto generate_poisson_points(const GeneratePointsInfo & info) -> std::vec
         return f32vec2{x, y};
     };
 
-    const f32 fourth_PI = 0.78539816339f;
-    i32 real_num_points = static_cast<i32>(fourth_PI * info.num_points);
+    i32 real_num_points = static_cast<i32>(info.num_points);
     f32 real_min_dist = info.min_dist < 0.0f ? std::sqrt(f32(real_num_points)) / f32(real_num_points) : info.min_dist;
 
     std::vector<f32vec2> sample_points;

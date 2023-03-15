@@ -12,8 +12,14 @@ inline auto get_draw_far_sky_pipeline(const Context & context) -> daxa::RasterPi
         .vertex_shader_info = { .source = daxa::ShaderFile{"screen_triangle.glsl"} },
         .fragment_shader_info = { .source = daxa::ShaderFile{"draw_far_sky.glsl"} },
         .color_attachments = {{.format = daxa::Format::R16G16B16A16_SFLOAT}},
-        .depth_test = { .enable_depth_test = false },
-        .raster = { 
+        .depth_test = 
+        { 
+            .enable_depth_test = true,
+            .enable_depth_write = false,
+            .depth_test_compare_op = daxa::CompareOp::EQUAL
+        },
+        .raster = 
+        { 
             .polygon_mode = daxa::PolygonMode::FILL,
             .face_culling = daxa::FaceCullFlagBits::BACK_BIT,
         },
@@ -44,15 +50,15 @@ inline void task_draw_far_sky(Context & context)
                 daxa::ImageMipArraySlice{}
             },
             { 
-                context.main_task_list.task_images.at(Images::SKYVIEW),
-                daxa::TaskImageAccess::SHADER_READ_ONLY,
+                context.main_task_list.task_images.at(Images::DEPTH),
+                daxa::TaskImageAccess::DEPTH_ATTACHMENT,
                 daxa::ImageMipArraySlice{} 
             },
             { 
-                context.main_task_list.task_images.at(Images::DEPTH),
+                context.main_task_list.task_images.at(Images::SKYVIEW),
                 daxa::TaskImageAccess::SHADER_READ_ONLY,
                 daxa::ImageMipArraySlice{} 
-            },
+            }
         },
         .task = [&](daxa::TaskRuntime const & runtime)
         {
@@ -61,17 +67,26 @@ inline void task_draw_far_sky(Context & context)
 
             auto skyview_image = runtime.get_images(context.main_task_list.task_images.at(Images::SKYVIEW))[0];
             auto offscreen_image = runtime.get_images(context.main_task_list.task_images.at(Images::OFFSCREEN))[0];
+            auto depth_image = runtime.get_images(context.main_task_list.task_images.at(Images::DEPTH))[0];
+
             auto atmosphere_gpu_buffer = runtime.get_buffers(context.main_task_list.task_buffers.t_atmosphere_parameters)[0];
             auto camera_gpu_buffer = runtime.get_buffers(context.main_task_list.task_buffers.t_camera_parameters)[0];
 
             auto skyview_dimensions = context.device.info_image(skyview_image).size;
 
             cmd_list.begin_renderpass({
-                .color_attachments = {{
+                .color_attachments = 
+                {{
                     .image_view = offscreen_image.default_view(),
                     .load_op = daxa::AttachmentLoadOp::LOAD
                 }},
-                .depth_attachment = {},
+                .depth_attachment = 
+                {{
+                    .image_view = depth_image.default_view(),
+                    .layout = daxa::ImageLayout::ATTACHMENT_OPTIMAL,
+                    .load_op = daxa::AttachmentLoadOp::LOAD,
+                    .store_op = daxa::AttachmentStoreOp::STORE,
+                }},
                 .render_area = {.x = 0, .y = 0, .width = dimensions.x , .height = dimensions.y}
             });
 

@@ -10,7 +10,7 @@ Camera::Camera(const CameraInfo & info) :
     up{daxa_vec3_to_glm(info.up)},
     aspect_ratio{info.aspect_ratio},
     fov{info.fov},
-    speed{100.0f},
+    speed{1.0f},
     pitch{0.0f},
     yaw{-90.0f},
     sensitivity{0.08f}, 
