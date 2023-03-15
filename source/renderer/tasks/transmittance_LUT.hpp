@@ -36,7 +36,7 @@ inline void task_compute_transmittance_LUT(Context & context)
                 daxa::ImageMipArraySlice{}
             }
         },
-        .task = [&](daxa::TaskRuntime const & runtime)
+        .task = [&](daxa::TaskRuntimeInterface const & runtime)
         {
             auto cmd_list = runtime.get_command_list();
             auto transmittance_image = runtime.get_images(context.main_task_list.task_images.at(Images::TRANSMITTANCE))[0];

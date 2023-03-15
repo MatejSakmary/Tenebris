@@ -17,7 +17,7 @@ inline void task_draw_imgui(Context & context)
                 daxa::ImageMipArraySlice{} 
             }
         },
-        .task = [&](daxa::TaskRuntime const & runtime)
+        .task = [&](daxa::TaskRuntimeInterface const & runtime)
         {
             auto cmd_list = runtime.get_command_list();
             auto swapchain_image_dimensions = context.swapchain.get_surface_extent();

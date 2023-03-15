@@ -105,6 +105,7 @@ Application::Application() :
     }},
     geometry{generate_planet()}
 {
+    renderer.upload_planet_geometry(geometry);
     renderer.resize_LUT(Images::TRANSMITTANCE, state.gui_state.lut_dimensions.at(Images::TRANSMITTANCE)); 
     renderer.resize_LUT(Images::MULTISCATTERING, state.gui_state.lut_dimensions.at(Images::MULTISCATTERING)); 
     renderer.resize_LUT(Images::SKYVIEW, state.gui_state.lut_dimensions.at(Images::SKYVIEW)); 

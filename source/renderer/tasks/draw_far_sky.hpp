@@ -60,7 +60,7 @@ inline void task_draw_far_sky(Context & context)
                 daxa::ImageMipArraySlice{} 
             }
         },
-        .task = [&](daxa::TaskRuntime const & runtime)
+        .task = [&](daxa::TaskRuntimeInterface const & runtime)
         {
             auto cmd_list = runtime.get_command_list();
             auto dimensions = context.swapchain.get_surface_extent();

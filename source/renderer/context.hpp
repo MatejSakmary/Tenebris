@@ -90,9 +90,10 @@ struct Context
         daxa::TaskList task_list;
     };
 
-    struct Conditionals
+    enum Conditionals 
     {
-        bool copy_planet_geometry = false;
+        COPY_PLANET_GEOMETRY = 0,
+        COUNT
     };
 
     daxa::Context daxa_context;
@@ -105,7 +106,7 @@ struct Context
 
     MainTaskList main_task_list;
     Pipelines pipelines;
-    Conditionals conditionals;
+    std::array<bool, Conditionals::COUNT> conditionals;
 
     daxa::SamplerId linear_sampler;
     daxa::ImGuiRenderer imgui_renderer;

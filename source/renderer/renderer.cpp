@@ -37,6 +37,8 @@ Renderer::Renderer(const AppWindow & window) :
         .debug_name = "Pipeline Compiler",
     });
 
+    context.conditionals.at(Context::Conditionals::COPY_PLANET_GEOMETRY) = false;
+
     context.pipelines.transmittance = context.pipeline_manager.add_compute_pipeline(get_transmittance_LUT_pipeline()).value();
     context.pipelines.multiscattering = context.pipeline_manager.add_compute_pipeline(get_multiscattering_LUT_pipeline()).value();
     context.pipelines.skyview = context.pipeline_manager.add_compute_pipeline(get_skyview_LUT_pipeline()).value();
@@ -144,7 +146,7 @@ void Renderer::upload_planet_geometry(const PlanetGeometry & geometry)
         context.buffers.terrain_indices.gpu_buffer
     );
 
-    context.conditionals.copy_planet_geometry = true;
+    context.conditionals.at(Context::Conditionals::COPY_PLANET_GEOMETRY) = true;
 }
 
 void Renderer::draw(const Camera & camera) 
@@ -181,7 +183,7 @@ void Renderer::draw(const Camera & camera)
         return;
     }
 
-    context.main_task_list.task_list.execute();
+    context.main_task_list.task_list.execute({{context.conditionals.data(), context.conditionals.size()}});
     auto result = context.pipeline_manager.reload_all();
     if(result.is_ok()) {
         if (result.value() == true)
@@ -379,6 +381,8 @@ void Renderer::create_main_tasklist()
         .reorder_tasks = true,
         .use_split_barriers = true,
         .swapchain = context.swapchain,
+        .jit_compile_permutations = true,
+        .permutation_condition_count = Context::Conditionals::COUNT,
         .debug_name = "main task list"
     });
 

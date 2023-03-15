@@ -41,7 +41,7 @@ inline void task_compute_multiscattering_LUT(Context & context)
                 daxa::ImageMipArraySlice{}
             },
         },
-        .task = [&](daxa::TaskRuntime const & runtime)
+        .task = [&](daxa::TaskRuntimeInterface const & runtime)
         {
             auto cmd_list = runtime.get_command_list();
 
