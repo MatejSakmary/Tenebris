@@ -3,7 +3,8 @@
 
 auto generate_planet() -> PlanetGeometry
 {
-    auto poisson_points = generate_poisson_points({ .num_points = 10000});
+    static u32 seed = 0;
+    auto poisson_points = generate_poisson_points({ .num_points = 10000, .seed = seed++});
     CDT::Triangulation<float> cdt;
 
     int end_edge_idx = poisson_points.size();

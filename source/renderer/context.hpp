@@ -25,6 +25,7 @@ struct Images
 
         SWAPCHAIN,
         OFFSCREEN,
+        POISSON_RESOLVE,
         DEPTH,
         END,
 
@@ -42,6 +43,7 @@ struct Images
             case SWAPCHAIN:         return "Swaphcain";
             case OFFSCREEN:         return "Offscreen";
             case DEPTH:             return "Depth";
+            case POISSON_RESOLVE:   return "Poisson Resolve";
             case END:               throw std::runtime_error("[get_image_name()] Invalid enum");
         }
         return "Invalid image enum";
@@ -51,6 +53,13 @@ struct Images
 
 struct Context
 {
+    struct PoissonPointsInfo
+    {
+        i32 max_points;
+        i32 dispatch_size;
+        i32vec2 texture_size;
+    };
+
     struct Buffers
     {
         template<typename T>
@@ -64,6 +73,8 @@ struct Context
         SharedBuffer<CameraParameters> camera_parameters;
         SharedBuffer<std::vector<TerrainVertex>> terrain_vertices;
         SharedBuffer<std::vector<TerrainIndex>> terrain_indices;
+        SharedBuffer<std::vector<PoissonPoint>> poisson_points;
+        SharedBuffer<std::vector<PoissonHeader>> poisson_header;
     };
 
     struct Pipelines
@@ -74,6 +85,7 @@ struct Context
         std::shared_ptr<daxa::RasterPipeline> post_process;
         std::shared_ptr<daxa::RasterPipeline> draw_far_sky;
         std::shared_ptr<daxa::RasterPipeline> draw_terrain;
+        std::shared_ptr<daxa::RasterPipeline> generate_poisson_points;
     };
 
     struct MainTaskList
@@ -84,6 +96,8 @@ struct Context
             daxa::TaskBufferId t_camera_parameters;
             daxa::TaskBufferId t_terrain_vertices;
             daxa::TaskBufferId t_terrain_indices;
+            daxa::TaskBufferId t_poisson_points;
+            daxa::TaskBufferId t_poisson_header;
         } task_buffers;
 
         std::array<daxa::TaskImageId, Images::IMAGE_COUNT> task_images;
@@ -110,4 +124,5 @@ struct Context
 
     daxa::SamplerId linear_sampler;
     daxa::ImGuiRenderer imgui_renderer;
+    PoissonPointsInfo poisson_info;
 };
