@@ -10,7 +10,7 @@ DAXA_ENABLE_BUFFER_PTR(PoissonPoint)
 
 struct PoissonHeader
 {
-    daxa_u32 max_count;
+    daxa_i32 max_count;
     daxa_u32 curr_front;
 };
 DAXA_ENABLE_BUFFER_PTR(PoissonHeader)
@@ -80,6 +80,7 @@ struct GeneratePoissonPC
 {
     daxa_BufferPtr(PoissonPoint) poisson_points;
     daxa_BufferPtr(PoissonHeader) poisson_header;
+    daxa_i32 dispatch_size;
 };
 
 struct TransmittancePC

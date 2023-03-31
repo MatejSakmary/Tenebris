@@ -33,7 +33,7 @@ inline auto get_generate_poisson_points_pipeline(const Context & context) -> dax
             .polygon_mode = daxa::PolygonMode::FILL,
             .face_culling = daxa::FaceCullFlagBits::BACK_BIT,
         },
-        .push_constant_size = sizeof(DrawTerrainPC),
+        .push_constant_size = sizeof(GeneratePoissonPC),
         .debug_name = "poisson points pipeline"
     };
 }
@@ -62,7 +62,7 @@ inline void task_generate_poisson_points(Context & context)
             { 
                 context.main_task_list.task_images.at(Images::DEPTH),
                 daxa::TaskImageAccess::DEPTH_ATTACHMENT,
-                daxa::ImageMipArraySlice{} 
+                daxa::ImageMipArraySlice{.image_aspect = daxa::ImageAspectFlagBits::DEPTH} 
             },
         },
         .task = [&](daxa::TaskRuntimeInterface const & runtime)
@@ -98,10 +98,11 @@ inline void task_generate_poisson_points(Context & context)
             cmd_list.push_constant(GeneratePoissonPC{
                 .poisson_points = context.device.get_device_address(poisson_points_gpu_buffer),
                 .poisson_header = context.device.get_device_address(poisson_header_gpu_buffer),
+                .dispatch_size = context.poisson_info.dispatch_size
             });
             cmd_list.draw({.vertex_count = u32(context.poisson_info.dispatch_size)});
             cmd_list.end_renderpass();
         },
-        .debug_name = "draw far sky",
+        .debug_name = "generate poisson points",
     });
 }

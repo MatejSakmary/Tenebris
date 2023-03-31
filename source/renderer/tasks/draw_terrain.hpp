@@ -66,7 +66,7 @@ inline void task_draw_terrain(Context & context)
             { 
                 context.main_task_list.task_images.at(Images::DEPTH),
                 daxa::TaskImageAccess::DEPTH_ATTACHMENT,
-                daxa::ImageMipArraySlice{} 
+                daxa::ImageMipArraySlice{.image_aspect = daxa::ImageAspectFlagBits::DEPTH} 
             },
         },
         .task = [&](daxa::TaskRuntimeInterface const & runtime)

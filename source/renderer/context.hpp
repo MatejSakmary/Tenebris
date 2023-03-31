@@ -10,7 +10,6 @@
 
 #include "shared/shared.inl"
 
-
 using namespace std::literals;
 struct Images
 {
@@ -74,7 +73,7 @@ struct Context
         SharedBuffer<std::vector<TerrainVertex>> terrain_vertices;
         SharedBuffer<std::vector<TerrainIndex>> terrain_indices;
         SharedBuffer<std::vector<PoissonPoint>> poisson_points;
-        SharedBuffer<std::vector<PoissonHeader>> poisson_header;
+        SharedBuffer<PoissonHeader> poisson_header;
     };
 
     struct Pipelines

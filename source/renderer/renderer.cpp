@@ -307,6 +307,11 @@ void Renderer::create_resolution_independent_resources()
         .debug_name = "poisson header"
     });
 
+    context.buffers.poisson_header.cpu_buffer = {
+        .max_count = context.poisson_info.max_points,
+        .curr_front = 0,
+    };
+
     context.buffers.atmosphere_parameters.gpu_buffer = context.device.create_buffer(daxa::BufferInfo{
         .size = sizeof(AtmosphereParameters),
         .debug_name = "atmosphere parameters",
@@ -401,8 +406,7 @@ void Renderer::create_main_tasklist()
     {
         context.main_task_list.task_images.at(id) = 
             context.main_task_list.task_list.create_task_image({
-                .initial_access = daxa::AccessConsts::NONE,
-                .initial_layout = daxa::ImageLayout::UNDEFINED,
+                .initial_access = {},
                 .swapchain_image = id == Images::SWAPCHAIN ? true : false,
                 .debug_name = std::string("task").append(Images::get_image_name(id))
             });
@@ -475,8 +479,8 @@ void Renderer::create_main_tasklist()
         context.images.at(Images::POISSON_RESOLVE)
     );
 
-    task_generate_poisson_points(context);
     task_upload_input_data(context);
+    task_generate_poisson_points(context);
     task_compute_transmittance_LUT(context);
     task_compute_multiscattering_LUT(context);
     task_compute_skyview_LUT(context);
@@ -487,7 +491,7 @@ void Renderer::create_main_tasklist()
 
     context.main_task_list.task_list.submit({});
     context.main_task_list.task_list.present({});
-    context.main_task_list.task_list.complete();
+    context.main_task_list.task_list.complete({});
 }
 
 Renderer::~Renderer()

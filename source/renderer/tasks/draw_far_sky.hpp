@@ -14,6 +14,7 @@ inline auto get_draw_far_sky_pipeline(const Context & context) -> daxa::RasterPi
         .color_attachments = {{.format = daxa::Format::R16G16B16A16_SFLOAT}},
         .depth_test = 
         { 
+            .depth_attachment_format = daxa::Format::D32_SFLOAT,
             .enable_depth_test = true,
             .enable_depth_write = false,
             .depth_test_compare_op = daxa::CompareOp::EQUAL
@@ -52,7 +53,7 @@ inline void task_draw_far_sky(Context & context)
             { 
                 context.main_task_list.task_images.at(Images::DEPTH),
                 daxa::TaskImageAccess::DEPTH_ATTACHMENT,
-                daxa::ImageMipArraySlice{} 
+                daxa::ImageMipArraySlice{.image_aspect = daxa::ImageAspectFlagBits::DEPTH} 
             },
             { 
                 context.main_task_list.task_images.at(Images::SKYVIEW),
