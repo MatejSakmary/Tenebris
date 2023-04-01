@@ -18,11 +18,7 @@ inline void task_upload_input_data(Context & context)
             { 
                 context.main_task_list.task_buffers.t_camera_parameters,
                 daxa::TaskBufferAccess::HOST_TRANSFER_WRITE
-            },
-            { 
-                context.main_task_list.task_buffers.t_poisson_header,
-                daxa::TaskBufferAccess::HOST_TRANSFER_WRITE
-            },
+            }
         },
         .task = [&](daxa::TaskRuntimeInterface const & runtime)
         {
@@ -30,7 +26,6 @@ inline void task_upload_input_data(Context & context)
 
             auto atmosphere_parameters_gpu_buffer = runtime.get_buffers(context.main_task_list.task_buffers.t_atmosphere_parameters)[0];
             auto camera_parameters_gpu_buffer = runtime.get_buffers(context.main_task_list.task_buffers.t_camera_parameters)[0];
-            auto poisson_header_gpu_buffer = runtime.get_buffers(context.main_task_list.task_buffers.t_poisson_header)[0];
             // create staging buffer
             auto staging_atmosphere_parameters_gpu_buffer = context.device.create_buffer({
                 .memory_flags = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
@@ -48,20 +43,6 @@ inline void task_upload_input_data(Context & context)
             });
             // destroy the staging buffer after the copy is done
             cmd_list.destroy_buffer_deferred(staging_atmosphere_parameters_gpu_buffer);
-
-            auto poisson_header_staging_buffer = context.device.create_buffer({
-                .memory_flags = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
-                .size = sizeof(PoissonHeader),
-                .debug_name = "staging poisson header gpu buffer"
-            });
-            auto buffer_ptr__ = context.device.get_host_address_as<PoissonHeader>(poisson_header_staging_buffer);
-            memcpy(buffer_ptr__, &context.buffers.poisson_header.cpu_buffer, sizeof(PoissonHeader));
-            cmd_list.copy_buffer_to_buffer({
-                .src_buffer = poisson_header_staging_buffer,
-                .dst_buffer = poisson_header_gpu_buffer,
-                .size = sizeof(PoissonHeader),
-            });
-            cmd_list.destroy_buffer_deferred(poisson_header_staging_buffer);
 
             auto staging_camera_parameters_gpu_buffer = context.device.create_buffer({
                 .memory_flags = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,

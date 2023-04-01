@@ -16,7 +16,6 @@
 #include "../terrain_gen/planet_generator.hpp"
 
 #include "tasks/upload_input_data.hpp"
-#include "tasks/generate_poisson_points.hpp"
 #include "tasks/transmittance_LUT.hpp"
 #include "tasks/multiscattering_LUT.hpp"
 #include "tasks/skyview_LUT.hpp"

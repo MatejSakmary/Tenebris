@@ -2,19 +2,6 @@
 
 #include <daxa/daxa.inl>
 
-struct PoissonPoint
-{
-    daxa_f32vec2 point;
-};
-DAXA_ENABLE_BUFFER_PTR(PoissonPoint)
-
-struct PoissonHeader
-{
-    daxa_i32 max_count;
-    daxa_u32 curr_front;
-};
-DAXA_ENABLE_BUFFER_PTR(PoissonHeader)
-
 // An atmosphere layer density which can be calculated as:
 //   density = exp_term * exp(exp_scale * h) + linear_term * h + constant_term,
 struct DensityProfileLayer
@@ -74,14 +61,6 @@ struct TerrainIndex
     daxa_u32 index;
 };
 DAXA_ENABLE_BUFFER_PTR(TerrainIndex)
-
-
-struct GeneratePoissonPC
-{
-    daxa_BufferPtr(PoissonPoint) poisson_points;
-    daxa_BufferPtr(PoissonHeader) poisson_header;
-    daxa_i32 dispatch_size;
-};
 
 struct TransmittancePC
 {

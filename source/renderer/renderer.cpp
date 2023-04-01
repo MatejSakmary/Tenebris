@@ -45,13 +45,8 @@ Renderer::Renderer(const AppWindow & window) :
     context.pipelines.draw_terrain = context.pipeline_manager.add_raster_pipeline(get_draw_terrain_pipeline(context)).value();
     context.pipelines.draw_far_sky = context.pipeline_manager.add_raster_pipeline(get_draw_far_sky_pipeline(context)).value();
     context.pipelines.post_process = context.pipeline_manager.add_raster_pipeline(get_post_process_pipeline(context)).value();
-    context.pipelines.generate_poisson_points = context.pipeline_manager.add_raster_pipeline(get_generate_poisson_points_pipeline(context)).value();
 
     context.linear_sampler = context.device.create_sampler({});
-
-    context.poisson_info.dispatch_size = 10000;
-    context.poisson_info.max_points = 1000000;
-    context.poisson_info.texture_size = i32vec2{1000, 1000};
 
     ImGui::CreateContext();
     ImGui_ImplGlfw_InitForVulkan(window.get_glfw_window_handle(), true);
@@ -297,21 +292,6 @@ void Renderer::create_resolution_dependent_resources()
 
 void Renderer::create_resolution_independent_resources()
 {
-    context.buffers.poisson_points.gpu_buffer = context.device.create_buffer(daxa::BufferInfo{
-        .size = u32(sizeof(PoissonPoint)) * context.poisson_info.max_points,
-        .debug_name = "poisson points"
-    });
-
-    context.buffers.poisson_header.gpu_buffer = context.device.create_buffer(daxa::BufferInfo{
-        .size = sizeof(PoissonHeader),
-        .debug_name = "poisson header"
-    });
-
-    context.buffers.poisson_header.cpu_buffer = {
-        .max_count = context.poisson_info.max_points,
-        .curr_front = 0,
-    };
-
     context.buffers.atmosphere_parameters.gpu_buffer = context.device.create_buffer(daxa::BufferInfo{
         .size = sizeof(AtmosphereParameters),
         .debug_name = "atmosphere parameters",
@@ -381,23 +361,6 @@ void Renderer::create_resolution_independent_resources()
                 .const_term  = 8.0f / 3.0f
             }},
     };
-
-    context.images.at(Images::POISSON_RESOLVE) = context.device.create_image({
-        .dimensions = 2,
-        .format = daxa::Format::R32_SFLOAT,
-        .aspect = daxa::ImageAspectFlagBits::COLOR,
-        .size = {u32(context.poisson_info.texture_size.x), u32(context.poisson_info.texture_size.y), 1},
-        .mip_level_count = 1,
-        .array_layer_count = 1,
-        .sample_count = 1,
-        .usage = 
-            daxa::ImageUsageFlagBits::SHADER_READ_ONLY  |
-            daxa::ImageUsageFlagBits::SHADER_READ_WRITE |
-            daxa::ImageUsageFlagBits::COLOR_ATTACHMENT,
-        .memory_flags = daxa::MemoryFlagBits::DEDICATED_MEMORY,
-        .debug_name = Images::get_image_name(Images::POISSON_RESOLVE).data()
-    });
-
 }
 
 void Renderer::create_main_tasklist()
@@ -440,22 +403,6 @@ void Renderer::create_main_tasklist()
             .debug_name = "terrain_vertices"
     });
     
-    context.main_task_list.task_buffers.t_poisson_points = 
-        context.main_task_list.task_list.create_task_buffer({
-            .initial_access = daxa::AccessConsts::NONE,
-            .debug_name = "poisson points"
-    });
-
-    context.main_task_list.task_list.add_runtime_buffer( context.main_task_list.task_buffers.t_poisson_points, context.buffers.poisson_points.gpu_buffer);
-
-    context.main_task_list.task_buffers.t_poisson_header = 
-        context.main_task_list.task_list.create_task_buffer({
-            .initial_access = daxa::AccessConsts::NONE,
-            .debug_name = "poisson header"
-    });
-
-    context.main_task_list.task_list.add_runtime_buffer( context.main_task_list.task_buffers.t_poisson_header, context.buffers.poisson_header.gpu_buffer);
-
     context.main_task_list.task_buffers.t_atmosphere_parameters = 
         context.main_task_list.task_list.create_task_buffer({
             .initial_access = daxa::AccessConsts::NONE,
@@ -474,13 +421,7 @@ void Renderer::create_main_tasklist()
         context.main_task_list.task_buffers.t_camera_parameters,
         context.buffers.camera_parameters.gpu_buffer);
 
-    context.main_task_list.task_list.add_runtime_image(
-        context.main_task_list.task_images.at(Images::POISSON_RESOLVE),
-        context.images.at(Images::POISSON_RESOLVE)
-    );
-
     task_upload_input_data(context);
-    task_generate_poisson_points(context);
     task_compute_transmittance_LUT(context);
     task_compute_multiscattering_LUT(context);
     task_compute_skyview_LUT(context);
@@ -508,14 +449,11 @@ Renderer::~Renderer()
     }
     context.device.destroy_buffer(context.buffers.atmosphere_parameters.gpu_buffer);
     context.device.destroy_buffer(context.buffers.camera_parameters.gpu_buffer);
-    context.device.destroy_buffer(context.buffers.poisson_header.gpu_buffer);
-    context.device.destroy_buffer(context.buffers.poisson_points.gpu_buffer);
     context.device.destroy_image(context.images.at(Images::TRANSMITTANCE));
     context.device.destroy_image(context.images.at(Images::MULTISCATTERING));
     context.device.destroy_image(context.images.at(Images::SKYVIEW));
     context.device.destroy_image(context.images.at(Images::OFFSCREEN));
     context.device.destroy_image(context.images.at(Images::DEPTH));
-    context.device.destroy_image(context.images.at(Images::POISSON_RESOLVE));
     context.device.destroy_sampler(context.linear_sampler);
     context.device.collect_garbage();
 }
