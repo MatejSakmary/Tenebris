@@ -20,5 +20,5 @@ struct GuiState
     f32 mie_scale_height = 1.2f;
     f32 rayleigh_scale_height = 8.0f;
     f32vec3 new_camera_position;
-
+    f32vec3 terrain_scale = {1.0, 1.0, 1.0};
 };

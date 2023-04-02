@@ -94,6 +94,7 @@ struct DrawTerrainPC
 {
     daxa_BufferPtr(TerrainVertex) vertices;
     daxa_BufferPtr(CameraParameters) camera_parameters;
+    daxa_f32vec3 terrain_scale;
 };
 
 struct DrawSkyPC

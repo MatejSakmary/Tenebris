@@ -175,6 +175,7 @@ void Application::ui_update()
     ImGui::SliderFloat("Atmosphere top", &state.gui_state.atmosphere_top, state.gui_state.atmosphere_bottom + 10.0f, 20000.0f);
     ImGui::SliderFloat("mie scale height", &state.gui_state.mie_scale_height, 0.1f, 100.0f);
     ImGui::SliderFloat("rayleigh scale height", &state.gui_state.rayleigh_scale_height, 0.1f, 100.0f);
+    ImGui::SliderFloat3("Terrain Scale", reinterpret_cast<f32*>(&state.gui_state.terrain_scale), 1.0f, 1000.0f);
     if(ImGui::Button("Generate planet", {150, 20})) { renderer.upload_planet_geometry(generate_planet()); }
     ImGui::End();
 

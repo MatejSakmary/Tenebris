@@ -102,7 +102,8 @@ inline void task_draw_terrain(Context & context)
             cmd_list.set_pipeline(*context.pipelines.draw_terrain);
             cmd_list.push_constant(DrawTerrainPC{
                 .vertices = context.device.get_device_address(vertex_buffer),
-                .camera_parameters = context.device.get_device_address(camera_gpu_buffer)
+                .camera_parameters = context.device.get_device_address(camera_gpu_buffer),
+                .terrain_scale = context.terrain_scale,
             });
             cmd_list.set_index_buffer(index_buffer, 0, sizeof(u32));
             cmd_list.draw_indexed({.index_count = u32(context.buffers.terrain_indices.cpu_buffer.size())});

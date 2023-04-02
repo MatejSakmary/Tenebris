@@ -86,6 +86,8 @@ void Renderer::update(const GuiState & state)
 
     atmo_params.mie_density[1].exp_scale = -1.0 / atmo_params.mie_scale_height;
     atmo_params.rayleigh_density[1].exp_scale = -1.0 / atmo_params.rayleigh_scale_height;
+
+    context.terrain_scale = state.terrain_scale;
 }
 
 // TODO(msakmary) rething a better way to do this - without copying the geometry data

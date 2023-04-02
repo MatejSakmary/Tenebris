@@ -9,10 +9,12 @@ daxa_BufferPtr(CameraParameters) camera_parameters = daxa_push_constant.camera_p
 // ===================== VERTEX SHADER ===============================
 void main()
 {
-    f32vec4 pre_trans_pos = f32vec4(deref(terrain_vertices[gl_VertexIndex]).position, 1.0);
+    f32vec3 scale = daxa_push_constant.terrain_scale;
+    const f32vec4 pre_trans_pos = f32vec4(deref(terrain_vertices[gl_VertexIndex]).position, 1.0);
+    const f32vec4 pre_trans_scaled_pos = f32vec4(pre_trans_pos.xyz * scale, 1.0);
 
     f32mat4x4 m_proj_view_model = deref(camera_parameters).projection * deref(camera_parameters).view;
-    gl_Position = m_proj_view_model * pre_trans_pos;
+    gl_Position = m_proj_view_model * pre_trans_scaled_pos;
 }
 
 #elif defined(_FRAGMENT)

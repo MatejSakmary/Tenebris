@@ -102,6 +102,7 @@ struct Context
         COUNT
     };
 
+    f32vec3 terrain_scale;
     daxa::Context daxa_context;
     daxa::Device device;
     daxa::Swapchain swapchain;
