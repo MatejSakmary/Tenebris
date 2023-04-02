@@ -167,6 +167,16 @@ void Application::ui_update()
     image_dimensions_slider(Images::SKYVIEW);
     ImGui::End();
 
+    ImGui::Begin("Terrain params");
+    ImGui::SliderFloat3("Terrain Scale", reinterpret_cast<f32*>(&state.gui_state.terrain_params.scale), 1.0f, 1000.0f);
+    ImGui::SliderFloat("Delta", &state.gui_state.terrain_params.delta, 1.0f, 10.0f);
+    ImGui::SliderFloat("Min depth", &state.gui_state.terrain_params.min_depth, 1.0f, 10.0f);
+    ImGui::SliderFloat("Max depth", &state.gui_state.terrain_params.max_depth, 1.0f, 1000.0f);
+    ImGui::SliderInt("Minimum tesselation level", &state.gui_state.terrain_params.min_tess_level, 1, 20);
+    ImGui::SliderInt("Maximum tesselation level", &state.gui_state.terrain_params.max_tess_level, 1, 40);
+    if(ImGui::Button("Generate planet", {150, 20})) { renderer.upload_planet_geometry(generate_planet()); }
+    ImGui::End();
+
     ImGui::Begin("Sun Angle");
     ImGui::SliderFloat("Horizontal angle", &state.gui_state.sun_angle.x, 0.0f, 360.0f);
     ImGui::SliderFloat("Vertical angle", &state.gui_state.sun_angle.y, 0.0f, 180.0f);
@@ -175,8 +185,6 @@ void Application::ui_update()
     ImGui::SliderFloat("Atmosphere top", &state.gui_state.atmosphere_top, state.gui_state.atmosphere_bottom + 10.0f, 20000.0f);
     ImGui::SliderFloat("mie scale height", &state.gui_state.mie_scale_height, 0.1f, 100.0f);
     ImGui::SliderFloat("rayleigh scale height", &state.gui_state.rayleigh_scale_height, 0.1f, 100.0f);
-    ImGui::SliderFloat3("Terrain Scale", reinterpret_cast<f32*>(&state.gui_state.terrain_scale), 1.0f, 1000.0f);
-    if(ImGui::Button("Generate planet", {150, 20})) { renderer.upload_planet_geometry(generate_planet()); }
     ImGui::End();
 
     ImGui::Render();

@@ -9,18 +9,10 @@
 inline auto get_draw_terrain_pipeline(const Context & context) -> daxa::RasterPipelineCompileInfo
 {
     return {
-        .vertex_shader_info = { 
-            .source = daxa::ShaderFile{"draw_terrain.glsl"},
-            .compile_options = {
-                .defines = {{"_VERTEX", ""}},
-            },
-        },
-        .fragment_shader_info = {
-            .source = daxa::ShaderFile{"draw_terrain.glsl"},
-            .compile_options = {
-                .defines = {{"_FRAGMENT", ""}},
-            },
-        },
+        .vertex_shader_info = daxa::ShaderCompileInfo{ .source = daxa::ShaderFile{"draw_terrain.glsl"}, },
+        .tesselation_control_shader_info = daxa::ShaderCompileInfo{ .source = daxa::ShaderFile{"draw_terrain.glsl"}, },
+        .tesselation_evaluation_shader_info = daxa::ShaderCompileInfo{ .source = daxa::ShaderFile{"draw_terrain.glsl"}, },
+        .fragment_shader_info = daxa::ShaderCompileInfo{ .source = daxa::ShaderFile{"draw_terrain.glsl"}, },
         .color_attachments = {{.format = daxa::Format::R16G16B16A16_SFLOAT}},
         .depth_test = { 
             .depth_attachment_format = daxa::Format::D32_SFLOAT,
@@ -28,11 +20,12 @@ inline auto get_draw_terrain_pipeline(const Context & context) -> daxa::RasterPi
             .enable_depth_write = true,
         },
         .raster = { 
-            .primitive_topology = daxa::PrimitiveTopology::TRIANGLE_LIST,
+            .primitive_topology = daxa::PrimitiveTopology::PATCH_LIST,
             .primitive_restart_enable = false,
             .polygon_mode = daxa::PolygonMode::LINE,
             .face_culling = daxa::FaceCullFlagBits::BACK_BIT,
         },
+        .tesselation = { .control_points = 3 },
         .push_constant_size = sizeof(DrawTerrainPC),
         .debug_name = "terrain pipeline"
     };
@@ -53,7 +46,7 @@ inline void task_draw_terrain(Context & context)
             },
             {
                 context.main_task_list.task_buffers.t_camera_parameters,
-                daxa::TaskBufferAccess::VERTEX_SHADER_READ_ONLY
+                daxa::TaskBufferAccess::SHADER_READ_ONLY
             } 
         },
         .used_images = 
@@ -103,10 +96,16 @@ inline void task_draw_terrain(Context & context)
             cmd_list.push_constant(DrawTerrainPC{
                 .vertices = context.device.get_device_address(vertex_buffer),
                 .camera_parameters = context.device.get_device_address(camera_gpu_buffer),
-                .terrain_scale = context.terrain_scale,
+                .terrain_scale = context.terrain_params.scale,
+                .delta = context.terrain_params.delta,
+                .min_depth = context.terrain_params.min_depth,
+                .max_depth = context.terrain_params.max_depth,
+                .min_tess_level = context.terrain_params.min_tess_level,
+                .max_tess_level = context.terrain_params.max_tess_level
             });
             cmd_list.set_index_buffer(index_buffer, 0, sizeof(u32));
             cmd_list.draw_indexed({.index_count = u32(context.buffers.terrain_indices.cpu_buffer.size())});
+            // cmd_list.draw_indexed({.index_count = u32(3)});
             cmd_list.end_renderpass();
         },
         .debug_name = "draw terrain",

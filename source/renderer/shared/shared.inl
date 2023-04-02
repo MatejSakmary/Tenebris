@@ -95,6 +95,11 @@ struct DrawTerrainPC
     daxa_BufferPtr(TerrainVertex) vertices;
     daxa_BufferPtr(CameraParameters) camera_parameters;
     daxa_f32vec3 terrain_scale;
+    daxa_f32 delta;
+    daxa_f32 min_depth;
+    daxa_f32 max_depth;
+    daxa_i32 min_tess_level;
+    daxa_i32 max_tess_level;
 };
 
 struct DrawSkyPC

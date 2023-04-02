@@ -96,13 +96,22 @@ struct Context
         daxa::TaskList task_list;
     };
 
+    struct TerrainParams
+    {
+        f32vec3 scale = {10.0, 10.0, 10.0};
+        f32 delta = 1.0;
+        f32 min_depth = 1.0;
+        f32 max_depth = 10000.0;
+        i32 min_tess_level = 1;
+        i32 max_tess_level = 10;
+    };
+
     enum Conditionals 
     {
         COPY_PLANET_GEOMETRY = 0,
         COUNT
     };
 
-    f32vec3 terrain_scale;
     daxa::Context daxa_context;
     daxa::Device device;
     daxa::Swapchain swapchain;
@@ -113,6 +122,7 @@ struct Context
 
     MainTaskList main_task_list;
     Pipelines pipelines;
+    TerrainParams terrain_params;
     std::array<bool, Conditionals::COUNT> conditionals;
 
     daxa::SamplerId linear_sampler;

@@ -14,11 +14,12 @@ struct GuiState
         {192, 128, 1}
     }};
 
+    Context::TerrainParams terrain_params;
+
     f32vec2 sun_angle = {180.0f, 0.0f};
     f32 atmosphere_bottom = 6360.0f;
     f32 atmosphere_top = 6460.0f;
     f32 mie_scale_height = 1.2f;
     f32 rayleigh_scale_height = 8.0f;
     f32vec3 new_camera_position;
-    f32vec3 terrain_scale = {1.0, 1.0, 1.0};
 };

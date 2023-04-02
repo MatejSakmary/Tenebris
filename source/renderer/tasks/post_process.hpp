@@ -9,8 +9,8 @@
 inline auto get_post_process_pipeline(const Context & context) -> daxa::RasterPipelineCompileInfo
 {
     return {
-        .vertex_shader_info = { .source = daxa::ShaderFile{"screen_triangle.glsl"} },
-        .fragment_shader_info = { .source = daxa::ShaderFile{"post_process.glsl"} },
+        .vertex_shader_info = daxa::ShaderCompileInfo{ .source = daxa::ShaderFile{"screen_triangle.glsl"} },
+        .fragment_shader_info = daxa::ShaderCompileInfo{ .source = daxa::ShaderFile{"post_process.glsl"} },
         .color_attachments = {{.format = context.swapchain.get_format()}},
         .depth_test = { .enable_depth_test = false },
         .raster = { 

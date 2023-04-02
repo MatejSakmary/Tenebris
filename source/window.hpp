@@ -33,7 +33,6 @@ struct AppWindow
             glfwInit();
             /* Tell GLFW to not create OpenGL context */
             glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-            glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
             window = glfwCreateWindow(dimensions.x, dimensions.y, "Atmosphere-daxa", nullptr, nullptr);
             glfwSetWindowUserPointer(window, &(this->vtable));
             glfwSetCursorPosCallback( 

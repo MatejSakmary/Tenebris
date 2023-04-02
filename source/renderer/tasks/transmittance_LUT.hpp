@@ -9,10 +9,7 @@
 inline auto get_transmittance_LUT_pipeline() -> daxa::ComputePipelineCompileInfo
 {
     return {
-        .shader_info = {
-            .source = daxa::ShaderFile{"transmittance.glsl"},
-            .compile_options = {}
-        },
+        .shader_info = { .source = daxa::ShaderFile{"transmittance.glsl"}, },
         .push_constant_size = sizeof(TransmittancePC),
         .debug_name = "compute transmittance LUT pipeline"
     };

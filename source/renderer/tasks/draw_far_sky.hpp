@@ -9,8 +9,8 @@
 inline auto get_draw_far_sky_pipeline(const Context & context) -> daxa::RasterPipelineCompileInfo
 {
     return {
-        .vertex_shader_info = { .source = daxa::ShaderFile{"screen_triangle.glsl"} },
-        .fragment_shader_info = { .source = daxa::ShaderFile{"draw_far_sky.glsl"} },
+        .vertex_shader_info = daxa::ShaderCompileInfo{ .source = daxa::ShaderFile{"screen_triangle.glsl"} },
+        .fragment_shader_info = daxa::ShaderCompileInfo{ .source = daxa::ShaderFile{"draw_far_sky.glsl"} },
         .color_attachments = {{.format = daxa::Format::R16G16B16A16_SFLOAT}},
         .depth_test = 
         { 
