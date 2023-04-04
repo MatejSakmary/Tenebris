@@ -45,7 +45,7 @@ struct Application
 
     public:
         Application();
-        ~Application();
+        ~Application() = default;
 
         void main_loop();
 
@@ -59,7 +59,6 @@ struct Application
         void ui_update();
         void process_input();
 
-        void init_window();
         void mouse_callback(f64 x, f64 y);
         void mouse_button_callback(i32 button, i32 action, i32 mods);
         void key_callback(i32 key, i32 code, i32 action, i32 mods);

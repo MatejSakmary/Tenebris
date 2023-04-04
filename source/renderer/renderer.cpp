@@ -1,6 +1,6 @@
 #include "renderer.hpp"
 
-#include <string.h>
+#include <string>
 
 #include <imgui_impl_glfw.h>
 #include <daxa/utils/imgui.hpp>
@@ -42,8 +42,8 @@ Renderer::Renderer(const AppWindow & window) :
     context.pipelines.transmittance = context.pipeline_manager.add_compute_pipeline(get_transmittance_LUT_pipeline()).value();
     context.pipelines.multiscattering = context.pipeline_manager.add_compute_pipeline(get_multiscattering_LUT_pipeline()).value();
     context.pipelines.skyview = context.pipeline_manager.add_compute_pipeline(get_skyview_LUT_pipeline()).value();
-    context.pipelines.draw_terrain = context.pipeline_manager.add_raster_pipeline(get_draw_terrain_pipeline(context)).value();
-    context.pipelines.draw_far_sky = context.pipeline_manager.add_raster_pipeline(get_draw_far_sky_pipeline(context)).value();
+    context.pipelines.draw_terrain = context.pipeline_manager.add_raster_pipeline(get_draw_terrain_pipeline()).value();
+    context.pipelines.draw_far_sky = context.pipeline_manager.add_raster_pipeline(get_draw_far_sky_pipeline()).value();
     context.pipelines.post_process = context.pipeline_manager.add_raster_pipeline(get_post_process_pipeline(context)).value();
 
     context.linear_sampler = context.device.create_sampler({});
@@ -72,25 +72,25 @@ void Renderer::resize()
 
 void Renderer::update(const GuiState & state)
 {
-    auto & atmo_params = context.buffers.atmosphere_parameters.cpu_buffer;
-    atmo_params.sun_direction =
+    auto &atmosphere_parameters = context.buffers.atmosphere_parameters.cpu_buffer;
+    atmosphere_parameters.sun_direction =
     {
         glm::cos(glm::radians(state.sun_angle.x)) * glm::sin(glm::radians(state.sun_angle.y)),
         glm::sin(glm::radians(state.sun_angle.x)) * glm::sin(glm::radians(state.sun_angle.y)),
         glm::cos(glm::radians(state.sun_angle.y))
     };
-    atmo_params.atmosphere_bottom = state.atmosphere_bottom;
-    atmo_params.atmosphere_top = state.atmosphere_top;
-    atmo_params.mie_scale_height = state.mie_scale_height;
-    atmo_params.rayleigh_scale_height = state.rayleigh_scale_height;
+    atmosphere_parameters.atmosphere_bottom = state.atmosphere_bottom;
+    atmosphere_parameters.atmosphere_top = state.atmosphere_top;
+    atmosphere_parameters.mie_scale_height = state.mie_scale_height;
+    atmosphere_parameters.rayleigh_scale_height = state.rayleigh_scale_height;
 
-    atmo_params.mie_density[1].exp_scale = -1.0 / atmo_params.mie_scale_height;
-    atmo_params.rayleigh_density[1].exp_scale = -1.0 / atmo_params.rayleigh_scale_height;
+    atmosphere_parameters.mie_density[1].exp_scale = -1.0f / atmosphere_parameters.mie_scale_height;
+    atmosphere_parameters.rayleigh_density[1].exp_scale = -1.0f / atmosphere_parameters.rayleigh_scale_height;
 
     context.terrain_params = state.terrain_params;
 }
 
-// TODO(msakmary) rething a better way to do this - without copying the geometry data
+// TODO(msakmary) rethink a better way to do this - without copying the geometry data
 void Renderer::upload_planet_geometry(const PlanetGeometry & geometry)
 {
     if(context.device.is_id_valid(context.buffers.terrain_vertices.gpu_buffer))
@@ -115,15 +115,14 @@ void Renderer::upload_planet_geometry(const PlanetGeometry & geometry)
 
     // TODO(msakmary) TEMPORARY
     context.buffers.terrain_vertices.cpu_buffer.reserve(geometry.vertices.size());
-    for(int i = 0; i < geometry.vertices.size(); i++)
+    for(auto v : geometry.vertices)
     {
-        auto v = geometry.vertices.at(i);
         context.buffers.terrain_vertices.cpu_buffer.push_back(TerrainVertex{.position = {v.x, v.y, 6361.0}});
     }
 
-    for(int i = 0; i < geometry.indices.size(); i++)
+    for(unsigned int indices : geometry.indices)
     {
-        context.buffers.terrain_indices.cpu_buffer.push_back(TerrainIndex{.index = geometry.indices.at(i)});
+        context.buffers.terrain_indices.cpu_buffer.push_back(TerrainIndex{.index = indices});
     }
 
     context.buffers.terrain_vertices.gpu_buffer = context.device.create_buffer({
@@ -157,7 +156,6 @@ void Renderer::draw(const Camera & camera)
     GetProjectionInfo info {
         .near_plane = 0.1f,
         .far_plane = 500.0f,
-        .swapchain_extent = {extent.x, extent.y}
     };
 
     context.buffers.camera_parameters.cpu_buffer.view = camera.get_view_matrix();
@@ -188,7 +186,7 @@ void Renderer::draw(const Camera & camera)
     context.main_task_list.task_list.execute({{context.conditionals.data(), context.conditionals.size()}});
     auto result = context.pipeline_manager.reload_all();
     if(result.is_ok()) {
-        if (result.value() == true)
+        if (result.value())
         {
             DEBUG_OUT("[Renderer::draw()] Shaders recompiled successfully");
         }
@@ -297,7 +295,7 @@ void Renderer::create_resolution_independent_resources()
     context.buffers.atmosphere_parameters.gpu_buffer = context.device.create_buffer(daxa::BufferInfo{
         .size = sizeof(AtmosphereParameters),
         .debug_name = "atmosphere parameters",
-    }); 
+    });
 
     context.buffers.camera_parameters.gpu_buffer = context.device.create_buffer(daxa::BufferInfo{
         .size = sizeof(CameraParameters),
@@ -372,7 +370,7 @@ void Renderer::create_main_tasklist()
         context.main_task_list.task_images.at(id) = 
             context.main_task_list.task_list.create_task_image({
                 .initial_access = {},
-                .swapchain_image = id == Images::SWAPCHAIN ? true : false,
+                .swapchain_image = (id == Images::SWAPCHAIN),
                 .debug_name = std::string("task").append(Images::get_image_name(id))
             });
     };

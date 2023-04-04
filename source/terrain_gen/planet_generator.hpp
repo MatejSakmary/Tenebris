@@ -6,11 +6,6 @@
 #include <daxa/types.hpp>
 using namespace daxa::types;
 
-struct GeneratePlanetInfo
-{
-    f32vec3 radius;
-};
-
 struct PlanetGeometry
 {
     std::vector<f32vec2> vertices;

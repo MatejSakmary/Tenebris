@@ -6,8 +6,7 @@
 #include "../context.hpp"
 #include "../shared/shared.inl"
 
-inline auto get_draw_terrain_pipeline(const Context & context) -> daxa::RasterPipelineCompileInfo
-{
+inline auto get_draw_terrain_pipeline() -> daxa::RasterPipelineCompileInfo {
     return {
         .vertex_shader_info = daxa::ShaderCompileInfo{ .source = daxa::ShaderFile{"draw_terrain.glsl"}, },
         .tesselation_control_shader_info = daxa::ShaderCompileInfo{ .source = daxa::ShaderFile{"draw_terrain.glsl"}, },
@@ -105,7 +104,6 @@ inline void task_draw_terrain(Context & context)
             });
             cmd_list.set_index_buffer(index_buffer, 0, sizeof(u32));
             cmd_list.draw_indexed({.index_count = u32(context.buffers.terrain_indices.cpu_buffer.size())});
-            // cmd_list.draw_indexed({.index_count = u32(3)});
             cmd_list.end_renderpass();
         },
         .debug_name = "draw terrain",

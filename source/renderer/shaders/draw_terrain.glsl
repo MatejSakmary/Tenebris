@@ -41,7 +41,7 @@ void main()
     gl_out[gl_InvocationID].gl_Position = gl_in[gl_InvocationID].gl_Position;
 }
 #elif DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_TESSELATION_EVALUATION
-layout (triangles, fractional_even_spacing , cw) in;
+layout (triangles, fractional_odd_spacing , cw) in;
 
 void main()
 {

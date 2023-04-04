@@ -10,8 +10,8 @@ void Application::mouse_callback(f64 x, f64 y)
     f32 y_offset;
     if(!state.first_input)
     {
-        x_offset = x - state.last_mouse_pos.x;
-        y_offset = y - state.last_mouse_pos.y;
+        x_offset = f32(x) - state.last_mouse_pos.x;
+        y_offset = f32(y) - state.last_mouse_pos.y;
     } else {
         x_offset = 0.0f;
         y_offset = 0.0f;
@@ -196,7 +196,7 @@ void Application::process_input()
     state.delta_time =  this_frame_time - state.last_frame_time;
     state.last_frame_time = this_frame_time;
 
-    if(state.key_table.data > 0 && state.fly_cam == true)
+    if(state.key_table.data > 0 && state.fly_cam)
     {
         if(state.key_table.bits.W)      { camera.move_camera(state.delta_time, Direction::FORWARD);    }
         if(state.key_table.bits.A)      { camera.move_camera(state.delta_time, Direction::LEFT);       }
@@ -222,8 +222,4 @@ void Application::main_loop()
         renderer.update(state.gui_state);
         renderer.draw(camera);
     }
-}
-
-Application::~Application()
-{
 }

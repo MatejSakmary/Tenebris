@@ -30,14 +30,13 @@ enum Direction
     DOWN,
     ROLL_LEFT,
     ROLL_RIGHT,
-    UNKNOWN
+    UNKNOWN [[maybe_unused]]
 };
 
 struct GetProjectionInfo
 {
     f32 near_plane;
     f32 far_plane;
-    const u32vec2 swapchain_extent;
 };
 
 struct CameraInfo
@@ -66,7 +65,6 @@ struct Camera
     void move_camera(f32 delta_time, Direction direction);
     void update_front_vector(f32 x_offset, f32 y_offset);
     void set_position(f32vec3 new_position);
-    void parse_view_file(const std::string file_path);
     [[nodiscard]] auto get_camera_position() const -> f32vec3;
     [[nodiscard]] auto get_view_matrix() const -> f32mat4x4;
     [[nodiscard]] auto get_projection_matrix(const GetProjectionInfo & info) const -> f32mat4x4;
@@ -78,8 +76,6 @@ struct Camera
         glm::vec3 front;
         glm::vec3 up;
         f32 pitch;
-        f32 yaw;
-        f32 roll;
         f32 speed;
         f32 sensitivity;
         f32 roll_sensitivity;

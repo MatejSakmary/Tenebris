@@ -38,7 +38,7 @@ struct Images
             case TRANSMITTANCE:     return "Transmittance";
             case MULTISCATTERING:   return "Multiscattering";
             case SKYVIEW:           return "Skyview";
-            case SWAPCHAIN:         return "Swaphcain";
+            case SWAPCHAIN:         return "Swapchain";
             case OFFSCREEN:         return "Offscreen";
             case DEPTH:             return "Depth";
             case END:               throw std::runtime_error("[get_image_name()] Invalid enum");
@@ -50,13 +50,6 @@ struct Images
 
 struct Context
 {
-    struct PoissonPointsInfo
-    {
-        i32 max_points;
-        i32 dispatch_size;
-        i32vec2 texture_size;
-    };
-
     struct Buffers
     {
         template<typename T>

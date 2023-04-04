@@ -100,13 +100,13 @@ inline auto generate_poisson_points(const GeneratePointsInfo & info) -> std::vec
     const i32 cell_count = static_cast<i32>(std::ceil(1.0f/ cell_size));
     Grid grid = Grid(cell_count, cell_size);
 
-    f32vec2 first_point = f32vec2{dis(generator), dis(generator)};
+    auto first_point = f32vec2{dis(generator), dis(generator)};
     process_list.push_back(first_point);
     sample_points.push_back(first_point);
 
     while(!process_list.empty() && sample_points.size() <= real_num_points)
     {
-        const i32 idx = static_cast<i32>(dis(generator) * process_list.size());
+        const i32 idx = static_cast<i32>(dis(generator) * static_cast<f32>(process_list.size()));
 
         f32vec2 point = process_list.at(idx);
         process_list.at(idx) = process_list.at(process_list.size() - 1);

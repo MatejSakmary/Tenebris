@@ -12,10 +12,8 @@ Camera::Camera(const CameraInfo & info) :
     fov{info.fov},
     speed{1.0f},
     pitch{0.0f},
-    yaw{-90.0f},
-    sensitivity{0.08f}, 
-    roll_sensitivity{20.0f},
-    roll{0.0f}
+    sensitivity{0.08f},
+    roll_sensitivity{20.0f}
 {
 }
 
@@ -54,7 +52,7 @@ void Camera::move_camera(f32 delta_time, Direction direction)
         break;
     
     default:
-        DEBUG_OUT("[Camera::move_camera()] Unkown enum value");
+        DEBUG_OUT("[Camera::move_camera()] Unknown enum value");
         break;
     }
 }
@@ -68,7 +66,7 @@ void Camera::update_front_vector(f32 x_offset, f32 y_offset)
 
     const f32 MAX_PITCH_ANGLE = 179.0f;
     const f32 MIN_PITCH_ANGLE = 1.0f;
-    if (pitch < MIN_PITCH_ANGLE || pitch > MAX_PITCH_ANGLE ) 
+    if (pitch < MIN_PITCH_ANGLE || pitch > MAX_PITCH_ANGLE )
     {
         return;
     }
@@ -101,14 +99,6 @@ auto Camera::get_inv_view_proj_matrix(const GetProjectionInfo & info) const -> f
     proj_mat[1][1] *= -1;
 
     auto inv_proj_view_mat = glm::inverse(proj_mat * view_mat);
-
-    auto [forw, top, right] = get_frustum_info();
-    auto clip_space = glm::vec3(glm::vec2(1.0, 1.0) * glm::vec2(2.0) - glm::vec2(1.0), 1.0);
-    auto h_pos = inv_proj_view_mat * glm::vec4(clip_space, 1.0);
-
-    auto world_dir = glm::normalize(glm::vec3(h_pos/h_pos.w) - position); 
-    auto frust = forw + top + right; 
-    glm::vec3 frust_ = glm::normalize(glm::vec3(frust.x, frust.y, frust.z));
 
     return mat_from_span<f32, 4, 4>(std::span<f32, 4 * 4>{ glm::value_ptr(inv_proj_view_mat), 4 * 4 });
 }

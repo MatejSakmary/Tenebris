@@ -6,8 +6,7 @@
 #include "../context.hpp"
 #include "../shared/shared.inl"
 
-inline auto get_draw_far_sky_pipeline(const Context & context) -> daxa::RasterPipelineCompileInfo
-{
+inline auto get_draw_far_sky_pipeline() -> daxa::RasterPipelineCompileInfo {
     return {
         .vertex_shader_info = daxa::ShaderCompileInfo{ .source = daxa::ShaderFile{"screen_triangle.glsl"} },
         .fragment_shader_info = daxa::ShaderCompileInfo{ .source = daxa::ShaderFile{"draw_far_sky.glsl"} },
