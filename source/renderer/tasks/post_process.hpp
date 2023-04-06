@@ -18,7 +18,7 @@ inline auto get_post_process_pipeline(const Context & context) -> daxa::RasterPi
             .face_culling = daxa::FaceCullFlagBits::BACK_BIT,
         },
         .push_constant_size = sizeof(PostProcessPC),
-        .debug_name = "post process pipeline"
+        .name = "post process pipeline"
     };
 }
 
@@ -48,7 +48,7 @@ inline void task_post_process(Context & context)
 
             cmd_list.begin_renderpass({
                 .color_attachments = {{
-                    .image_view = swapchain_image.default_view(),
+                    .image_view = {swapchain_image.default_view()},
                     .load_op = daxa::AttachmentLoadOp::CLEAR,
                     .clear_value = std::array<f32, 4>{1.0, 1.0, 0.0, 1.0}
                 }},
@@ -58,12 +58,12 @@ inline void task_post_process(Context & context)
 
             cmd_list.set_pipeline(*context.pipelines.post_process);
             cmd_list.push_constant(PostProcessPC{
-                .offscreen_id = offscreen_image.default_view(),
+                .offscreen_id = {offscreen_image.default_view()},
                 .sampler_id = context.linear_sampler
             });
             cmd_list.draw({.vertex_count = 3});
             cmd_list.end_renderpass();
         },
-        .debug_name = "post process",
+        .name = "post process",
     });
 }

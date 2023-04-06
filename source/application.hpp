@@ -8,6 +8,7 @@ using namespace daxa::types;
 #include "gui_state.hpp"
 #include "window.hpp"
 #include "camera.hpp"
+#include "renderer/texture_manager.hpp"
 
 static constexpr i32vec2 INIT_WINDOW_DIMENSIONS = {1920, 1080};
 

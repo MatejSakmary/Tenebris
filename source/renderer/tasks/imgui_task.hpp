@@ -26,6 +26,6 @@ inline void task_draw_imgui(Context & context)
                 ImGui::GetDrawData(), cmd_list, swapchain_image,
                 swapchain_image_dimensions.x, swapchain_image_dimensions.y);
         },
-        .debug_name = "Imgui Task",
+        .name = "Imgui Task",
     });
 }

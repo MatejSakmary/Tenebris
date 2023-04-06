@@ -80,6 +80,7 @@ void Application::key_callback(i32 key, i32 code, i32 action, i32 mods)
 
 void update_input()
 {
+
 }
 
 Application::Application() : 
@@ -108,7 +109,8 @@ Application::Application() :
     renderer.upload_planet_geometry(geometry);
     renderer.resize_LUT(Images::TRANSMITTANCE, state.gui_state.lut_dimensions.at(Images::TRANSMITTANCE)); 
     renderer.resize_LUT(Images::MULTISCATTERING, state.gui_state.lut_dimensions.at(Images::MULTISCATTERING)); 
-    renderer.resize_LUT(Images::SKYVIEW, state.gui_state.lut_dimensions.at(Images::SKYVIEW)); 
+    renderer.resize_LUT(Images::SKYVIEW, state.gui_state.lut_dimensions.at(Images::SKYVIEW));
+
 }
 
 void Application::ui_update()

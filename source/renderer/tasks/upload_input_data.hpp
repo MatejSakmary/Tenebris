@@ -30,7 +30,7 @@ inline void task_upload_input_data(Context & context)
             auto staging_atmosphere_parameters_gpu_buffer = context.device.create_buffer({
                 .memory_flags = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
                 .size = sizeof(AtmosphereParameters),
-                .debug_name = "staging atmosphere gpu buffer"
+                .name = "staging atmosphere gpu buffer"
             });
             // copy data into staging buffer
             auto buffer_ptr = context.device.get_host_address_as<AtmosphereParameters>(staging_atmosphere_parameters_gpu_buffer);
@@ -47,7 +47,7 @@ inline void task_upload_input_data(Context & context)
             auto staging_camera_parameters_gpu_buffer = context.device.create_buffer({
                 .memory_flags = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
                 .size = sizeof(CameraParameters),
-                .debug_name = "staging camera gpu buffer"
+                .name = "staging camera gpu buffer"
             });
             // copy data into staging buffer
             auto buffer_ptr_ = context.device.get_host_address_as<CameraParameters>(staging_camera_parameters_gpu_buffer);
@@ -61,7 +61,7 @@ inline void task_upload_input_data(Context & context)
             // destroy the staging buffer after the copy is done
             cmd_list.destroy_buffer_deferred(staging_camera_parameters_gpu_buffer);
         },
-        .debug_name = "upload atmosphere and camera params"
+        .name = "upload atmosphere and camera params"
     });
 
     context.main_task_list.task_list.conditional({
@@ -90,7 +90,7 @@ inline void task_upload_input_data(Context & context)
                     auto staging_vertices_gpu_buffer = context.device.create_buffer({
                         .memory_flags = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
                         .size = vertex_buffer_size,
-                        .debug_name = "staging vertices gpu buffer"
+                        .name = "staging vertices gpu buffer"
                     });
                     auto * vertices_buffer_ptr = context.device.get_host_address_as<TerrainVertex>(staging_vertices_gpu_buffer);
                     memcpy(vertices_buffer_ptr, context.buffers.terrain_vertices.cpu_buffer.data(), vertex_buffer_size);
@@ -106,7 +106,7 @@ inline void task_upload_input_data(Context & context)
                     auto staging_indices_gpu_buffer = context.device.create_buffer({
                         .memory_flags = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
                         .size = index_buffer_size,
-                        .debug_name = "staging index gpu buffer"
+                        .name = "staging index gpu buffer"
                     });
                     auto indices_buffer_ptr = context.device.get_host_address_as<TerrainIndex>(staging_indices_gpu_buffer);
                     memcpy(indices_buffer_ptr, context.buffers.terrain_indices.cpu_buffer.data(), index_buffer_size);
@@ -118,7 +118,7 @@ inline void task_upload_input_data(Context & context)
                     cmd_list.destroy_buffer_deferred(staging_indices_gpu_buffer);
                     context.conditionals.at(Context::Conditionals::COPY_PLANET_GEOMETRY) = false;
                 },
-                .debug_name = "upload terrain geometry data"
+                .name = "upload terrain geometry data"
             });
         },
     });

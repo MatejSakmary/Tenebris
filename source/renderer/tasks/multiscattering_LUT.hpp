@@ -14,7 +14,7 @@ inline auto get_multiscattering_LUT_pipeline() -> daxa::ComputePipelineCompileIn
             .compile_options = {}
         },
         .push_constant_size = sizeof(MultiscatteringPC),
-        .debug_name = "compute multiscattering LUT pipeline"
+        .name = "compute multiscattering LUT pipeline"
     };
 }
 
@@ -52,14 +52,14 @@ inline void task_compute_multiscattering_LUT(Context & context)
             auto multiscattering_dimensions = context.device.info_image(multiscattering_image).size;
             cmd_list.set_pipeline(*context.pipelines.multiscattering);
             cmd_list.push_constant(MultiscatteringPC{
-                .transmittance_image = transmittance_image.default_view(),
-                .multiscattering_image = multiscattering_image.default_view(),
+                .transmittance_image = {transmittance_image.default_view()},
+                .multiscattering_image = {multiscattering_image.default_view()},
                 .multiscattering_dimensions = {multiscattering_dimensions.x, multiscattering_dimensions.y},
                 .sampler_id = context.linear_sampler,
                 .atmosphere_parameters = context.device.get_device_address(atmosphere_gpu_buffer)
             });
             cmd_list.dispatch(multiscattering_dimensions.x, multiscattering_dimensions.y);
         },
-        .debug_name = "render_multiscattering"
+        .name = "render_multiscattering"
     });
 }

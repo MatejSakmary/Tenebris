@@ -24,7 +24,7 @@ inline auto get_draw_far_sky_pipeline() -> daxa::RasterPipelineCompileInfo {
             .face_culling = daxa::FaceCullFlagBits::BACK_BIT,
         },
         .push_constant_size = sizeof(DrawSkyPC),
-        .debug_name = "far sky pipeline"
+        .name = "far sky pipeline"
     };
 }
 
@@ -77,12 +77,12 @@ inline void task_draw_far_sky(Context & context)
             cmd_list.begin_renderpass({
                 .color_attachments = 
                 {{
-                    .image_view = offscreen_image.default_view(),
+                    .image_view = {offscreen_image.default_view()},
                     .load_op = daxa::AttachmentLoadOp::LOAD
                 }},
                 .depth_attachment = 
                 {{
-                    .image_view = depth_image.default_view(),
+                    .image_view = {depth_image.default_view()},
                     .layout = daxa::ImageLayout::ATTACHMENT_OPTIMAL,
                     .load_op = daxa::AttachmentLoadOp::LOAD,
                     .store_op = daxa::AttachmentStoreOp::STORE,
@@ -92,7 +92,7 @@ inline void task_draw_far_sky(Context & context)
 
             cmd_list.set_pipeline(*context.pipelines.draw_far_sky);
             cmd_list.push_constant(DrawSkyPC{
-                .skyview_image = skyview_image.default_view(),
+                .skyview_image = {skyview_image.default_view()},
                 .sampler_id = context.linear_sampler,
                 .skyview_dimensions = {skyview_dimensions.x, skyview_dimensions.y},
                 .atmosphere_parameters = context.device.get_device_address(atmosphere_gpu_buffer),
@@ -101,6 +101,6 @@ inline void task_draw_far_sky(Context & context)
             cmd_list.draw({.vertex_count = 3});
             cmd_list.end_renderpass();
         },
-        .debug_name = "draw far sky",
+        .name = "draw far sky",
     });
 }

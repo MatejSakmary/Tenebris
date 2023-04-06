@@ -12,6 +12,7 @@
 #include "../camera.hpp"
 #include "shared/shared.inl"
 #include "context.hpp"
+#include "texture_manager.hpp"
 
 #include "../terrain_gen/planet_generator.hpp"
 
@@ -37,7 +38,11 @@ struct Renderer
     void upload_planet_geometry(const PlanetGeometry & geometry);
     void resize_LUT(Images::ID id, i32vec3 new_size);
 
+    // TODO(msakmary) add get mapped pointer function
+    void get_staging_memory_pointer();
+
     private:
+        TextureManager manager;
         Context context;
 
         void create_main_tasklist();

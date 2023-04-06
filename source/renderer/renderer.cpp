@@ -8,7 +8,7 @@
 Renderer::Renderer(const AppWindow & window) :
     context { .daxa_context{daxa::create_context({.enable_validation = false})} }
 {
-    context.device = context.daxa_context.create_device({ .debug_name = "Daxa device" });
+    context.device = context.daxa_context.create_device({ .name = "Daxa device" });
 
     context.swapchain = context.device.create_swapchain({ 
         .native_window = window.get_native_handle(),
@@ -19,7 +19,7 @@ Renderer::Renderer(const AppWindow & window) :
 #endif
         .present_mode = daxa::PresentMode::FIFO,
         .image_usage = daxa::ImageUsageFlagBits::TRANSFER_DST | daxa::ImageUsageFlagBits::COLOR_ATTACHMENT,
-        .debug_name = "Swapchain",
+        .name = "Swapchain",
     });
 
     context.pipeline_manager = daxa::PipelineManager({
@@ -34,7 +34,17 @@ Renderer::Renderer(const AppWindow & window) :
             },
             .language = daxa::ShaderLanguage::GLSL,
         },
-        .debug_name = "Pipeline Compiler",
+        .name = "Pipeline Compiler",
+    });
+
+    // TODO(msakmary) Move the device pass into texture manager constructor
+    auto diffuse_handle = manager.load_texture({
+        .path = "assets/terrain/rugged_terrain_diffuse.exr",
+        .device = context.device
+    });
+    auto height_handle = manager.load_texture({
+        .path = "assets/terrain/rugged_terrain_height.exr",
+        .device = context.device
     });
 
     context.conditionals.at(Context::Conditionals::COPY_PLANET_GEOMETRY) = false;
@@ -128,13 +138,13 @@ void Renderer::upload_planet_geometry(const PlanetGeometry & geometry)
     context.buffers.terrain_vertices.gpu_buffer = context.device.create_buffer({
         .memory_flags = daxa::MemoryFlagBits::DEDICATED_MEMORY,
         .size = static_cast<u32>(sizeof(TerrainVertex) * context.buffers.terrain_vertices.cpu_buffer.size()),
-        .debug_name = "terrain vertices",
+        .name = "terrain vertices",
     });
 
     context.buffers.terrain_indices.gpu_buffer = context.device.create_buffer({
         .memory_flags = daxa::MemoryFlagBits::DEDICATED_MEMORY,
         .size = static_cast<u32>(sizeof(TerrainIndex) * context.buffers.terrain_indices.cpu_buffer.size()),
-        .debug_name = "terrain indices",
+        .name = "terrain indices",
     });
 
     context.main_task_list.task_list.add_runtime_buffer(
@@ -222,7 +232,7 @@ void Renderer::resize_LUT(Images::ID id, i32vec3 new_size)
         .sample_count = 1,
         .usage = daxa::ImageUsageFlagBits::SHADER_READ_ONLY | daxa::ImageUsageFlagBits::SHADER_READ_WRITE,
         .memory_flags = daxa::MemoryFlagBits::DEDICATED_MEMORY,
-        .debug_name = Images::get_image_name(id).data()
+        .name = Images::get_image_name(id).data()
     });
 
     context.main_task_list.task_list.add_runtime_image(
@@ -270,7 +280,7 @@ void Renderer::create_resolution_dependent_resources()
             daxa::ImageUsageFlagBits::SHADER_READ_WRITE |
             daxa::ImageUsageFlagBits::COLOR_ATTACHMENT,
         .memory_flags = daxa::MemoryFlagBits::DEDICATED_MEMORY,
-        .debug_name = Images::get_image_name(Images::OFFSCREEN).data()
+        .name = Images::get_image_name(Images::OFFSCREEN).data()
     });
 
     context.images.at(Images::DEPTH) = context.device.create_image({
@@ -278,7 +288,7 @@ void Renderer::create_resolution_dependent_resources()
         .aspect = daxa::ImageAspectFlagBits::DEPTH,
         .size = {extent.x, extent.y, 1},
         .usage = daxa::ImageUsageFlagBits::DEPTH_STENCIL_ATTACHMENT,
-        .debug_name = "debug image"
+        .name = "debug image"
     });
 
     context.main_task_list.task_list.add_runtime_image(
@@ -294,12 +304,12 @@ void Renderer::create_resolution_independent_resources()
 {
     context.buffers.atmosphere_parameters.gpu_buffer = context.device.create_buffer(daxa::BufferInfo{
         .size = sizeof(AtmosphereParameters),
-        .debug_name = "atmosphere parameters",
+        .name = "atmosphere parameters",
     });
 
     context.buffers.camera_parameters.gpu_buffer = context.device.create_buffer(daxa::BufferInfo{
         .size = sizeof(CameraParameters),
-        .debug_name = "camera parameters"
+        .name = "camera parameters"
     });
 
     f32 mie_scale_height = 1.2f;
@@ -369,9 +379,9 @@ void Renderer::create_main_tasklist()
     {
         context.main_task_list.task_images.at(id) = 
             context.main_task_list.task_list.create_task_image({
-                .initial_access = {},
+                .pre_task_list_slice_states = {},
                 .swapchain_image = (id == Images::SWAPCHAIN),
-                .debug_name = std::string("task").append(Images::get_image_name(id))
+                .name = std::string("task").append(Images::get_image_name(id))
             });
     };
 
@@ -382,7 +392,7 @@ void Renderer::create_main_tasklist()
         .swapchain = context.swapchain,
         .jit_compile_permutations = true,
         .permutation_condition_count = Context::Conditionals::COUNT,
-        .debug_name = "main task list"
+        .name = "main task list"
     });
 
     for(i32 i = Images::BEGIN; i < Images::IMAGE_COUNT; i++)
@@ -393,28 +403,24 @@ void Renderer::create_main_tasklist()
     // TASK BUFFERS
     context.main_task_list.task_buffers.t_terrain_indices = 
         context.main_task_list.task_list.create_task_buffer({
-            .initial_access = daxa::AccessConsts::NONE,
-            .debug_name = "terrain_indices"
+            .name = "terrain_indices"
     });
 
     context.main_task_list.task_buffers.t_terrain_vertices = 
         context.main_task_list.task_list.create_task_buffer({
-            .initial_access = daxa::AccessConsts::NONE,
-            .debug_name = "terrain_vertices"
+            .name = "terrain_vertices"
     });
     
     context.main_task_list.task_buffers.t_atmosphere_parameters = 
         context.main_task_list.task_list.create_task_buffer({
-            .initial_access = daxa::AccessConsts::NONE,
-            .debug_name = "atmosphere parameters"
+            .name = "atmosphere parameters"
     });
 
     context.main_task_list.task_list.add_runtime_buffer( context.main_task_list.task_buffers.t_atmosphere_parameters, context.buffers.atmosphere_parameters.gpu_buffer);
 
     context.main_task_list.task_buffers.t_camera_parameters = 
         context.main_task_list.task_list.create_task_buffer({
-            .initial_access = daxa::AccessConsts::NONE,
-            .debug_name = "camera parameters"
+            .name = "camera parameters"
     });
 
     context.main_task_list.task_list.add_runtime_buffer(

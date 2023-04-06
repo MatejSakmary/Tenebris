@@ -14,7 +14,7 @@ inline auto get_skyview_LUT_pipeline() -> daxa::ComputePipelineCompileInfo
             .compile_options = {}
         },
         .push_constant_size = sizeof(SkyviewPC),
-        .debug_name = "compute skyview LUT pipeline"
+        .name = "compute skyview LUT pipeline"
     };
 }
 
@@ -65,9 +65,9 @@ inline void task_compute_skyview_LUT(Context & context)
 
             cmd_list.set_pipeline(*context.pipelines.skyview);
             cmd_list.push_constant(SkyviewPC{
-                .transmittance_image = transmittance_image.default_view(),
-                .multiscattering_image = multiscattering_image.default_view(),
-                .skyview_image = skyview_image.default_view(),
+                .transmittance_image = {transmittance_image.default_view()},
+                .multiscattering_image = {multiscattering_image.default_view()},
+                .skyview_image = {skyview_image.default_view()},
                 .skyview_dimensions = {skyview_dimensions.x, skyview_dimensions.y},
                 .multiscattering_dimensions = {multiscattering_dimensions.x, multiscattering_dimensions.y},
                 .sampler_id = context.linear_sampler,
@@ -76,6 +76,6 @@ inline void task_compute_skyview_LUT(Context & context)
             });
             cmd_list.dispatch((skyview_dimensions.x + 7)/8, ((skyview_dimensions.y + 3)/4));
         },
-        .debug_name = "render_skyview"
+        .name = "render_skyview"
     });
 }

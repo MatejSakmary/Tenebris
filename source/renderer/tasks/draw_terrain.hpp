@@ -26,7 +26,7 @@ inline auto get_draw_terrain_pipeline() -> daxa::RasterPipelineCompileInfo {
         },
         .tesselation = { .control_points = 3 },
         .push_constant_size = sizeof(DrawTerrainPC),
-        .debug_name = "terrain pipeline"
+        .name = "terrain pipeline"
     };
 }
 
@@ -76,13 +76,13 @@ inline void task_draw_terrain(Context & context)
             cmd_list.begin_renderpass({
                 .color_attachments = 
                 {{
-                    .image_view = offscreen_image.default_view(),
+                    .image_view = {offscreen_image.default_view()},
                     .load_op = daxa::AttachmentLoadOp::CLEAR,
                     .clear_value = std::array<f32, 4>{0.0, 0.0, 0.0, 1.0}
                 }},
                 .depth_attachment = 
                 {{
-                    .image_view = depth_image.default_view(),
+                    .image_view = {depth_image.default_view()},
                     .layout = daxa::ImageLayout::ATTACHMENT_OPTIMAL,
                     .load_op = daxa::AttachmentLoadOp::CLEAR,
                     .store_op = daxa::AttachmentStoreOp::STORE,
@@ -106,6 +106,6 @@ inline void task_draw_terrain(Context & context)
             cmd_list.draw_indexed({.index_count = u32(context.buffers.terrain_indices.cpu_buffer.size())});
             cmd_list.end_renderpass();
         },
-        .debug_name = "draw terrain",
+        .name = "draw terrain",
     });
 }
