@@ -85,10 +85,11 @@ void Renderer::update(const GuiState & state)
     auto &atmosphere_parameters = context.buffers.atmosphere_parameters.cpu_buffer;
     atmosphere_parameters.sun_direction =
     {
-        glm::cos(glm::radians(state.sun_angle.x)) * glm::sin(glm::radians(state.sun_angle.y)),
-        glm::sin(glm::radians(state.sun_angle.x)) * glm::sin(glm::radians(state.sun_angle.y)),
-        glm::cos(glm::radians(state.sun_angle.y))
+        f32(glm::cos(glm::radians(state.sun_angle.x)) * glm::sin(glm::radians(state.sun_angle.y))),
+        f32(glm::sin(glm::radians(state.sun_angle.x)) * glm::sin(glm::radians(state.sun_angle.y))),
+        f32(glm::cos(glm::radians(state.sun_angle.y)))
     };
+
     atmosphere_parameters.atmosphere_bottom = state.atmosphere_bottom;
     atmosphere_parameters.atmosphere_top = state.atmosphere_top;
     atmosphere_parameters.mie_scale_height = state.mie_scale_height;
@@ -427,6 +428,22 @@ void Renderer::create_main_tasklist()
         context.main_task_list.task_buffers.t_camera_parameters,
         context.buffers.camera_parameters.gpu_buffer);
 
+
+    auto skyview_image = runtime.get_images(context.main_task_list.task_images.at(Images::SKYVIEW))[0];
+    auto offscreen_image = runtime.get_images(context.main_task_list.task_images.at(Images::OFFSCREEN))[0];
+    auto depth_image = runtime.get_images(context.main_task_list.task_images.at(Images::DEPTH))[0];
+
+    auto atmosphere_gpu_buffer = runtime.get_buffers(context.main_task_list.task_buffers.t_atmosphere_parameters)[0];
+    auto camera_gpu_buffer = runtime.get_buffers(context.main_task_list.task_buffers.t_camera_parameters)[0];
+    context.main_task_list.task_list.add_task(DrawFarSkyTask{
+        .uses{
+            ._atmosphere_parameters = context.main_task_list.task_buffers.t_atmosphere_parameters.handle(),
+            ._camera_parameters = context.main_task_list.task_buffers.t_camera_parameters.handle(),
+            ._offscreen = context.main_task_list.task_images.at(Images::OFFSCREEN).handle(),
+            ._depth = context.main_task_list.task_images.at(Images::DEPTH).handle(),
+            ._skyview = context.main_task_list.task_images.at(Images::SKYVIEW).handle()
+        }
+    });
     task_upload_input_data(context);
     task_compute_transmittance_LUT(context);
     task_compute_multiscattering_LUT(context);

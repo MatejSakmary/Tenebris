@@ -21,7 +21,7 @@
 #include "tasks/multiscattering_LUT.hpp"
 #include "tasks/skyview_LUT.hpp"
 #include "tasks/draw_terrain.hpp"
-#include "tasks/draw_far_sky.hpp"
+#include "tasks/draw_far_sky.inl"
 #include "tasks/post_process.hpp"
 #include "tasks/imgui_task.hpp"
 

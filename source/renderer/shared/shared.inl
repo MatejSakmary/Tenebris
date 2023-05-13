@@ -102,15 +102,6 @@ struct DrawTerrainPC
     daxa_i32 max_tess_level;
 };
 
-struct DrawSkyPC
-{
-    daxa_Image2Df32 skyview_image;
-    daxa_SamplerId sampler_id;
-    daxa_u32vec2 skyview_dimensions;
-    daxa_BufferPtr(AtmosphereParameters) atmosphere_parameters;
-    daxa_BufferPtr(CameraParameters) camera_parameters;
-};
-
 struct PostProcessPC
 {
     daxa_Image2Df32 offscreen_id;

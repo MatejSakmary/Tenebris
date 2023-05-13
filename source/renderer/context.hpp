@@ -79,13 +79,13 @@ struct Context
     {
         struct Buffers
         {
-            daxa::TaskBufferId t_atmosphere_parameters;
-            daxa::TaskBufferId t_camera_parameters;
-            daxa::TaskBufferId t_terrain_vertices;
-            daxa::TaskBufferId t_terrain_indices;
+            daxa::TaskBuffer t_atmosphere_parameters;
+            daxa::TaskBuffer t_camera_parameters;
+            daxa::TaskBuffer t_terrain_vertices;
+            daxa::TaskBuffer t_terrain_indices;
         } task_buffers;
 
-        std::array<daxa::TaskImageId, Images::IMAGE_COUNT> task_images;
+        std::array<daxa::TaskImage, Images::IMAGE_COUNT> task_images;
         daxa::TaskList task_list;
     };
 
