@@ -13,7 +13,6 @@
 using namespace std::literals;
 struct Images
 {
-    // TODO(msakmary) I don't really like this that much - rethink
     enum ID
     {
         BEGIN = 0,

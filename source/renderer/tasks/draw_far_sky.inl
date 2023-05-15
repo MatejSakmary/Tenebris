@@ -14,9 +14,9 @@ struct DrawSkyPC
 DAXA_INL_TASK_USE_BEGIN(DrawFarSkyTaskBase, DAXA_CBUFFER_SLOT_0)
 DAXA_INL_TASK_USE_BUFFER(_atmosphere_parameters, daxa_BufferPtr(AtmosphereParameters), FRAGMENT_SHADER_READ)
 DAXA_INL_TASK_USE_BUFFER(_camera_parameters, daxa_BufferPtr(CameraParameters), FRAGMENT_SHADER_READ)
-DAXA_INL_TASK_USE_IMAGE(_offscreen, daxa_RWImage2Df16, COLOR_ATTACHMENT)
+DAXA_INL_TASK_USE_IMAGE(_offscreen, daxa_RWImage2Df32, COLOR_ATTACHMENT)
 DAXA_INL_TASK_USE_IMAGE(_depth, daxa_RWImage2Df32, DEPTH_ATTACHMENT)
-DAXA_INL_TASK_USE_IMAGE(_skyview, daxa_RWImage2Df16, FRAGMENT_SHADER_READ)
+DAXA_INL_TASK_USE_IMAGE(_skyview, daxa_RWImage2Df32, FRAGMENT_SHADER_READ)
 DAXA_INL_TASK_USE_END()
 
 #if __cplusplus
@@ -54,6 +54,7 @@ struct DrawFarSkyTask : DrawFarSkyTaskBase
         auto swapchain_dimensions = context->swapchain.get_surface_extent();
         auto skyview_dimensions = context->device.info_image(uses._skyview.image()).size;
 
+        cmd_list.set_constant_buffer(ti.uses.constant_buffer_set_info());
         cmd_list.begin_renderpass({
             .color_attachments = 
             {{
