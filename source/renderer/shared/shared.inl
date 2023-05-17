@@ -62,48 +62,4 @@ struct TerrainIndex
 };
 DAXA_ENABLE_BUFFER_PTR(TerrainIndex)
 
-struct TransmittancePC
-{
-    daxa_RWImage2Df32 transmittance_image;
-    daxa_u32vec2 dimensions;
-    daxa_BufferPtr(AtmosphereParameters) atmosphere_parameters;
-};
 
-struct MultiscatteringPC
-{
-    daxa_Image2Df32 transmittance_image;
-    daxa_RWImage2Df32 multiscattering_image;
-    daxa_u32vec2 multiscattering_dimensions;
-    daxa_SamplerId sampler_id;
-    daxa_BufferPtr(AtmosphereParameters) atmosphere_parameters;
-};
-
-struct SkyviewPC
-{
-    daxa_Image2Df32 transmittance_image;
-    daxa_Image2Df32 multiscattering_image;
-    daxa_RWImage2Df32 skyview_image;
-    daxa_u32vec2 skyview_dimensions;
-    daxa_u32vec2 multiscattering_dimensions;
-    daxa_SamplerId sampler_id;
-    daxa_BufferPtr(AtmosphereParameters) atmosphere_parameters;
-    daxa_BufferPtr(CameraParameters) camera_parameters;
-};
-
-struct DrawTerrainPC
-{
-    daxa_BufferPtr(TerrainVertex) vertices;
-    daxa_BufferPtr(CameraParameters) camera_parameters;
-    daxa_f32vec3 terrain_scale;
-    daxa_f32 delta;
-    daxa_f32 min_depth;
-    daxa_f32 max_depth;
-    daxa_i32 min_tess_level;
-    daxa_i32 max_tess_level;
-};
-
-struct PostProcessPC
-{
-    daxa_Image2Df32 offscreen_id;
-    daxa_SamplerId sampler_id;
-};

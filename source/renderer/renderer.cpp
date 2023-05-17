@@ -168,7 +168,7 @@ void Renderer::draw(const Camera & camera)
     context.buffers.camera_parameters.cpu_buffer.inv_view_projection = camera.get_inv_view_proj_matrix(info); 
     context.buffers.camera_parameters.cpu_buffer.camera_position = camera.get_camera_position();
 
-    context.main_task_list.task_images.at(Images::SWAPCHAIN).set_images({{ &context.swapchain.acquire_next_image(), 1 }});
+    context.main_task_list.task_images.at(Images::SWAPCHAIN).set_images({std::array{context.swapchain.acquire_next_image()}});
 
     if(!context.device.is_id_valid(context.images.at(Images::SWAPCHAIN)))
     {
@@ -373,24 +373,106 @@ void Renderer::create_main_tasklist()
         .initial_buffers = {.buffers = {&context.buffers.camera_parameters.gpu_buffer, 1}},
         .name = "camera_parameters" 
     }};
+    
+    /* ============================================================================================================ */
+    /* ===============================================  TASKS  ==================================================== */
+    /* ============================================================================================================ */
 
-    context.main_task_list.task_list.add_task(DrawFarSkyTask{{ 
-        .uses = 
+    /* =========================================== UPDATE ATMO, CAMERA PARAMS ===================================== */
+    context.main_task_list.task_list.add_task(UpdateParametersTask{{
+        .uses = {
+            ._atmosphere_parameters = context.main_task_list.task_buffers.t_atmosphere_parameters.handle(),
+            ._camera_parameters = context.main_task_list.task_buffers.t_camera_parameters.handle(),
+        }},
+        &context
+    });
+
+    /* =========================================== UPDATE TERRAIN GEOMETRY ======================================== */
+    context.main_task_list.task_list.conditional({
+        .condition_index = 0,
+        .when_true = [&]()
         {
+            context.main_task_list.task_list.add_task(UpdateGeometryTask{{
+                .uses = {
+                    ._terrain_vertices = context.main_task_list.task_buffers.t_terrain_vertices.handle(),
+                    ._terrain_indices = context.main_task_list.task_buffers.t_terrain_indices.handle(),
+                }},
+                &context
+            });
+        }
+    });
+
+    /* =========================================== COMPUTE TRANSMITTANCE ========================================== */
+    context.main_task_list.task_list.add_task(ComputeTransmittanceTask{{
+        .uses = {
+            ._atmosphere_parameters = context.main_task_list.task_buffers.t_atmosphere_parameters.handle(),
+            ._transmittance_LUT = context.main_task_list.task_images.at(Images::TRANSMITTANCE).handle(),
+        }},
+        &context
+    });
+
+    /* =========================================== COMPUTE MULTISCATTERING ======================================== */
+    context.main_task_list.task_list.add_task(ComputeMultiscatteringTask{{
+        .uses = {
+            ._atmosphere_parameters = context.main_task_list.task_buffers.t_atmosphere_parameters.handle(),
+            ._transmittance_LUT = context.main_task_list.task_images.at(Images::TRANSMITTANCE).handle(),
+            ._multiscattering_LUT = context.main_task_list.task_images.at(Images::MULTISCATTERING).handle(),
+        }},
+        &context
+    });
+
+    /* =========================================== COMPUTE SKYVIEW ================================================ */
+    context.main_task_list.task_list.add_task(ComputeSkyViewTask{{
+        .uses = {
+            ._atmosphere_parameters = context.main_task_list.task_buffers.t_atmosphere_parameters.handle(),
+            ._camera_parameters = context.main_task_list.task_buffers.t_camera_parameters.handle(),
+            ._transmittance_LUT = context.main_task_list.task_images.at(Images::TRANSMITTANCE).handle(),
+            ._multiscattering_LUT = context.main_task_list.task_images.at(Images::MULTISCATTERING).handle(),
+            ._skyview_LUT = context.main_task_list.task_images.at(Images::SKYVIEW).handle(),
+        }},
+        &context
+    });
+
+    /* =========================================== DRAW TERRAIN =================================================== */
+    context.main_task_list.task_list.add_task(DrawTerrainTask{{
+        .uses = {
+            ._vertices = context.main_task_list.task_buffers.t_terrain_vertices.handle(),
+            ._indices = context.main_task_list.task_buffers.t_terrain_indices.handle(),
+            ._camera_parameters = context.main_task_list.task_buffers.t_camera_parameters.handle(),
+            ._offscreen = context.main_task_list.task_images.at(Images::OFFSCREEN).handle(),
+            ._depth = context.main_task_list.task_images.at(Images::DEPTH).handle().subslice({.image_aspect = daxa::ImageAspectFlagBits::DEPTH}),
+        }},
+        &context
+    });
+
+    /* =========================================== DRAW FAR SKY =================================================== */
+    context.main_task_list.task_list.add_task(DrawFarSkyTask{{
+        .uses = {
             ._atmosphere_parameters = context.main_task_list.task_buffers.t_atmosphere_parameters.handle(),
             ._camera_parameters = context.main_task_list.task_buffers.t_camera_parameters.handle(),
             ._offscreen = context.main_task_list.task_images.at(Images::OFFSCREEN).handle(),
-            ._depth = context.main_task_list.task_images.at(Images::DEPTH).handle(),
+            ._depth = context.main_task_list.task_images.at(Images::DEPTH).handle().subslice({.image_aspect = daxa::ImageAspectFlagBits::DEPTH}),
             ._skyview = context.main_task_list.task_images.at(Images::SKYVIEW).handle()
-        }
-    }});
-    task_upload_input_data(context);
-    task_compute_transmittance_LUT(context);
-    task_compute_multiscattering_LUT(context);
-    task_compute_skyview_LUT(context);
-    task_draw_terrain(context);
-    task_post_process(context);
-    task_draw_imgui(context);
+        }},
+        &context
+    });
+
+    /* =========================================== POST PROCESS =================================================== */
+    context.main_task_list.task_list.add_task(PostProcessTask{{
+        .uses = {
+            ._swapchain = context.main_task_list.task_images.at(Images::SWAPCHAIN).handle(),
+            ._offscreen = context.main_task_list.task_images.at(Images::OFFSCREEN).handle(),
+        }},
+        &context
+    });
+
+    /* =========================================== IMGUI ========================================================== */
+    context.main_task_list.task_list.add_task(ImGuiTask{{
+        .uses = {
+            ._swapchain = context.main_task_list.task_images.at(Images::SWAPCHAIN).handle(),
+        }},
+        &context
+    });
 
     context.main_task_list.task_list.submit({});
     context.main_task_list.task_list.present({});

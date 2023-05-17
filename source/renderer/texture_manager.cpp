@@ -102,8 +102,8 @@ template <i32 NumElems, typename T, PixelType PixT>
 auto load_texture_data(const CreateStagingBufferInfo & info) -> daxa::BufferId
 {
     auto new_buffer_id = info.device.create_buffer({
-        .memory_flags = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
         .size = info.dimensions.x * info.dimensions.y * NumElems * u32(sizeof(T)),
+        .allocate_info = daxa::AutoAllocInfo{daxa::MemoryFlagBits::HOST_ACCESS_RANDOM},
         .name = info.name
     });
     auto * buffer_ptr = info.device.get_host_address_as<char>(new_buffer_id);

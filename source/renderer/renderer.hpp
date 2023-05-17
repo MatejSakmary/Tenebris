@@ -16,14 +16,14 @@
 
 #include "../terrain_gen/planet_generator.hpp"
 
-#include "tasks/upload_input_data.hpp"
-#include "tasks/transmittance_LUT.hpp"
-#include "tasks/multiscattering_LUT.hpp"
-#include "tasks/skyview_LUT.hpp"
-#include "tasks/draw_terrain.hpp"
+#include "tasks/upload_input_data.inl"
+#include "tasks/transmittance_LUT.inl"
+#include "tasks/multiscattering_LUT.inl"
+#include "tasks/skyview_LUT.inl"
+#include "tasks/draw_terrain.inl"
 #include "tasks/draw_far_sky.inl"
-#include "tasks/post_process.hpp"
-#include "tasks/imgui_task.hpp"
+#include "tasks/post_process.inl"
+#include "tasks/imgui_task.inl"
 
 using namespace daxa::types;
 
