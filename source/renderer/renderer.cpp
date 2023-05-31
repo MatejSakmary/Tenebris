@@ -38,23 +38,42 @@ Renderer::Renderer(const AppWindow & window) :
     });
 
     // TODO(msakmary) Move the device pass into texture manager constructor
-    auto diffuse_handle = manager.load_texture({
-        .path = "assets/terrain/rugged_terrain_diffuse.exr",
-        .device = context.device
-    });
-    auto height_handle = manager.load_texture({
-        .path = "assets/terrain/rugged_terrain_height.exr",
-        .device = context.device
-    });
+    // auto diffuse_handle = manager.load_texture({
+    //     .path = "assets/terrain/rugged_terrain_diffuse.exr",
+    //     .device = context.device
+    // });
+    // auto height_handle = manager.load_texture({
+    //     .path = "assets/terrain/rugged_terrain_height.exr",
+    //     .device = context.device
+    // });
 
     context.conditionals.at(Context::Conditionals::COPY_PLANET_GEOMETRY) = false;
+    auto init_compute_pipeline = [&](daxa::ComputePipelineCompileInfo ci, std::shared_ptr<daxa::ComputePipeline> & pip)
+    {
+        if(auto result = context.pipeline_manager.add_compute_pipeline(ci); result.is_ok())
+        {
+            pip = result.value();
+        } else {
+            DBG_ASSERT_TRUE_M(false, result.to_string());
+        }
+    };
+    
+    auto init_raster_pipeline = [&](daxa::RasterPipelineCompileInfo ci, std::shared_ptr<daxa::RasterPipeline> & pip)
+    {
+        if(auto result = context.pipeline_manager.add_raster_pipeline(ci); result.is_ok())
+        {
+            pip = result.value();
+        } else {
+            DBG_ASSERT_TRUE_M(false, result.to_string());
+        }
+    };
 
-    context.pipelines.transmittance = context.pipeline_manager.add_compute_pipeline(get_transmittance_LUT_pipeline()).value();
-    context.pipelines.multiscattering = context.pipeline_manager.add_compute_pipeline(get_multiscattering_LUT_pipeline()).value();
-    context.pipelines.skyview = context.pipeline_manager.add_compute_pipeline(get_skyview_LUT_pipeline()).value();
-    context.pipelines.draw_terrain = context.pipeline_manager.add_raster_pipeline(get_draw_terrain_pipeline()).value();
-    context.pipelines.draw_far_sky = context.pipeline_manager.add_raster_pipeline(get_draw_far_sky_pipeline()).value();
-    context.pipelines.post_process = context.pipeline_manager.add_raster_pipeline(get_post_process_pipeline(context)).value();
+    init_compute_pipeline(get_transmittance_LUT_pipeline(), context.pipelines.transmittance);
+    init_compute_pipeline(get_multiscattering_LUT_pipeline(), context.pipelines.multiscattering);
+    init_compute_pipeline(get_skyview_LUT_pipeline(), context.pipelines.skyview);
+    init_raster_pipeline(get_draw_terrain_pipeline(), context.pipelines.draw_terrain);
+    init_raster_pipeline(get_draw_far_sky_pipeline(), context.pipelines.draw_far_sky);
+    init_raster_pipeline(get_post_process_pipeline(context), context.pipelines.post_process);
 
     context.linear_sampler = context.device.create_sampler({});
 
@@ -170,7 +189,7 @@ void Renderer::draw(const Camera & camera)
 
     context.main_task_list.task_images.at(Images::SWAPCHAIN).set_images({std::array{context.swapchain.acquire_next_image()}});
 
-    if(!context.device.is_id_valid(context.images.at(Images::SWAPCHAIN)))
+    if(!context.device.is_id_valid(context.main_task_list.task_images.at(Images::SWAPCHAIN).get_state().images[0]))
     {
         DEBUG_OUT("[Renderer::draw()] Got empty image from swapchain");
         return;
@@ -178,7 +197,7 @@ void Renderer::draw(const Camera & camera)
 
     context.main_task_list.task_list.execute({{context.conditionals.data(), context.conditionals.size()}});
     auto result = context.pipeline_manager.reload_all();
-    if(result.value()) 
+    if(result.has_value()) 
     {
         if (result.value().is_ok())
         {
@@ -344,15 +363,18 @@ void Renderer::create_main_tasklist()
             .swapchain_image = (id == Images::SWAPCHAIN),
             .name = std::string("task").append(Images::get_image_name(id))
         }};
+
+        context.main_task_list.task_list.use_persistent_image(context.main_task_list.task_images.at(id));
     };
 
     context.main_task_list.task_list = daxa::TaskList({
         .device = context.device,
+        .swapchain = context.swapchain,
         .reorder_tasks = true,
         .use_split_barriers = true,
-        .swapchain = context.swapchain,
         .jit_compile_permutations = true,
         .permutation_condition_count = Context::Conditionals::COUNT,
+        .staging_memory_pool_size = 4'000'000,
         .name = "main task list"
     });
 
@@ -373,6 +395,11 @@ void Renderer::create_main_tasklist()
         .initial_buffers = {.buffers = {&context.buffers.camera_parameters.gpu_buffer, 1}},
         .name = "camera_parameters" 
     }};
+
+    context.main_task_list.task_list.use_persistent_buffer(context.main_task_list.task_buffers.t_atmosphere_parameters);
+    context.main_task_list.task_list.use_persistent_buffer(context.main_task_list.task_buffers.t_camera_parameters);
+    context.main_task_list.task_list.use_persistent_buffer(context.main_task_list.task_buffers.t_terrain_indices);
+    context.main_task_list.task_list.use_persistent_buffer(context.main_task_list.task_buffers.t_terrain_vertices);
     
     /* ============================================================================================================ */
     /* ===============================================  TASKS  ==================================================== */

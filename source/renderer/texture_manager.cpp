@@ -139,7 +139,7 @@ auto TextureManager::load_texture(const LoadTextureInfo &info) -> ManagedTexture
         data_window.max.x - data_window.min.x + 1,
         data_window.max.y - data_window.min.y + 1
     };
-    ASSERT_MSG(data_window.min.x == 0 && data_window.min.y == 0, "TODO(msakmary) Allocate does not handle this case");
+    DBG_ASSERT_TRUE_M(data_window.min.x == 0 && data_window.min.y == 0, "TODO(msakmary) Allocate does not handle this case");
 
     DEBUG_OUT("=========== Loaded texture header: " << info.path << " ===========");
 

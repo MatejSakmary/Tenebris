@@ -2,9 +2,9 @@
 #define DAXA_ENABLE_IMAGE_OVERLOADS_BASIC 1
 #include <shared/shared.inl>
 #include "common_func.glsl"
+#include "tasks/transmittance_LUT.inl"
 
-DAXA_USE_PUSH_CONSTANT(TransmittancePC)
-daxa_BufferPtr(AtmosphereParameters) params = daxa_push_constant.atmosphere_parameters;
+DAXA_USE_PUSH_CONSTANT(TransmittancePC, pc)
 
 layout (local_size_x = 8, local_size_y = 4) in;
 
@@ -15,7 +15,7 @@ f32vec3 integrate_transmittance(f32vec3 world_position, f32vec3 world_direction,
         world_position,
         world_direction,
         f32vec3(0.0, 0.0, 0.0),
-        deref(params).atmosphere_top);
+        deref(_atmosphere_parameters).atmosphere_top);
 
     f32 integration_step = integration_length / f32(sample_count);
 
@@ -26,7 +26,7 @@ f32vec3 integrate_transmittance(f32vec3 world_position, f32vec3 world_direction,
     {
         /* Move along the world direction ray to new position */
         f32vec3 new_pos = world_position + i * integration_step * world_direction;
-        f32vec3 atmosphere_extinction = sample_medium_extinction(params, new_pos);
+        f32vec3 atmosphere_extinction = sample_medium_extinction(_atmosphere_parameters, new_pos);
         optical_depth += atmosphere_extinction * integration_step;
     }
     return optical_depth;
@@ -34,13 +34,18 @@ f32vec3 integrate_transmittance(f32vec3 world_position, f32vec3 world_direction,
 
 void main()
 {
-    if( gl_GlobalInvocationID.x >= daxa_push_constant.dimensions.x ||
-        gl_GlobalInvocationID.y >= daxa_push_constant.dimensions.y)
+    if( gl_GlobalInvocationID.x >= pc.dimensions.x ||
+        gl_GlobalInvocationID.y >= pc.dimensions.y)
     { return; } 
 
-    f32vec2 uv = f32vec2(gl_GlobalInvocationID.xy) / f32vec2(daxa_push_constant.dimensions.xy);
+    f32vec2 uv = f32vec2(gl_GlobalInvocationID.xy) / f32vec2(pc.dimensions.xy);
 
-    TransmittanceParams mapping = uv_to_transmittance_lut_params(uv, deref(params).atmosphere_bottom, deref(params).atmosphere_top);
+    TransmittanceParams mapping = uv_to_transmittance_lut_params(
+        uv,
+        deref(_atmosphere_parameters).atmosphere_bottom,
+        deref(_atmosphere_parameters).atmosphere_top
+    );
+
     f32vec3 world_position = f32vec3(0.0, 0.0, mapping.height);
     f32vec3 world_direction = f32vec3(
         safe_sqrt(1.0 - mapping.zenith_cos_angle * mapping.zenith_cos_angle),
@@ -50,5 +55,5 @@ void main()
 
     f32vec3 transmittance = exp(-integrate_transmittance(world_position, world_direction, 400));
 
-    imageStore(daxa_push_constant.transmittance_image, i32vec2(gl_GlobalInvocationID.xy), f32vec4(transmittance, 1.0));
+    imageStore(_transmittance_LUT, i32vec2(gl_GlobalInvocationID.xy), f32vec4(transmittance, 1.0));
 }

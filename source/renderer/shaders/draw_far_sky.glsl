@@ -4,10 +4,9 @@
 #define DAXA_ENABLE_IMAGE_OVERLOADS_BASIC 1
 #include <shared/shared.inl>
 #include "common_func.glsl"
+#include "tasks/draw_far_sky.inl"
 
-DAXA_USE_PUSH_CONSTANT(DrawSkyPC)
-daxa_BufferPtr(AtmosphereParameters) atmosphere_params = daxa_push_constant.atmosphere_parameters;
-daxa_BufferPtr(CameraParameters) camera_params = daxa_push_constant.camera_parameters;
+DAXA_USE_PUSH_CONSTANT(DrawSkyPC, pc)
 
 layout (location = 0) in f32vec2 in_uv;
 layout (location = 0) out f32vec4 out_color;
@@ -24,15 +23,15 @@ f32vec3 add_sun_circle(f32vec3 world_dir, f32vec3 sun_dir)
 
 void main() 
 {
-    f32vec3 camera = deref(camera_params).camera_position;
-    f32vec3 sun_direction = normalize(deref(atmosphere_params).sun_direction);
+    f32vec3 camera = deref(_camera_parameters).camera_position;
+    f32vec3 sun_direction = normalize(deref(_atmosphere_parameters).sun_direction);
 
     f32vec2 remap_uv = (in_uv * 2.0) - 1.0;
 
     f32vec3 world_dir = normalize(
-        deref(camera_params).camera_front +
-        remap_uv.x * deref(camera_params).camera_frust_right_offset +
-        remap_uv.y * deref(camera_params).camera_frust_top_offset);
+        deref(_camera_parameters).camera_front +
+        remap_uv.x * deref(_camera_parameters).camera_frust_right_offset +
+        remap_uv.y * deref(_camera_parameters).camera_frust_top_offset);
 
     f32vec3 world_pos = camera;
 
@@ -46,17 +45,17 @@ void main()
 
     bool intersects_ground = ray_sphere_intersect_nearest(
         world_pos, world_dir, f32vec3(0.0, 0.0, 0.0),
-        deref(atmosphere_params).atmosphere_bottom) >= 0.0;
+        deref(_atmosphere_parameters).atmosphere_bottom) >= 0.0;
 
     f32vec2 uv = skyview_lut_params_to_uv(
         intersects_ground,
         SkyviewParams(view_zenith_angle, light_view_angle),
-        deref(atmosphere_params).atmosphere_bottom,
-        deref(atmosphere_params).atmosphere_top,
-        f32vec2(daxa_push_constant.skyview_dimensions),
+        deref(_atmosphere_parameters).atmosphere_bottom,
+        deref(_atmosphere_parameters).atmosphere_top,
+        f32vec2(pc.skyview_dimensions),
         view_height);
 
-    L += f32vec3(texture(daxa_push_constant.skyview_image, daxa_push_constant.sampler_id, uv).rgb);
+    L += f32vec3(texture(_skyview, pc.sampler_id, uv).rgb);
 
     if(!intersects_ground) { L += add_sun_circle(world_dir, sun_direction); };
 

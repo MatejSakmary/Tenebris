@@ -7,16 +7,8 @@ int main()
 {
     Application application = {};
 
-    try
-    {
-        application.main_loop();
-    }
-    catch(const std::exception& e)
-    {
-        std::cerr << e.what() << '\n';
-        return EXIT_FAILURE;
-    }
+    application.main_loop();
 
-    return EXIT_SUCCESS;
+    return 0;
 }
     

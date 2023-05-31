@@ -43,7 +43,6 @@ inline auto get_draw_far_sky_pipeline() -> daxa::RasterPipelineCompileInfo {
         .name = "far sky pipeline"
     };
 }
-
 struct DrawFarSkyTask : DrawFarSkyTaskBase
 {
     Context *context = {}; 
