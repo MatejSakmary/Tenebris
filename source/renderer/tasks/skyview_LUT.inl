@@ -7,8 +7,6 @@
 
 struct SkyviewPC
 {
-    daxa_u32vec2 skyview_dimensions;
-    daxa_u32vec2 multiscattering_dimensions;
     daxa_SamplerId sampler_id;
 };
 
@@ -42,13 +40,10 @@ struct ComputeSkyViewTask : ComputeSkyViewTaskBase
         auto cmd_list = ti.get_command_list();
 
         auto skyview_dimensions = context->device.info_image(uses._skyview_LUT.image()).size;
-        auto multiscattering_dimensions = context->device.info_image(uses._multiscattering_LUT.image()).size;
 
         cmd_list.set_constant_buffer(ti.uses.constant_buffer_set_info());
         cmd_list.set_pipeline(*(context->pipelines.skyview));
         cmd_list.push_constant(SkyviewPC{
-            .skyview_dimensions = {skyview_dimensions.x, skyview_dimensions.y},
-            .multiscattering_dimensions = {multiscattering_dimensions.x, multiscattering_dimensions.y},
             .sampler_id = context->linear_sampler,
         });
         cmd_list.dispatch((skyview_dimensions.x + 7)/8, ((skyview_dimensions.y + 3)/4));

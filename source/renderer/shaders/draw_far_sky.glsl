@@ -52,7 +52,7 @@ void main()
         SkyviewParams(view_zenith_angle, light_view_angle),
         deref(_globals).atmosphere_bottom,
         deref(_globals).atmosphere_top,
-        f32vec2(pc.skyview_dimensions),
+        f32vec2(deref(_globals).sky_lut_dim),
         view_height);
 
     L += f32vec3(texture(_skyview, pc.sampler_id, uv).rgb);

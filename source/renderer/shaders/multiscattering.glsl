@@ -105,16 +105,16 @@ RaymarchResult integrate_scattered_luminance(f32vec3 world_position, f32vec3 wor
 layout (local_size_x = 1, local_size_y = 1, local_size_z = 64) in;
 void main()
 {
-    if( gl_GlobalInvocationID.x >= pc.multiscattering_dimensions.x ||
-        gl_GlobalInvocationID.y >= pc.multiscattering_dimensions.y)
+    if( gl_GlobalInvocationID.x >= deref(_globals).mult_lut_dim.x ||
+        gl_GlobalInvocationID.y >= deref(_globals).mult_lut_dim.y)
     { return; } 
 
     const f32 sample_count = 20;
 
     f32vec2 uv = (f32vec2(gl_GlobalInvocationID.xy) + f32vec2(0.5, 0.5)) / 
-                  f32vec2(pc.multiscattering_dimensions.xy);
-    uv = f32vec2(from_subuv_to_unit(uv.x, pc.multiscattering_dimensions.x),
-                 from_subuv_to_unit(uv.y, pc.multiscattering_dimensions.y));
+                  f32vec2(deref(_globals).mult_lut_dim.xy);
+    uv = f32vec2(from_subuv_to_unit(uv.x, deref(_globals).mult_lut_dim.x),
+                 from_subuv_to_unit(uv.y, deref(_globals).mult_lut_dim.y));
     
     /* Mapping uv to multiscattering LUT parameters
        TODO -> Is the range from 0.0 to -1.0 really needed? */

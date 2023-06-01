@@ -4,8 +4,6 @@
 #include "common_func.glsl"
 #include "tasks/transmittance_LUT.inl"
 
-DAXA_USE_PUSH_CONSTANT(TransmittancePC, pc)
-
 layout (local_size_x = 8, local_size_y = 4) in;
 
 f32vec3 integrate_transmittance(f32vec3 world_position, f32vec3 world_direction, u32 sample_count)
@@ -34,11 +32,11 @@ f32vec3 integrate_transmittance(f32vec3 world_position, f32vec3 world_direction,
 
 void main()
 {
-    if( gl_GlobalInvocationID.x >= pc.dimensions.x ||
-        gl_GlobalInvocationID.y >= pc.dimensions.y)
+    if( gl_GlobalInvocationID.x >= deref(_globals).trans_lut_dim.x ||
+        gl_GlobalInvocationID.y >= deref(_globals).trans_lut_dim.y)
     { return; } 
 
-    f32vec2 uv = f32vec2(gl_GlobalInvocationID.xy) / f32vec2(pc.dimensions.xy);
+    f32vec2 uv = f32vec2(gl_GlobalInvocationID.xy) / f32vec2(deref(_globals).trans_lut_dim.xy);
 
     TransmittanceParams mapping = uv_to_transmittance_lut_params(
         uv,

@@ -27,8 +27,8 @@ f32vec3 get_multiple_scattering(f32vec3 world_position, f32 view_zenith_cos_angl
         (length(world_position) - deref(_globals).atmosphere_bottom) /
         (deref(_globals).atmosphere_top - deref(_globals).atmosphere_bottom)),
         0.0, 1.0);
-    uv = f32vec2(from_unit_to_subuv(uv.x, pc.multiscattering_dimensions.x),
-                 from_unit_to_subuv(uv.y, pc.multiscattering_dimensions.y));
+    uv = f32vec2(from_unit_to_subuv(uv.x, deref(_globals).mult_lut_dim.x),
+                 from_unit_to_subuv(uv.y, deref(_globals).mult_lut_dim.y));
 
     return texture(_multiscattering_LUT, pc.sampler_id, uv).rgb;
 }
@@ -125,18 +125,18 @@ f32vec3 integrate_scattered_luminance(f32vec3 world_position,
 layout (local_size_x = 8, local_size_y = 4) in;
 void main()
 {
-    if( gl_GlobalInvocationID.x >= pc.skyview_dimensions.x ||
-        gl_GlobalInvocationID.y >= pc.skyview_dimensions.y)
+    if( gl_GlobalInvocationID.x >= deref(_globals).sky_lut_dim.x ||
+        gl_GlobalInvocationID.y >= deref(_globals).sky_lut_dim.y)
     { return; } 
 
     f32vec3 world_position = deref(_globals).camera_position;
 
-    f32vec2 uv = f32vec2(gl_GlobalInvocationID.xy) / f32vec2(pc.skyview_dimensions.xy);
+    f32vec2 uv = f32vec2(gl_GlobalInvocationID.xy) / f32vec2(deref(_globals).sky_lut_dim.xy);
     SkyviewParams skyview_params = uv_to_skyview_lut_params(
         uv,
         deref(_globals).atmosphere_bottom,
         deref(_globals).atmosphere_top,
-        pc.skyview_dimensions,
+        deref(_globals).sky_lut_dim,
         length(world_position)
     );
 

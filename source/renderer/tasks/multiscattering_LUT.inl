@@ -7,7 +7,6 @@
 
 struct MultiscatteringPC
 {
-    daxa_u32vec2 multiscattering_dimensions;
     daxa_SamplerId sampler_id;
 };
 
@@ -43,7 +42,6 @@ struct ComputeMultiscatteringTask : ComputeMultiscatteringTaskBase
         cmd_list.set_constant_buffer(ti.uses.constant_buffer_set_info());
         cmd_list.set_pipeline(*(context->pipelines.multiscattering));
         cmd_list.push_constant(MultiscatteringPC{
-            .multiscattering_dimensions = {multiscattering_dimensions.x, multiscattering_dimensions.y},
             .sampler_id = context->linear_sampler,
         });
         cmd_list.dispatch(multiscattering_dimensions.x, multiscattering_dimensions.y);

@@ -106,6 +106,9 @@ Application::Application() :
     }},
     geometry{generate_planet()}
 {
+    state.gui_state.trans_lut_dim = renderer.globals->trans_lut_dim;
+    state.gui_state.mult_lut_dim = renderer.globals->mult_lut_dim;
+    state.gui_state.sky_lut_dim = renderer.globals->sky_lut_dim;
     renderer.upload_planet_geometry(geometry);
 }
 
@@ -145,24 +148,24 @@ void Application::ui_update()
     ImGui::Begin("LUT sizes");
     ImGui::SliderInt2(
         "Transmittance LUT dimensions",
-        reinterpret_cast<int*>(&renderer.globals->trans_lut_dim), 1, 1024, "%d",
+        reinterpret_cast<int*>(&state.gui_state.trans_lut_dim), 1, 1024, "%d",
         ImGuiSliderFlags_::ImGuiSliderFlags_AlwaysClamp
     );
-    if(ImGui::IsItemDeactivatedAfterEdit()) { renderer.resize(); }
+    if(ImGui::IsItemDeactivatedAfterEdit()) { renderer.globals->trans_lut_dim = state.gui_state.trans_lut_dim; renderer.resize(); }
 
     ImGui::SliderInt2(
         "Multiscattering LUT dimensions",
-        reinterpret_cast<int*>(&renderer.globals->mult_lut_dim), 1, 1024, "%d",
+        reinterpret_cast<int*>(&state.gui_state.mult_lut_dim), 1, 1024, "%d",
         ImGuiSliderFlags_::ImGuiSliderFlags_AlwaysClamp
     );
-    if(ImGui::IsItemDeactivatedAfterEdit()) { renderer.resize(); }
+    if(ImGui::IsItemDeactivatedAfterEdit()) { renderer.globals->mult_lut_dim = state.gui_state.mult_lut_dim; renderer.resize(); }
 
     ImGui::SliderInt2(
         "Skyview LUT dimensions",
-        reinterpret_cast<int*>(&renderer.globals->sky_lut_dim), 1, 1024, "%d",
+        reinterpret_cast<int*>(&state.gui_state.sky_lut_dim), 1, 1024, "%d",
         ImGuiSliderFlags_::ImGuiSliderFlags_AlwaysClamp
     );
-    if(ImGui::IsItemDeactivatedAfterEdit()) { renderer.resize(); }
+    if(ImGui::IsItemDeactivatedAfterEdit()) { renderer.globals->sky_lut_dim = state.gui_state.sky_lut_dim; renderer.resize(); }
     ImGui::End();
 
     ImGui::Begin("Terrain params");

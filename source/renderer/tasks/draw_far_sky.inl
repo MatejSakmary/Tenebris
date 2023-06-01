@@ -8,7 +8,6 @@
 struct DrawSkyPC
 {
     daxa_SamplerId sampler_id;
-    daxa_u32vec2 skyview_dimensions;
 };
 
 DAXA_INL_TASK_USE_BEGIN(DrawFarSkyTaskBase, DAXA_CBUFFER_SLOT0)
@@ -50,7 +49,6 @@ struct DrawFarSkyTask : DrawFarSkyTaskBase
         auto cmd_list = ti.get_command_list();
 
         auto swapchain_dimensions = context->swapchain.get_surface_extent();
-        auto skyview_dimensions = context->device.info_image(uses._skyview.image()).size;
 
         cmd_list.set_constant_buffer(ti.uses.constant_buffer_set_info());
         cmd_list.begin_renderpass({
@@ -72,7 +70,6 @@ struct DrawFarSkyTask : DrawFarSkyTaskBase
         cmd_list.set_pipeline(*context->pipelines.draw_far_sky);
         cmd_list.push_constant(DrawSkyPC{
             .sampler_id = context->linear_sampler,
-            .skyview_dimensions = {skyview_dimensions.x, skyview_dimensions.y},
         });
         cmd_list.draw({.vertex_count = 3});
         cmd_list.end_renderpass();
