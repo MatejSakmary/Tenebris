@@ -15,7 +15,7 @@ f32vec3 integrate_transmittance(f32vec3 world_position, f32vec3 world_direction,
         world_position,
         world_direction,
         f32vec3(0.0, 0.0, 0.0),
-        deref(_atmosphere_parameters).atmosphere_top);
+        deref(_globals).atmosphere_top);
 
     f32 integration_step = integration_length / f32(sample_count);
 
@@ -26,7 +26,7 @@ f32vec3 integrate_transmittance(f32vec3 world_position, f32vec3 world_direction,
     {
         /* Move along the world direction ray to new position */
         f32vec3 new_pos = world_position + i * integration_step * world_direction;
-        f32vec3 atmosphere_extinction = sample_medium_extinction(_atmosphere_parameters, new_pos);
+        f32vec3 atmosphere_extinction = sample_medium_extinction(_globals, new_pos);
         optical_depth += atmosphere_extinction * integration_step;
     }
     return optical_depth;
@@ -42,8 +42,8 @@ void main()
 
     TransmittanceParams mapping = uv_to_transmittance_lut_params(
         uv,
-        deref(_atmosphere_parameters).atmosphere_bottom,
-        deref(_atmosphere_parameters).atmosphere_top
+        deref(_globals).atmosphere_bottom,
+        deref(_globals).atmosphere_top
     );
 
     f32vec3 world_position = f32vec3(0.0, 0.0, mapping.height);

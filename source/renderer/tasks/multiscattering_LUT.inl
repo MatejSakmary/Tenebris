@@ -12,7 +12,7 @@ struct MultiscatteringPC
 };
 
 DAXA_INL_TASK_USE_BEGIN(ComputeMultiscatteringTaskBase, DAXA_CBUFFER_SLOT0)
-DAXA_INL_TASK_USE_BUFFER(_atmosphere_parameters, daxa_BufferPtr(AtmosphereParameters), COMPUTE_SHADER_READ)
+DAXA_INL_TASK_USE_BUFFER(_globals, daxa_BufferPtr(Globals), COMPUTE_SHADER_READ)
 DAXA_INL_TASK_USE_IMAGE(_transmittance_LUT, daxa_Image2Df32, COMPUTE_SHADER_READ)
 DAXA_INL_TASK_USE_IMAGE(_multiscattering_LUT, daxa_RWImage2Df32, COMPUTE_SHADER_WRITE)
 DAXA_INL_TASK_USE_END()

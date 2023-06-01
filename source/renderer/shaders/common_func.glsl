@@ -208,7 +208,7 @@ b32 move_to_top_atmosphere(inout f32vec3 world_position, f32vec3 world_direction
 /// @param params - buffer reference to the atmosphere parameters buffer
 /// @param position - position in the world where the sample is to be taken
 /// @return atmosphere extinction at the desired point
-f32vec3 sample_medium_extinction(daxa_BufferPtr(AtmosphereParameters) params, f32vec3 position)
+f32vec3 sample_medium_extinction(daxa_BufferPtr(Globals) params, f32vec3 position)
 {
     const f32 height = length(position) - deref(params).atmosphere_bottom;
 
@@ -229,7 +229,7 @@ f32vec3 sample_medium_extinction(daxa_BufferPtr(AtmosphereParameters) params, f3
 /// @param params - buffer reference to the atmosphere parameters buffer
 /// @param position - position in the world where the sample is to be taken
 /// @return atmosphere scattering at the desired point
-f32vec3 sample_medium_scattering(daxa_BufferPtr(AtmosphereParameters) params, f32vec3 position)
+f32vec3 sample_medium_scattering(daxa_BufferPtr(Globals) params, f32vec3 position)
 {
     const f32 height = length(position) - deref(params).atmosphere_bottom;
 
@@ -257,7 +257,7 @@ struct ScatteringSample
 /// @param position - position in the world where the sample is to be taken
 /// @return Scattering sample struct
 // TODO(msakmary) Fix this!!
-ScatteringSample sample_medium_scattering_detailed(daxa_BufferPtr(AtmosphereParameters) params, f32vec3 position)
+ScatteringSample sample_medium_scattering_detailed(daxa_BufferPtr(Globals) params, f32vec3 position)
 {
     const f32 height = length(position) - deref(params).atmosphere_bottom;
 

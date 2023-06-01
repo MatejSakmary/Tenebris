@@ -24,8 +24,8 @@ f32vec3 get_multiple_scattering(f32vec3 world_position, f32 view_zenith_cos_angl
 {
     f32vec2 uv = clamp(f32vec2( 
         view_zenith_cos_angle * 0.5 + 0.5,
-        (length(world_position) - deref(_atmosphere_parameters).atmosphere_bottom) /
-        (deref(_atmosphere_parameters).atmosphere_top - deref(_atmosphere_parameters).atmosphere_bottom)),
+        (length(world_position) - deref(_globals).atmosphere_bottom) /
+        (deref(_globals).atmosphere_top - deref(_globals).atmosphere_bottom)),
         0.0, 1.0);
     uv = f32vec2(from_unit_to_subuv(uv.x, pc.multiscattering_dimensions.x),
                  from_unit_to_subuv(uv.y, pc.multiscattering_dimensions.y));
@@ -38,9 +38,9 @@ f32vec3 integrate_scattered_luminance(f32vec3 world_position,
 {
     f32vec3 planet_zero = f32vec3(0.0, 0.0, 0.0);
     f32 planet_intersection_distance = ray_sphere_intersect_nearest(
-        world_position, world_direction, planet_zero, deref(_atmosphere_parameters).atmosphere_bottom);
+        world_position, world_direction, planet_zero, deref(_globals).atmosphere_bottom);
     f32 atmosphere_intersection_distance = ray_sphere_intersect_nearest(
-        world_position, world_direction, planet_zero, deref(_atmosphere_parameters).atmosphere_top);
+        world_position, world_direction, planet_zero, deref(_globals).atmosphere_top);
     
     f32 integration_length;
     /* ============================= CALCULATE INTERSECTIONS ============================ */
@@ -61,7 +61,7 @@ f32vec3 integrate_scattered_luminance(f32vec3 world_position,
     }
 
     f32 cos_theta = dot(sun_direction, world_direction);
-    f32 mie_phase_value = cornette_shanks_mie_phase_function(deref(_atmosphere_parameters).mie_phase_function_g, -cos_theta);
+    f32 mie_phase_value = cornette_shanks_mie_phase_function(deref(_globals).mie_phase_function_g, -cos_theta);
     f32 rayleigh_phase_value = rayleigh_phase(cos_theta);
 
     f32vec3 accum_transmittance = f32vec3(1.0, 1.0, 1.0);
@@ -85,20 +85,20 @@ f32vec3 integrate_scattered_luminance(f32vec3 world_position,
 
         /* Position shift */
         f32vec3 new_position = world_position + integration_step * world_direction;
-        ScatteringSample medium_scattering = sample_medium_scattering_detailed(_atmosphere_parameters, new_position);
-        f32vec3 medium_extinction = sample_medium_extinction(_atmosphere_parameters, new_position);
+        ScatteringSample medium_scattering = sample_medium_scattering_detailed(_globals, new_position);
+        f32vec3 medium_extinction = sample_medium_extinction(_globals, new_position);
 
         f32vec3 up_vector = normalize(new_position);
         TransmittanceParams transmittance_lut_params = TransmittanceParams(length(new_position), dot(sun_direction, up_vector));
 
         /* uv coordinates later used to sample transmittance texture */
-        f32vec2 trans_texture_uv = transmittance_lut_to_uv(transmittance_lut_params, deref(_atmosphere_parameters).atmosphere_bottom, deref(_atmosphere_parameters).atmosphere_top);
+        f32vec2 trans_texture_uv = transmittance_lut_to_uv(transmittance_lut_params, deref(_globals).atmosphere_bottom, deref(_globals).atmosphere_top);
         f32vec3 transmittance_to_sun = texture(_transmittance_LUT, pc.sampler_id, trans_texture_uv).rgb;
 
         f32vec3 phase_times_scattering = medium_scattering.mie * mie_phase_value + medium_scattering.ray * rayleigh_phase_value;
 
         f32 earth_intersection_distance = ray_sphere_intersect_nearest(
-            new_position, sun_direction, planet_zero, deref(_atmosphere_parameters).atmosphere_bottom);
+            new_position, sun_direction, planet_zero, deref(_globals).atmosphere_bottom);
         f32 in_earth_shadow = earth_intersection_distance == -1.0 ? 1.0 : 0.0;
 
         f32vec3 multiscattered_luminance = get_multiple_scattering(new_position, dot(sun_direction, up_vector)); 
@@ -129,18 +129,18 @@ void main()
         gl_GlobalInvocationID.y >= pc.skyview_dimensions.y)
     { return; } 
 
-    f32vec3 world_position = deref(_camera_parameters).camera_position;
+    f32vec3 world_position = deref(_globals).camera_position;
 
     f32vec2 uv = f32vec2(gl_GlobalInvocationID.xy) / f32vec2(pc.skyview_dimensions.xy);
     SkyviewParams skyview_params = uv_to_skyview_lut_params(
         uv,
-        deref(_atmosphere_parameters).atmosphere_bottom,
-        deref(_atmosphere_parameters).atmosphere_top,
+        deref(_globals).atmosphere_bottom,
+        deref(_globals).atmosphere_top,
         pc.skyview_dimensions,
         length(world_position)
     );
 
-    f32 sun_zenith_cos_angle = dot(normalize(world_position), deref(_atmosphere_parameters).sun_direction);
+    f32 sun_zenith_cos_angle = dot(normalize(world_position), deref(_globals).sun_direction);
     // sin^2 + cos^2 = 1 -> sqrt(1 - cos^2) = sin
     // rotate the sun direction so that we are aligned with the y = 0 axis
     f32vec3 local_sun_direction = normalize(f32vec3(
@@ -155,7 +155,7 @@ void main()
     
     world_position = f32vec3(0, 0, length(world_position));
 
-    if (!move_to_top_atmosphere(world_position, world_direction, deref(_atmosphere_parameters).atmosphere_bottom, deref(_atmosphere_parameters).atmosphere_top))
+    if (!move_to_top_atmosphere(world_position, world_direction, deref(_globals).atmosphere_bottom, deref(_globals).atmosphere_top))
     {
         /* No intersection with the atmosphere */
         imageStore(_skyview_LUT, i32vec2(gl_GlobalInvocationID.xy), f32vec4(0.0, 0.0, 0.0, 1.0));

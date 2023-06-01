@@ -47,7 +47,6 @@ Renderer::Renderer(const AppWindow & window) :
     //     .device = context.device
     // });
 
-    context.conditionals.at(Context::Conditionals::COPY_PLANET_GEOMETRY) = false;
     auto init_compute_pipeline = [&](daxa::ComputePipelineCompileInfo ci, std::shared_ptr<daxa::ComputePipeline> & pip)
     {
         if(auto result = context.pipeline_manager.add_compute_pipeline(ci); result.is_ok())
@@ -86,89 +85,347 @@ Renderer::Renderer(const AppWindow & window) :
         .format = context.swapchain.get_format(),
     });
 
-    create_resolution_independent_resources();
-    create_main_tasklist();
-    // TODO(msakmary) this needs to come after tasklist (I need to add into the runtime image) - rethink and improve
-    // maybe it would be smart to move independent resource below also and make them add themselves in
-    create_resolution_dependent_resources();
+    context.main_task_list.task_list = daxa::TaskList({
+        .device = context.device,
+        .swapchain = context.swapchain,
+        .reorder_tasks = true,
+        .use_split_barriers = true,
+        .jit_compile_permutations = false,
+        .permutation_condition_count = Context::MainTaskList::Conditionals::COUNT,
+        .name = "main task list"
+    });
+
+    create_persistent_resources();
+    initialize_main_tasklist();
+}
+
+void Renderer::create_persistent_resources()
+{
+    context.buffers.globals = daxa::TaskBuffer({
+        .initial_buffers = {
+            .buffers = std::array{
+                context.device.create_buffer(daxa::BufferInfo{
+                    .size = sizeof(Globals),
+                    .allocate_info = daxa::AutoAllocInfo(
+                        daxa::MemoryFlagBits::HOST_ACCESS_RANDOM |
+                        daxa::MemoryFlagBits::DEDICATED_MEMORY
+                    ),
+                    .name = "atmosphere parameters",
+                })
+            },
+        },
+        .name = "globals task buffer"
+    });
+
+    context.buffers.terrain_vertices = daxa::TaskBuffer({ .name = "terrain vertices task buffer" });
+    context.buffers.terrain_indices = daxa::TaskBuffer({ .name = "terrain indices task buffer" });
+    context.images.swapchain = daxa::TaskImage({ .swapchain_image = true, .name = "swapchain task image" });
+
+    f32 mie_scale_height = 1.2f;
+    f32 rayleigh_scale_height = 8.0f;
+    Globals *globals_buffer_ptr = context.device.get_host_address_as<Globals>(context.buffers.globals.get_state().buffers[0]);
+    this->globals = globals_buffer_ptr;
+
+    // Random variables
+    globals_buffer_ptr->trans_lut_dim = {256u, 64u};
+    globals_buffer_ptr->mult_lut_dim = {32u, 32u};
+    globals_buffer_ptr->sky_lut_dim = {192u, 128u};
+
+    // Atmosphere
+    globals_buffer_ptr->sun_direction = {0.99831, 0.0, 0.05814};
+    globals_buffer_ptr->atmosphere_bottom = 6360.0f;
+    globals_buffer_ptr->atmosphere_top = 6460.0f;
+    globals_buffer_ptr->mie_scattering = { 0.003996f, 0.003996f, 0.003996f };
+    globals_buffer_ptr->mie_extinction = { 0.004440f, 0.004440f, 0.004440f };
+    globals_buffer_ptr->mie_scale_height = mie_scale_height;
+    globals_buffer_ptr->mie_phase_function_g = 0.80f;
+    globals_buffer_ptr->mie_density[0] = {
+        .layer_width = 0.0f,
+        .exp_term    = 0.0f,
+        .exp_scale   = 0.0f,
+        .lin_term    = 0.0f,
+        .const_term  = 0.0f 
+    };
+    globals_buffer_ptr->mie_density[1] = {
+        .layer_width = 0.0f,
+        .exp_term    = 1.0f,
+        .exp_scale   = -1.0f / mie_scale_height,
+        .lin_term    = 0.0f,
+        .const_term  = 0.0f 
+    };
+    globals_buffer_ptr->rayleigh_scattering = { 0.005802f, 0.013558f, 0.033100f };
+    globals_buffer_ptr->rayleigh_scale_height = rayleigh_scale_height;
+    globals_buffer_ptr->rayleigh_density[0] = {
+        .layer_width = 0.0f,
+        .exp_term    = 0.0f,
+        .exp_scale   = 0.0f,
+        .lin_term    = 0.0f,
+        .const_term  = 0.0f 
+    };
+    globals_buffer_ptr->rayleigh_density[1] = {
+        .layer_width = 0.0f,
+        .exp_term    = 1.0f,
+        .exp_scale   = -1.0f / rayleigh_scale_height,
+        .lin_term    = 0.0f,
+        .const_term  = 0.0f
+    };
+    globals_buffer_ptr->absorption_extinction = { 0.000650f, 0.001881f, 0.000085f };
+    globals_buffer_ptr->absorption_density[0] = {
+        .layer_width = 25.0f,
+        .exp_term    = 0.0f,
+        .exp_scale   = 0.0f,
+        .lin_term    = 1.0f / 15.0f,
+        .const_term  = -2.0f / 3.0f 
+    };
+    globals_buffer_ptr->absorption_density[1] = {
+        .layer_width = 0.0f,
+        .exp_term    = 1.0f,
+        .exp_scale   = 0.0f,
+        .lin_term    = -1.0f / 15.0f,
+        .const_term  = 8.0f / 3.0f
+    };
+    
+    // Terrain
+    globals_buffer_ptr->terrain_scale = {10.0f, 10.0f, 1.0f};
+    globals_buffer_ptr->terrain_delta = 1.0f;
+    globals_buffer_ptr->terrain_min_depth = 1.0f;
+    globals_buffer_ptr->terrain_max_depth = 10000.0f;
+    globals_buffer_ptr->terrain_min_tess_level = 1;
+    globals_buffer_ptr->terrain_max_tess_level = 10;
+}
+
+void Renderer::initialize_main_tasklist()
+{
+    context.main_task_list.task_list.use_persistent_buffer(context.buffers.globals);
+    context.main_task_list.task_list.use_persistent_buffer(context.buffers.terrain_indices);
+    context.main_task_list.task_list.use_persistent_buffer(context.buffers.terrain_vertices);
+    context.main_task_list.task_list.use_persistent_image(context.images.swapchain);
+    
+    /* ========================================= PERSISTENT RESOURCES =============================================*/
+    auto extent = context.swapchain.get_surface_extent();
+    Globals const * globals = context.device.get_host_address_as<Globals>(context.buffers.globals.get_state().buffers[0]);
+
+    auto & tl = context.main_task_list;
+
+    tl.images.depth = tl.task_list.create_transient_image({
+        .format = daxa::Format::D32_SFLOAT,
+        .aspect = daxa::ImageAspectFlagBits::DEPTH,
+        .size = {extent.x, extent.y, 1},
+        .name = "transient depth"
+    });
+
+    tl.images.offscreen = tl.task_list.create_transient_image({
+        .format = daxa::Format::R16G16B16A16_SFLOAT,
+        .size = {extent.x, extent.y, 1},
+        .name = "transient offscreen"
+    });
+
+    tl.images.transmittance_lut = tl.task_list.create_transient_image({
+        .format = daxa::Format::R16G16B16A16_SFLOAT,
+        .size = {globals->trans_lut_dim.x, globals->trans_lut_dim.y, 1},
+        .name = "transient transmittance lut"
+    });
+
+    tl.images.multiscattering_lut = tl.task_list.create_transient_image({
+        .format = daxa::Format::R16G16B16A16_SFLOAT,
+        .size = {globals->mult_lut_dim.x, globals->mult_lut_dim.y, 1},
+        .name = "transient multiscattering lut"
+    });
+
+    tl.images.skyview_lut = tl.task_list.create_transient_image({
+        .format = daxa::Format::R16G16B16A16_SFLOAT,
+        .size = {globals->sky_lut_dim.x, globals->sky_lut_dim.y, 1},
+        .name = "transient skyview lut"
+    });
+    
+    /* ============================================================================================================ */
+    /* ===============================================  TASKS  ==================================================== */
+    /* ============================================================================================================ */
+
+    /* =========================================== COMPUTE TRANSMITTANCE ========================================== */
+    context.main_task_list.task_list.add_task(ComputeTransmittanceTask{{
+        .uses = {
+            ._globals = context.buffers.globals.handle(),
+            ._transmittance_LUT = context.main_task_list.images.transmittance_lut,
+        }},
+        &context
+    });
+
+    /* =========================================== COMPUTE MULTISCATTERING ======================================== */
+    context.main_task_list.task_list.add_task(ComputeMultiscatteringTask{{
+        .uses = {
+            ._globals = context.buffers.globals.handle(),
+            ._transmittance_LUT = context.main_task_list.images.transmittance_lut,
+            ._multiscattering_LUT = context.main_task_list.images.multiscattering_lut,
+        }},
+        &context
+    });
+
+    /* =========================================== COMPUTE SKYVIEW ================================================ */
+    context.main_task_list.task_list.add_task(ComputeSkyViewTask{{
+        .uses = {
+            ._globals = context.buffers.globals.handle(),
+            ._transmittance_LUT = context.main_task_list.images.transmittance_lut,
+            ._multiscattering_LUT = context.main_task_list.images.multiscattering_lut,
+            ._skyview_LUT = context.main_task_list.images.skyview_lut
+        }},
+        &context
+    });
+
+    /* =========================================== DRAW TERRAIN =================================================== */
+    context.main_task_list.task_list.add_task(DrawTerrainTask{{
+        .uses = {
+            ._vertices = context.buffers.terrain_vertices.handle(),
+            ._indices = context.buffers.terrain_indices.handle(),
+            ._globals = context.buffers.globals.handle(),
+            ._offscreen = context.main_task_list.images.offscreen,
+            ._depth = context.main_task_list.images.depth.subslice({.image_aspect = daxa::ImageAspectFlagBits::DEPTH}),
+        }},
+        &context
+    });
+
+    /* =========================================== DRAW FAR SKY =================================================== */
+    context.main_task_list.task_list.add_task(DrawFarSkyTask{{
+        .uses = {
+            ._globals = context.buffers.globals.handle(),
+            ._offscreen = context.main_task_list.images.offscreen,
+            ._depth = context.main_task_list.images.depth.subslice({.image_aspect = daxa::ImageAspectFlagBits::DEPTH}),
+            ._skyview = context.main_task_list.images.skyview_lut
+        }},
+        &context
+    });
+
+    /* =========================================== POST PROCESS =================================================== */
+    context.main_task_list.task_list.add_task(PostProcessTask{{
+        .uses = {
+            ._swapchain = context.images.swapchain.handle(),
+            ._offscreen = context.main_task_list.images.offscreen,
+        }},
+        &context
+    });
+
+    /* =========================================== IMGUI ========================================================== */
+    context.main_task_list.task_list.add_task(ImGuiTask{{
+        .uses = {
+            ._swapchain = context.images.swapchain.handle(),
+        }},
+        &context
+    });
+
+    context.main_task_list.task_list.submit({});
+    context.main_task_list.task_list.present({});
+    context.main_task_list.task_list.complete({});
 }
 
 void Renderer::resize()
 {
     context.swapchain.resize();
-    create_resolution_dependent_resources();
+    
+    context.main_task_list.task_list = daxa::TaskList({
+        .device = context.device,
+        .swapchain = context.swapchain,
+        .reorder_tasks = true,
+        .use_split_barriers = true,
+        .jit_compile_permutations = true,
+        .permutation_condition_count = Context::MainTaskList::Conditionals::COUNT,
+        .name = "main task list"
+    });
+
+    initialize_main_tasklist();
 }
 
-void Renderer::update(const GuiState & state)
+void Renderer::upload_planet_geometry(PlanetGeometry const & geometry)
 {
-    auto &atmosphere_parameters = context.buffers.atmosphere_parameters.cpu_buffer;
-    atmosphere_parameters.sun_direction =
+    auto destroy_if_valid = [&](daxa::TaskBuffer & buffer)
     {
-        f32(glm::cos(glm::radians(state.sun_angle.x)) * glm::sin(glm::radians(state.sun_angle.y))),
-        f32(glm::sin(glm::radians(state.sun_angle.x)) * glm::sin(glm::radians(state.sun_angle.y))),
-        f32(glm::cos(glm::radians(state.sun_angle.y)))
+        if(buffer.get_state().buffers.size() > 0 && context.device.is_id_valid(buffer.get_state().buffers[0]))
+        {
+            context.device.destroy_buffer(buffer.get_state().buffers[0]);
+        }
     };
 
-    atmosphere_parameters.atmosphere_bottom = state.atmosphere_bottom;
-    atmosphere_parameters.atmosphere_top = state.atmosphere_top;
-    atmosphere_parameters.mie_scale_height = state.mie_scale_height;
-    atmosphere_parameters.rayleigh_scale_height = state.rayleigh_scale_height;
+    destroy_if_valid(context.buffers.terrain_vertices);
+    destroy_if_valid(context.buffers.terrain_indices);
+    context.terrain_index_size = geometry.indices.size();
+    u32 vertices_size = geometry.vertices.size() * sizeof(f32vec2);
+    u32 indices_size = geometry.indices.size() * sizeof(u32);
+    u32 total_size = vertices_size + indices_size;
 
-    atmosphere_parameters.mie_density[1].exp_scale = -1.0f / atmosphere_parameters.mie_scale_height;
-    atmosphere_parameters.rayleigh_density[1].exp_scale = -1.0f / atmosphere_parameters.rayleigh_scale_height;
-
-    context.terrain_params = state.terrain_params;
-}
-
-// TODO(msakmary) rethink a better way to do this - without copying the geometry data
-void Renderer::upload_planet_geometry(const PlanetGeometry & geometry)
-{
-    if(context.device.is_id_valid(context.buffers.terrain_vertices.gpu_buffer))
-    {
-        context.device.destroy_buffer(context.buffers.terrain_vertices.gpu_buffer);
-        context.buffers.terrain_vertices.cpu_buffer.clear();
-    }
-
-    if(context.device.is_id_valid(context.buffers.terrain_indices.gpu_buffer))
-    {
-        context.device.destroy_buffer(context.buffers.terrain_indices.gpu_buffer);
-        context.buffers.terrain_indices.cpu_buffer.clear();
-    }
-
-    // TODO(msakmary) TEMPORARY
-    context.buffers.terrain_vertices.cpu_buffer.reserve(geometry.vertices.size());
-    for(auto v : geometry.vertices)
-    {
-        context.buffers.terrain_vertices.cpu_buffer.push_back(TerrainVertex{.position = {v.x, v.y, 6361.0}});
-    }
-
-    for(unsigned int indices : geometry.indices)
-    {
-        context.buffers.terrain_indices.cpu_buffer.push_back(TerrainIndex{.index = indices});
-    }
-
-    context.buffers.terrain_vertices.gpu_buffer = context.device.create_buffer({
-        .size = static_cast<u32>(sizeof(TerrainVertex) * context.buffers.terrain_vertices.cpu_buffer.size()),
-        .allocate_info = daxa::AutoAllocInfo{daxa::MemoryFlagBits::DEDICATED_MEMORY},
-        .name = "terrain vertices",
+    context.buffers.terrain_vertices.set_buffers({
+        .buffers = std::array{
+            context.device.create_buffer({
+                .size = vertices_size,
+                .allocate_info = daxa::AutoAllocInfo{daxa::MemoryFlagBits::DEDICATED_MEMORY},
+                .name = "vertices buffer"
+            })
+        }
     });
 
-    context.buffers.terrain_indices.gpu_buffer = context.device.create_buffer({
-        .size = static_cast<u32>(sizeof(TerrainIndex) * context.buffers.terrain_indices.cpu_buffer.size()),
-        .allocate_info = daxa::AutoAllocInfo{daxa::MemoryFlagBits::DEDICATED_MEMORY},
-        .name = "terrain indices",
+    context.buffers.terrain_indices.set_buffers({
+        .buffers = std::array{
+            context.device.create_buffer({
+                .size = indices_size,
+                .allocate_info = daxa::AutoAllocInfo{daxa::MemoryFlagBits::DEDICATED_MEMORY},
+                .name = "indices buffer"
+            })
+        }
     });
 
-    context.main_task_list.task_buffers.t_terrain_vertices.set_buffers({{
-        &context.buffers.terrain_vertices.gpu_buffer, 1
-    }});
+    daxa::TaskList upload_geom_tl = daxa::TaskList({
+        .device = context.device,
+        .staging_memory_pool_size = total_size,
+        .name = "copy geometry task list"
+    });
+    upload_geom_tl.use_persistent_buffer(context.buffers.terrain_indices);
+    upload_geom_tl.use_persistent_buffer(context.buffers.terrain_vertices);
 
-    context.main_task_list.task_buffers.t_terrain_indices.set_buffers({{
-        &context.buffers.terrain_indices.gpu_buffer, 1
-    }});
+    upload_geom_tl.add_task({
+        .uses = { 
+            daxa::BufferHostTransferWrite{context.buffers.terrain_vertices},
+            daxa::BufferHostTransferWrite{context.buffers.terrain_indices}
+        },
+        .task = [=, this](daxa::TaskInterface ti)
+        {
+            auto cmd_list = ti.get_command_list();
 
-    context.conditionals.at(Context::Conditionals::COPY_PLANET_GEOMETRY) = true;
-}
+            {
+                auto vert_staging_mem_res = ti.get_allocator().allocate(vertices_size);
+                DBG_ASSERT_TRUE_M(
+                    vert_staging_mem_res.has_value(),
+                    "[Renderer::UploadGeometry()] Failed to create vertices staging buffer"
+                );
+                auto vert_staging_mem = vert_staging_mem_res.value();
+                memcpy(vert_staging_mem.host_address, geometry.vertices.data(), vertices_size);
+                cmd_list.copy_buffer_to_buffer({
+                    .src_buffer = ti.get_allocator().get_buffer(),
+                    .src_offset = vert_staging_mem.buffer_offset,
+                    .dst_buffer = ti.uses[context.buffers.terrain_vertices].buffer(),
+                    .size = vertices_size
+                });
+            }
+            {
+                auto index_staging_mem_res = ti.get_allocator().allocate(indices_size);
+                DBG_ASSERT_TRUE_M(
+                    index_staging_mem_res.has_value(),
+                    "[Renderer::UploadGeometry()] Failed to create indices staging buffer"
+                );
+                auto index_staging_mem = index_staging_mem_res.value();
+                memcpy(index_staging_mem.host_address, geometry.indices.data(), indices_size);
+                cmd_list.copy_buffer_to_buffer({
+                    .src_buffer = ti.get_allocator().get_buffer(),
+                    .src_offset = index_staging_mem.buffer_offset,
+                    .dst_buffer = ti.uses[context.buffers.terrain_indices].buffer(),
+                    .size = indices_size
+                });
+            }
+        },
+        .name = "transfer geometry",
+    });
+
+    upload_geom_tl.submit({});
+    upload_geom_tl.complete({});
+    upload_geom_tl.execute({});
+};
 
 void Renderer::draw(const Camera & camera) 
 {
@@ -178,24 +435,29 @@ void Renderer::draw(const Camera & camera)
         .far_plane = 500.0f,
     };
 
-    context.buffers.camera_parameters.cpu_buffer.view = camera.get_view_matrix();
+    Globals* globals = context.device.get_host_address_as<Globals>(context.buffers.globals.get_state().buffers[0]); 
     auto [front, top, right] = camera.get_frustum_info();
-    context.buffers.camera_parameters.cpu_buffer.camera_front = front;
-    context.buffers.camera_parameters.cpu_buffer.camera_frust_top_offset = top;
-    context.buffers.camera_parameters.cpu_buffer.camera_frust_right_offset = right;
-    context.buffers.camera_parameters.cpu_buffer.projection = camera.get_projection_matrix(info);
-    context.buffers.camera_parameters.cpu_buffer.inv_view_projection = camera.get_inv_view_proj_matrix(info); 
-    context.buffers.camera_parameters.cpu_buffer.camera_position = camera.get_camera_position();
+    globals->view = camera.get_view_matrix();
+    globals->camera_front = front;
+    globals->camera_frust_top_offset = top;
+    globals->camera_frust_right_offset = right;
+    globals->projection = camera.get_projection_matrix(info);
+    globals->inv_view_projection = camera.get_inv_view_proj_matrix(info); 
+    globals->camera_position = camera.get_camera_position();
 
-    context.main_task_list.task_images.at(Images::SWAPCHAIN).set_images({std::array{context.swapchain.acquire_next_image()}});
+    context.images.swapchain.set_images({std::array{context.swapchain.acquire_next_image()}});
 
-    if(!context.device.is_id_valid(context.main_task_list.task_images.at(Images::SWAPCHAIN).get_state().images[0]))
+    if(!context.device.is_id_valid(context.images.swapchain.get_state().images[0]))
     {
         DEBUG_OUT("[Renderer::draw()] Got empty image from swapchain");
         return;
     }
 
-    context.main_task_list.task_list.execute({{context.conditionals.data(), context.conditionals.size()}});
+    context.main_task_list.task_list.execute({{
+        context.main_task_list.conditionals.data(),
+        context.main_task_list.conditionals.size()
+    }});
+
     auto result = context.pipeline_manager.reload_all();
     if(result.has_value()) 
     {
@@ -210,321 +472,21 @@ void Renderer::draw(const Camera & camera)
     } 
 }
 
-void Renderer::resize_LUT(Images::ID id, i32vec3 new_size)
-{
-    auto daxa_image_id = context.images.at(id);
-
-    DEBUG_OUT("[Renderer::resize_LUT] Resizing " << Images::get_image_name(id));
-
-    if(context.device.is_id_valid(daxa_image_id))
-    {
-        context.device.wait_idle();
-        context.device.destroy_image(daxa_image_id);
-    }
-
-    context.images.at(id) = context.device.create_image({
-        .dimensions = 2,
-        .format = daxa::Format::R16G16B16A16_SFLOAT,
-        .aspect = daxa::ImageAspectFlagBits::COLOR,
-        .size = {u32(new_size.x), u32(new_size.y), u32(new_size.z)},
-        .mip_level_count = 1,
-        .array_layer_count = 1,
-        .sample_count = 1,
-        .usage = daxa::ImageUsageFlagBits::SHADER_READ_ONLY | daxa::ImageUsageFlagBits::SHADER_READ_WRITE,
-        .allocate_info = daxa::AutoAllocInfo{daxa::MemoryFlagBits::DEDICATED_MEMORY},
-        .name = Images::get_image_name(id).data()
-    });
-
-    context.main_task_list.task_images.at(id).set_images({{&context.images.at(id), 1}});
-}
-
-void Renderer::create_resolution_dependent_resources()
-{
-    auto daxa_image_id = context.images.at(Images::OFFSCREEN);
-    if(context.device.is_id_valid(daxa_image_id))
-    {
-        context.device.wait_idle();
-        context.device.destroy_image(daxa_image_id);
-    }
-
-    auto daxa_depth_id = context.images.at(Images::DEPTH);
-    if(context.device.is_id_valid(daxa_depth_id))
-    {
-        context.device.wait_idle();
-        context.device.destroy_image(daxa_depth_id);
-    }
-    
-    auto extent = context.swapchain.get_surface_extent();
-    context.images.at(Images::OFFSCREEN) = context.device.create_image({
-        .dimensions = 2,
-        .format = daxa::Format::R16G16B16A16_SFLOAT,
-        .aspect = daxa::ImageAspectFlagBits::COLOR,
-        .size = {extent.x, extent.y, 1},
-        .mip_level_count = 1,
-        .array_layer_count = 1,
-        .sample_count = 1,
-        .usage = 
-            daxa::ImageUsageFlagBits::SHADER_READ_ONLY  |
-            daxa::ImageUsageFlagBits::SHADER_READ_WRITE |
-            daxa::ImageUsageFlagBits::COLOR_ATTACHMENT,
-        .allocate_info = daxa::AutoAllocInfo{daxa::MemoryFlagBits::DEDICATED_MEMORY},
-        .name = Images::get_image_name(Images::OFFSCREEN).data()
-    });
-
-    context.images.at(Images::DEPTH) = context.device.create_image({
-        .format = daxa::Format::D32_SFLOAT,
-        .aspect = daxa::ImageAspectFlagBits::DEPTH,
-        .size = {extent.x, extent.y, 1},
-        .usage = daxa::ImageUsageFlagBits::DEPTH_STENCIL_ATTACHMENT,
-        .name = "debug image"
-    });
-    context.main_task_list.task_images.at(Images::OFFSCREEN).set_images({{&context.images.at(Images::OFFSCREEN), 1}});
-    context.main_task_list.task_images.at(Images::DEPTH).set_images({{&context.images.at(Images::DEPTH), 1}});
-}
-
-void Renderer::create_resolution_independent_resources()
-{
-    context.buffers.atmosphere_parameters.gpu_buffer = context.device.create_buffer(daxa::BufferInfo{
-        .size = sizeof(AtmosphereParameters),
-        .name = "atmosphere parameters",
-    });
-
-    context.buffers.camera_parameters.gpu_buffer = context.device.create_buffer(daxa::BufferInfo{
-        .size = sizeof(CameraParameters),
-        .name = "camera parameters"
-    });
-
-    f32 mie_scale_height = 1.2f;
-    f32 rayleigh_scale_height = 8.0f;
-    context.buffers.atmosphere_parameters.cpu_buffer = {
-        .sun_direction = {0.99831, 0.0, 0.05814},
-        .atmosphere_bottom = 6360.0f,
-        .atmosphere_top = 6460.0f,
-        .mie_scattering = { 0.003996f, 0.003996f, 0.003996f },
-        .mie_extinction = { 0.004440f, 0.004440f, 0.004440f },
-        .mie_scale_height = mie_scale_height,
-        .mie_phase_function_g = 0.80f,
-        .mie_density = {
-            {
-                .layer_width = 0.0f,
-                .exp_term    = 0.0f,
-                .exp_scale   = 0.0f,
-                .lin_term    = 0.0f,
-                .const_term  = 0.0f 
-            },
-            {
-                .layer_width = 0.0f,
-                .exp_term    = 1.0f,
-                .exp_scale   = -1.0f / mie_scale_height,
-                .lin_term    = 0.0f,
-                .const_term  = 0.0f
-            }},
-        .rayleigh_scattering = { 0.005802f, 0.013558f, 0.033100f },
-        .rayleigh_scale_height = rayleigh_scale_height,
-        .rayleigh_density = {
-            {
-                .layer_width = 0.0f,
-                .exp_term    = 0.0f,
-                .exp_scale   = 0.0f,
-                .lin_term    = 0.0f,
-                .const_term  = 0.0f 
-            },
-            {
-                .layer_width = 0.0f,
-                .exp_term    = 1.0f,
-                .exp_scale   = -1.0f / rayleigh_scale_height,
-                .lin_term    = 0.0f,
-                .const_term  = 0.0f
-            }},
-        .absorption_extinction = { 0.000650f, 0.001881f, 0.000085f },
-        .absorption_density = {
-            {
-                .layer_width = 25.0f,
-                .exp_term    = 0.0f,
-                .exp_scale   = 0.0f,
-                .lin_term    = 1.0f / 15.0f,
-                .const_term  = -2.0f / 3.0f 
-            },
-            {
-                .layer_width = 0.0f,
-                .exp_term    = 1.0f,
-                .exp_scale   = 0.0f,
-                .lin_term    = -1.0f / 15.0f,
-                .const_term  = 8.0f / 3.0f
-            }},
-    };
-}
-
-void Renderer::create_main_tasklist()
-{
-    auto create_task_image = [&](Images::ID id) -> void
-    {
-        context.main_task_list.task_images.at(id) = daxa::TaskImage{{
-            .swapchain_image = (id == Images::SWAPCHAIN),
-            .name = std::string("task").append(Images::get_image_name(id))
-        }};
-
-        context.main_task_list.task_list.use_persistent_image(context.main_task_list.task_images.at(id));
-    };
-
-    context.main_task_list.task_list = daxa::TaskList({
-        .device = context.device,
-        .swapchain = context.swapchain,
-        .reorder_tasks = true,
-        .use_split_barriers = true,
-        .jit_compile_permutations = true,
-        .permutation_condition_count = Context::Conditionals::COUNT,
-        .staging_memory_pool_size = 4'000'000,
-        .name = "main task list"
-    });
-
-    for(i32 i = Images::BEGIN; i < Images::IMAGE_COUNT; i++)
-    {
-        create_task_image(static_cast<Images::ID>(i));
-    }
-
-    // TASK BUFFERS
-    context.main_task_list.task_buffers.t_terrain_indices = daxa::TaskBuffer{{ .name = "terrain_indices" }};
-    context.main_task_list.task_buffers.t_terrain_vertices = daxa::TaskBuffer{{ .name = "terrain_vertices" }};
-    context.main_task_list.task_buffers.t_atmosphere_parameters = daxa::TaskBuffer{{
-        .initial_buffers = {.buffers = {&context.buffers.atmosphere_parameters.gpu_buffer, 1}},
-        .name = "atmosphere_parameters" 
-    }};
-
-    context.main_task_list.task_buffers.t_camera_parameters = daxa::TaskBuffer{{
-        .initial_buffers = {.buffers = {&context.buffers.camera_parameters.gpu_buffer, 1}},
-        .name = "camera_parameters" 
-    }};
-
-    context.main_task_list.task_list.use_persistent_buffer(context.main_task_list.task_buffers.t_atmosphere_parameters);
-    context.main_task_list.task_list.use_persistent_buffer(context.main_task_list.task_buffers.t_camera_parameters);
-    context.main_task_list.task_list.use_persistent_buffer(context.main_task_list.task_buffers.t_terrain_indices);
-    context.main_task_list.task_list.use_persistent_buffer(context.main_task_list.task_buffers.t_terrain_vertices);
-    
-    /* ============================================================================================================ */
-    /* ===============================================  TASKS  ==================================================== */
-    /* ============================================================================================================ */
-
-    /* =========================================== UPDATE ATMO, CAMERA PARAMS ===================================== */
-    context.main_task_list.task_list.add_task(UpdateParametersTask{{
-        .uses = {
-            ._atmosphere_parameters = context.main_task_list.task_buffers.t_atmosphere_parameters.handle(),
-            ._camera_parameters = context.main_task_list.task_buffers.t_camera_parameters.handle(),
-        }},
-        &context
-    });
-
-    /* =========================================== UPDATE TERRAIN GEOMETRY ======================================== */
-    context.main_task_list.task_list.conditional({
-        .condition_index = 0,
-        .when_true = [&]()
-        {
-            context.main_task_list.task_list.add_task(UpdateGeometryTask{{
-                .uses = {
-                    ._terrain_vertices = context.main_task_list.task_buffers.t_terrain_vertices.handle(),
-                    ._terrain_indices = context.main_task_list.task_buffers.t_terrain_indices.handle(),
-                }},
-                &context
-            });
-        }
-    });
-
-    /* =========================================== COMPUTE TRANSMITTANCE ========================================== */
-    context.main_task_list.task_list.add_task(ComputeTransmittanceTask{{
-        .uses = {
-            ._atmosphere_parameters = context.main_task_list.task_buffers.t_atmosphere_parameters.handle(),
-            ._transmittance_LUT = context.main_task_list.task_images.at(Images::TRANSMITTANCE).handle(),
-        }},
-        &context
-    });
-
-    /* =========================================== COMPUTE MULTISCATTERING ======================================== */
-    context.main_task_list.task_list.add_task(ComputeMultiscatteringTask{{
-        .uses = {
-            ._atmosphere_parameters = context.main_task_list.task_buffers.t_atmosphere_parameters.handle(),
-            ._transmittance_LUT = context.main_task_list.task_images.at(Images::TRANSMITTANCE).handle(),
-            ._multiscattering_LUT = context.main_task_list.task_images.at(Images::MULTISCATTERING).handle(),
-        }},
-        &context
-    });
-
-    /* =========================================== COMPUTE SKYVIEW ================================================ */
-    context.main_task_list.task_list.add_task(ComputeSkyViewTask{{
-        .uses = {
-            ._atmosphere_parameters = context.main_task_list.task_buffers.t_atmosphere_parameters.handle(),
-            ._camera_parameters = context.main_task_list.task_buffers.t_camera_parameters.handle(),
-            ._transmittance_LUT = context.main_task_list.task_images.at(Images::TRANSMITTANCE).handle(),
-            ._multiscattering_LUT = context.main_task_list.task_images.at(Images::MULTISCATTERING).handle(),
-            ._skyview_LUT = context.main_task_list.task_images.at(Images::SKYVIEW).handle(),
-        }},
-        &context
-    });
-
-    /* =========================================== DRAW TERRAIN =================================================== */
-    context.main_task_list.task_list.add_task(DrawTerrainTask{{
-        .uses = {
-            ._vertices = context.main_task_list.task_buffers.t_terrain_vertices.handle(),
-            ._indices = context.main_task_list.task_buffers.t_terrain_indices.handle(),
-            ._camera_parameters = context.main_task_list.task_buffers.t_camera_parameters.handle(),
-            ._offscreen = context.main_task_list.task_images.at(Images::OFFSCREEN).handle(),
-            ._depth = context.main_task_list.task_images.at(Images::DEPTH).handle().subslice({.image_aspect = daxa::ImageAspectFlagBits::DEPTH}),
-        }},
-        &context
-    });
-
-    /* =========================================== DRAW FAR SKY =================================================== */
-    context.main_task_list.task_list.add_task(DrawFarSkyTask{{
-        .uses = {
-            ._atmosphere_parameters = context.main_task_list.task_buffers.t_atmosphere_parameters.handle(),
-            ._camera_parameters = context.main_task_list.task_buffers.t_camera_parameters.handle(),
-            ._offscreen = context.main_task_list.task_images.at(Images::OFFSCREEN).handle(),
-            ._depth = context.main_task_list.task_images.at(Images::DEPTH).handle().subslice({.image_aspect = daxa::ImageAspectFlagBits::DEPTH}),
-            ._skyview = context.main_task_list.task_images.at(Images::SKYVIEW).handle()
-        }},
-        &context
-    });
-
-    /* =========================================== POST PROCESS =================================================== */
-    context.main_task_list.task_list.add_task(PostProcessTask{{
-        .uses = {
-            ._swapchain = context.main_task_list.task_images.at(Images::SWAPCHAIN).handle(),
-            ._offscreen = context.main_task_list.task_images.at(Images::OFFSCREEN).handle(),
-        }},
-        &context
-    });
-
-    /* =========================================== IMGUI ========================================================== */
-    context.main_task_list.task_list.add_task(ImGuiTask{{
-        .uses = {
-            ._swapchain = context.main_task_list.task_images.at(Images::SWAPCHAIN).handle(),
-        }},
-        &context
-    });
-
-    context.main_task_list.task_list.submit({});
-    context.main_task_list.task_list.present({});
-    context.main_task_list.task_list.complete({});
-}
-
 Renderer::~Renderer()
 {
+    auto destroy_if_valid = [&](daxa::TaskBuffer & buffer)
+    {
+        if(context.device.is_id_valid(buffer.get_state().buffers[0]))
+        {
+            context.device.destroy_buffer(buffer.get_state().buffers[0]);
+        }
+    };
+
     context.device.wait_idle();
     ImGui_ImplGlfw_Shutdown();
-    if(context.device.is_id_valid(context.buffers.terrain_vertices.gpu_buffer))
-    {
-        context.device.destroy_buffer(context.buffers.terrain_vertices.gpu_buffer);
-    }
-    if(context.device.is_id_valid(context.buffers.terrain_indices.gpu_buffer))
-    {
-        context.device.destroy_buffer(context.buffers.terrain_indices.gpu_buffer);
-    }
-    context.device.destroy_buffer(context.buffers.atmosphere_parameters.gpu_buffer);
-    context.device.destroy_buffer(context.buffers.camera_parameters.gpu_buffer);
-    context.device.destroy_image(context.images.at(Images::TRANSMITTANCE));
-    context.device.destroy_image(context.images.at(Images::MULTISCATTERING));
-    context.device.destroy_image(context.images.at(Images::SKYVIEW));
-    context.device.destroy_image(context.images.at(Images::OFFSCREEN));
-    context.device.destroy_image(context.images.at(Images::DEPTH));
+    destroy_if_valid(context.buffers.terrain_indices);
+    destroy_if_valid(context.buffers.terrain_vertices);
+    destroy_if_valid(context.buffers.globals);
     context.device.destroy_sampler(context.linear_sampler);
     context.device.collect_garbage();
 }

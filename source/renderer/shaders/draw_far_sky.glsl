@@ -23,15 +23,15 @@ f32vec3 add_sun_circle(f32vec3 world_dir, f32vec3 sun_dir)
 
 void main() 
 {
-    f32vec3 camera = deref(_camera_parameters).camera_position;
-    f32vec3 sun_direction = normalize(deref(_atmosphere_parameters).sun_direction);
+    f32vec3 camera = deref(_globals).camera_position;
+    f32vec3 sun_direction = normalize(deref(_globals).sun_direction);
 
     f32vec2 remap_uv = (in_uv * 2.0) - 1.0;
 
     f32vec3 world_dir = normalize(
-        deref(_camera_parameters).camera_front +
-        remap_uv.x * deref(_camera_parameters).camera_frust_right_offset +
-        remap_uv.y * deref(_camera_parameters).camera_frust_top_offset);
+        deref(_globals).camera_front +
+        remap_uv.x * deref(_globals).camera_frust_right_offset +
+        remap_uv.y * deref(_globals).camera_frust_top_offset);
 
     f32vec3 world_pos = camera;
 
@@ -45,13 +45,13 @@ void main()
 
     bool intersects_ground = ray_sphere_intersect_nearest(
         world_pos, world_dir, f32vec3(0.0, 0.0, 0.0),
-        deref(_atmosphere_parameters).atmosphere_bottom) >= 0.0;
+        deref(_globals).atmosphere_bottom) >= 0.0;
 
     f32vec2 uv = skyview_lut_params_to_uv(
         intersects_ground,
         SkyviewParams(view_zenith_angle, light_view_angle),
-        deref(_atmosphere_parameters).atmosphere_bottom,
-        deref(_atmosphere_parameters).atmosphere_top,
+        deref(_globals).atmosphere_bottom,
+        deref(_globals).atmosphere_top,
         f32vec2(pc.skyview_dimensions),
         view_height);
 

@@ -25,9 +25,9 @@ RaymarchResult integrate_scattered_luminance(f32vec3 world_position, f32vec3 wor
     RaymarchResult result = RaymarchResult(f32vec3(0.0, 0.0, 0.0), f32vec3(0.0, 0.0, 0.0));
     f32vec3 planet_zero = f32vec3(0.0, 0.0, 0.0);
     f32 planet_intersection_distance = ray_sphere_intersect_nearest(
-        world_position, world_direction, planet_zero, deref(_atmosphere_parameters).atmosphere_bottom);
+        world_position, world_direction, planet_zero, deref(_globals).atmosphere_bottom);
     f32 atmosphere_intersection_distance = ray_sphere_intersect_nearest(
-        world_position, world_direction, planet_zero, deref(_atmosphere_parameters).atmosphere_top);
+        world_position, world_direction, planet_zero, deref(_globals).atmosphere_top);
     
     f32 integration_length;
     /* ============================= CALCULATE INTERSECTIONS ============================ */
@@ -69,18 +69,18 @@ RaymarchResult integrate_scattered_luminance(f32vec3 world_position, f32vec3 wor
         TransmittanceParams transmittance_lut_params = TransmittanceParams(length(new_position), dot(sun_direction, up_vector));
 
         /* uv coordinates later used to sample transmittance texture */
-        f32vec2 trans_texture_uv = transmittance_lut_to_uv(transmittance_lut_params, deref(_atmosphere_parameters).atmosphere_bottom, deref(_atmosphere_parameters).atmosphere_top);
+        f32vec2 trans_texture_uv = transmittance_lut_to_uv(transmittance_lut_params, deref(_globals).atmosphere_bottom, deref(_globals).atmosphere_top);
 
         f32vec3 transmittance_to_sun = texture(_transmittance_LUT, pc.sampler_id, trans_texture_uv).rgb;
 
-        f32vec3 medium_scattering = sample_medium_scattering(_atmosphere_parameters, new_position);
-        f32vec3 medium_extinction = sample_medium_extinction(_atmosphere_parameters, new_position);
+        f32vec3 medium_scattering = sample_medium_scattering(_globals, new_position);
+        f32vec3 medium_extinction = sample_medium_extinction(_globals, new_position);
 
         /* TODO: This probably should be a texture lookup altho might be slow*/
         f32vec3 trans_increase_over_integration_step = exp(-(medium_extinction * integration_step));
         /* Check if current position is in earth's shadow */
         f32 earth_intersection_distance = ray_sphere_intersect_nearest(
-            new_position, sun_direction, planet_zero + PLANET_RADIUS_OFFSET * up_vector, deref(_atmosphere_parameters).atmosphere_bottom);
+            new_position, sun_direction, planet_zero + PLANET_RADIUS_OFFSET * up_vector, deref(_globals).atmosphere_bottom);
         f32 in_earth_shadow = earth_intersection_distance == -1.0 ? 1.0 : 0.0;
 
         /* Light arriving from the sun to this point */
@@ -125,9 +125,9 @@ void main()
         sun_cos_zenith_angle
     );
 
-   f32 view_height = deref(_atmosphere_parameters).atmosphere_bottom + 
+   f32 view_height = deref(_globals).atmosphere_bottom + 
         clamp(uv.y + PLANET_RADIUS_OFFSET, 0.0, 1.0) *
-        (deref(_atmosphere_parameters).atmosphere_top - deref(_atmosphere_parameters).atmosphere_bottom - PLANET_RADIUS_OFFSET);
+        (deref(_globals).atmosphere_top - deref(_globals).atmosphere_bottom - PLANET_RADIUS_OFFSET);
 
     f32vec3 world_position = f32vec3(0.0, 0.0, view_height);
 

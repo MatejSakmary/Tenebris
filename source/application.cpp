@@ -107,31 +107,10 @@ Application::Application() :
     geometry{generate_planet()}
 {
     renderer.upload_planet_geometry(geometry);
-    renderer.resize_LUT(Images::TRANSMITTANCE, state.gui_state.lut_dimensions.at(Images::TRANSMITTANCE)); 
-    renderer.resize_LUT(Images::MULTISCATTERING, state.gui_state.lut_dimensions.at(Images::MULTISCATTERING)); 
-    renderer.resize_LUT(Images::SKYVIEW, state.gui_state.lut_dimensions.at(Images::SKYVIEW));
-
 }
 
 void Application::ui_update()
 {
-    auto image_dimensions_slider = [&](Images::ID id)
-    {
-        ImGui::SliderInt2(
-            std::string(Images::get_image_name(id)).append(" LUT dimensions").c_str(),
-            reinterpret_cast<int*>(&state.gui_state.lut_dimensions.at(id)),
-            1,
-            1024,
-            "%d",
-            ImGuiSliderFlags_::ImGuiSliderFlags_AlwaysClamp
-        );
-
-        if(ImGui::IsItemDeactivatedAfterEdit()) 
-        { 
-            renderer.resize_LUT(id, state.gui_state.lut_dimensions.at(id));
-        }
-    };
-
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
@@ -164,29 +143,54 @@ void Application::ui_update()
     ImGui::End();
 
     ImGui::Begin("LUT sizes");
-    image_dimensions_slider(Images::TRANSMITTANCE);
-    image_dimensions_slider(Images::MULTISCATTERING);
-    image_dimensions_slider(Images::SKYVIEW);
+    ImGui::SliderInt2(
+        "Transmittance LUT dimensions",
+        reinterpret_cast<int*>(&renderer.globals->trans_lut_dim), 1, 1024, "%d",
+        ImGuiSliderFlags_::ImGuiSliderFlags_AlwaysClamp
+    );
+    if(ImGui::IsItemDeactivatedAfterEdit()) { renderer.resize(); }
+
+    ImGui::SliderInt2(
+        "Multiscattering LUT dimensions",
+        reinterpret_cast<int*>(&renderer.globals->mult_lut_dim), 1, 1024, "%d",
+        ImGuiSliderFlags_::ImGuiSliderFlags_AlwaysClamp
+    );
+    if(ImGui::IsItemDeactivatedAfterEdit()) { renderer.resize(); }
+
+    ImGui::SliderInt2(
+        "Skyview LUT dimensions",
+        reinterpret_cast<int*>(&renderer.globals->sky_lut_dim), 1, 1024, "%d",
+        ImGuiSliderFlags_::ImGuiSliderFlags_AlwaysClamp
+    );
+    if(ImGui::IsItemDeactivatedAfterEdit()) { renderer.resize(); }
     ImGui::End();
 
     ImGui::Begin("Terrain params");
-    ImGui::SliderFloat3("Terrain Scale", reinterpret_cast<f32*>(&state.gui_state.terrain_params.scale), 1.0f, 1000.0f);
-    ImGui::SliderFloat("Delta", &state.gui_state.terrain_params.delta, 1.0f, 10.0f);
-    ImGui::SliderFloat("Min depth", &state.gui_state.terrain_params.min_depth, 1.0f, 10.0f);
-    ImGui::SliderFloat("Max depth", &state.gui_state.terrain_params.max_depth, 1.0f, 1000.0f);
-    ImGui::SliderInt("Minimum tesselation level", &state.gui_state.terrain_params.min_tess_level, 1, 20);
-    ImGui::SliderInt("Maximum tesselation level", &state.gui_state.terrain_params.max_tess_level, 1, 40);
+    ImGui::SliderFloat3("Terrain Scale", reinterpret_cast<f32*>(&renderer.globals->terrain_scale), 1.0f, 1000.0f);
+    ImGui::SliderFloat("Delta", &renderer.globals->terrain_delta, 1.0f, 10.0f);
+    ImGui::SliderFloat("Min depth", &renderer.globals->terrain_min_depth, 1.0f, 10.0f);
+    ImGui::SliderFloat("Max depth", &renderer.globals->terrain_max_depth, 1.0f, 1000.0f);
+    ImGui::SliderInt("Minimum tesselation level", &renderer.globals->terrain_min_tess_level, 1, 20);
+    ImGui::SliderInt("Maximum tesselation level", &renderer.globals->terrain_max_tess_level, 1, 40);
     if(ImGui::Button("Generate planet", {150, 20})) { renderer.upload_planet_geometry(generate_planet()); }
     ImGui::End();
 
     ImGui::Begin("Sun Angle");
     ImGui::SliderFloat("Horizontal angle", &state.gui_state.sun_angle.x, 0.0f, 360.0f);
     ImGui::SliderFloat("Vertical angle", &state.gui_state.sun_angle.y, 0.0f, 180.0f);
-    ImGui::SliderFloat("Atmosphere bottom", &state.gui_state.atmosphere_bottom, 1.0f, 20000.0f);
-    state.gui_state.atmosphere_top = glm::max(state.gui_state.atmosphere_bottom + 10.0f, state.gui_state.atmosphere_top);
-    ImGui::SliderFloat("Atmosphere top", &state.gui_state.atmosphere_top, state.gui_state.atmosphere_bottom + 10.0f, 20000.0f);
-    ImGui::SliderFloat("mie scale height", &state.gui_state.mie_scale_height, 0.1f, 100.0f);
-    ImGui::SliderFloat("rayleigh scale height", &state.gui_state.rayleigh_scale_height, 0.1f, 100.0f);
+
+    renderer.globals->sun_direction =
+    {
+        f32(glm::cos(glm::radians(state.gui_state.sun_angle.x)) * glm::sin(glm::radians(state.gui_state.sun_angle.y))),
+        f32(glm::sin(glm::radians(state.gui_state.sun_angle.x)) * glm::sin(glm::radians(state.gui_state.sun_angle.y))),
+        f32(glm::cos(glm::radians(state.gui_state.sun_angle.y)))
+    };
+
+    ImGui::SliderFloat("Atmosphere bottom", &renderer.globals->atmosphere_bottom, 1.0f, 20000.0f);
+    renderer.globals->atmosphere_top = glm::max(renderer.globals->atmosphere_bottom + 10.0f, renderer.globals->atmosphere_top);
+    ImGui::SliderFloat("Atmosphere top", &renderer.globals->atmosphere_top, renderer.globals->atmosphere_bottom + 10.0f, 20000.0f);
+    ImGui::SliderFloat("mie scale height", &renderer.globals->mie_scale_height, 0.1f, 100.0f);
+    ImGui::SliderFloat("rayleigh scale height", &renderer.globals->rayleigh_scale_height, 0.1f, 100.0f);
     ImGui::End();
 
     ImGui::Render();
@@ -221,7 +225,6 @@ void Application::main_loop()
 
         if (state.minimized) { continue; } 
     
-        renderer.update(state.gui_state);
         renderer.draw(camera);
     }
 }

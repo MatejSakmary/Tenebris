@@ -5,20 +5,10 @@
 
 #include "../shared/shared.inl"
 
-struct DrawTerrainPC
-{
-    daxa_f32vec3 terrain_scale;
-    daxa_f32 delta;
-    daxa_f32 min_depth;
-    daxa_f32 max_depth;
-    daxa_i32 min_tess_level;
-    daxa_i32 max_tess_level;
-};
-
 DAXA_INL_TASK_USE_BEGIN(DrawTerrainTaskBase, DAXA_CBUFFER_SLOT0)
 DAXA_INL_TASK_USE_BUFFER(_vertices, daxa_BufferPtr(TerrainVertex), VERTEX_SHADER_READ)
 DAXA_INL_TASK_USE_BUFFER(_indices, daxa_BufferPtr(TerrainIndex), VERTEX_SHADER_READ)
-DAXA_INL_TASK_USE_BUFFER(_camera_parameters, daxa_BufferPtr(CameraParameters), SHADER_READ)
+DAXA_INL_TASK_USE_BUFFER(_globals, daxa_BufferPtr(Globals), SHADER_READ)
 DAXA_INL_TASK_USE_IMAGE(_offscreen, daxa_Image2Df32, COLOR_ATTACHMENT)
 DAXA_INL_TASK_USE_IMAGE(_depth, daxa_Image2Df32, DEPTH_ATTACHMENT)
 DAXA_INL_TASK_USE_END()
@@ -44,7 +34,6 @@ inline auto get_draw_terrain_pipeline() -> daxa::RasterPipelineCompileInfo {
             .face_culling = daxa::FaceCullFlagBits::BACK_BIT,
         },
         .tesselation = { .control_points = 3 },
-        .push_constant_size = sizeof(DrawTerrainPC),
         .name = "terrain pipeline"
     };
 }
@@ -78,16 +67,8 @@ struct DrawTerrainTask : DrawTerrainTaskBase
         });
 
         cmd_list.set_pipeline(*(context->pipelines.draw_terrain));
-        cmd_list.push_constant(DrawTerrainPC{
-            .terrain_scale = context->terrain_params.scale,
-            .delta = context->terrain_params.delta,
-            .min_depth = context->terrain_params.min_depth,
-            .max_depth = context->terrain_params.max_depth,
-            .min_tess_level = context->terrain_params.min_tess_level,
-            .max_tess_level = context->terrain_params.max_tess_level
-        });
         cmd_list.set_index_buffer(uses._indices.buffer(), 0, sizeof(u32));
-        cmd_list.draw_indexed({.index_count = u32(context->buffers.terrain_indices.cpu_buffer.size())});
+        cmd_list.draw_indexed({.index_count = u32(context->terrain_index_size)});
         cmd_list.end_renderpass();
     }
 };
