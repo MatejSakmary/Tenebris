@@ -24,6 +24,11 @@ struct ElemType
     std::array<std::string, 4> channel_names;
 };
 
+auto TextureManager::get_info(const ManagedTextureHandle & handle) const -> const ManagedTexture &
+{
+    return managed_textures.at(handle.index);
+}
+
 auto get_texture_element(const std::unique_ptr<InputFile> & file) -> ElemType
 {
     struct ChannelInfo
@@ -101,18 +106,22 @@ struct CreateStagingBufferInfo
 template <i32 NumElems, typename T, PixelType PixT>
 auto load_texture_data(const CreateStagingBufferInfo & info) -> daxa::BufferId
 {
+    using Elem = std::array<T,NumElems>;
+
     auto new_buffer_id = info.device.create_buffer({
         .size = info.dimensions.x * info.dimensions.y * NumElems * u32(sizeof(T)),
         .allocate_info = daxa::AutoAllocInfo{daxa::MemoryFlagBits::HOST_ACCESS_RANDOM},
         .name = info.name
     });
-    auto * buffer_ptr = info.device.get_host_address_as<char>(new_buffer_id);
+    auto * buffer_ptr = info.device.get_host_address_as<Elem>(new_buffer_id);
 
     FrameBuffer frame_buffer;
     for(int i = 0; i <= NumElems - 1; i++) {
         frame_buffer.insert(
             info.channel_names.at(i),
-            Slice(PixT, buffer_ptr, sizeof(T), sizeof(T) * info.dimensions.x));
+            // TODO(msakmary) (3 - i) is a hack counting on the fact names will be in the order A,B,G,R
+            //      - channels should get position assigned based on their name not based on the order they come in the image
+            Slice(PixT, reinterpret_cast<char*>(&buffer_ptr[0].at(3 - i)), sizeof(Elem), sizeof(Elem) * info.dimensions.x));
     }
     try
     {

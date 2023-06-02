@@ -25,10 +25,17 @@ struct Context
     struct Images
     {
         daxa::TaskImage swapchain;
+
+        daxa::TaskImage diffuse_map_raw;
+        daxa::TaskImage diffuse_map_target;
+        daxa::TaskImage diffuse_map_bc6h;
+        
+        daxa::TaskImage height_map;
     };
 
     struct Pipelines
     {
+        std::shared_ptr<daxa::ComputePipeline> BC6H_compress;
         std::shared_ptr<daxa::ComputePipeline> transmittance;
         std::shared_ptr<daxa::ComputePipeline> multiscattering;
         std::shared_ptr<daxa::ComputePipeline> skyview;
@@ -77,6 +84,7 @@ struct Context
     Pipelines pipelines;
 
     daxa::SamplerId linear_sampler;
+    daxa::SamplerId nearest_sampler;
     daxa::ImGuiRenderer imgui_renderer;
 
     u32 terrain_index_size;

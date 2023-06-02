@@ -16,6 +16,7 @@
 
 #include "../terrain_gen/planet_generator.hpp"
 
+#include "tasks/bc6h_compress.inl"
 #include "tasks/transmittance_LUT.inl"
 #include "tasks/multiscattering_LUT.inl"
 #include "tasks/skyview_LUT.inl"
@@ -43,4 +44,6 @@ struct Renderer
 
         void initialize_main_tasklist();
         void create_persistent_resources();
+        void create_astc_texture();
+        void create_bc6h_texture(ManagedTextureHandle handle);
 };

@@ -1,8 +1,10 @@
 #define DAXA_ENABLE_SHADER_NO_NAMESPACE 1
+#define DAXA_ENABLE_IMAGE_OVERLOADS_BASIC 1
 #include <shared/shared.inl>
 #include "tasks/draw_terrain.inl"
 #extension GL_EXT_debug_printf : enable
 
+DAXA_USE_PUSH_CONSTANT(DrawTerrainPC, pc)
 #if DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_VERTEX
 void main()
 {
@@ -47,6 +49,9 @@ void main()
                   (gl_TessCoord.z * gl_in[2].gl_Position);
 
     f32vec3 scale = deref(_globals).terrain_scale;
+    // gl_Position.z += texture(_height_map, pc.sampler_id, f32vec2(gl_Position.xy)).r;
+    // debugPrintfEXT("%f, %f, %f, %f \n", tex.r, tex.g, tex.b, tex.a);
+
     const f32vec4 pre_trans_scaled_pos = f32vec4(gl_Position.xyz * scale, 1.0);
 
     f32mat4x4 m_proj_view_model = deref(_globals).projection * deref(_globals).view;
