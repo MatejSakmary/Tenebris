@@ -19,6 +19,7 @@ DAXA_INL_TASK_USE_END()
 
 #if __cplusplus
 #include "../context.hpp"
+struct TextureManagerInfo;
 
 inline auto get_BC6H_pipeline() -> daxa::ComputePipelineCompileInfo
 {
@@ -31,7 +32,8 @@ inline auto get_BC6H_pipeline() -> daxa::ComputePipelineCompileInfo
 
 struct BC6HCompressTask : BC6HCompressTaskBase
 {
-    Context *context = {};
+    TextureManagerInfo *info = {};
+    SamplerId nearest_sampler = {};
 
 	static constexpr u32 threadsX = 8;
 	static constexpr u32 threadsY = 8;
@@ -43,7 +45,7 @@ struct BC6HCompressTask : BC6HCompressTaskBase
     {
         auto cmd_list = ti.get_command_list();
 
-        auto image_dimensions = context->device.info_image(uses._src_texture.image()).size;
+        auto image_dimensions = info->device.info_image(uses._src_texture.image()).size;
         cmd_list.set_constant_buffer(ti.uses.constant_buffer_set_info());
         cmd_list.push_constant(BC6HCompressPC{
             .TextureSizeInBlocks = u32vec2{
@@ -51,9 +53,9 @@ struct BC6HCompressTask : BC6HCompressTaskBase
                 (image_dimensions.y + BC_BLOCK_SIZE - 1) / BC_BLOCK_SIZE,
             },
             .TextureSizeRcp = f32vec2{1.0f / image_dimensions.x, 1.0f / image_dimensions.y},
-            .point_sampler = context->nearest_sampler
+            .point_sampler = nearest_sampler
         });
-        cmd_list.set_pipeline(*(context->pipelines.BC6H_compress));
+        cmd_list.set_pipeline(*(info->compress_pipeline));
 
         cmd_list.dispatch(((image_dimensions.x + divx - 1)/divx), ((image_dimensions.y + divy - 1)/divy));
     }

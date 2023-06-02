@@ -773,14 +773,17 @@ void main()
 		texels[1] = f32vec3(block0X.z, block0Y.z, block0Z.z);
 		texels[2] = f32vec3(block1X.w, block1Y.w, block1Z.w);
 		texels[3] = f32vec3(block1X.z, block1Y.z, block1Z.z);
+
 		texels[4] = f32vec3(block0X.x, block0Y.x, block0Z.x);
 		texels[5] = f32vec3(block0X.y, block0Y.y, block0Z.y);
 		texels[6] = f32vec3(block1X.x, block1Y.x, block1Z.x);
 		texels[7] = f32vec3(block1X.y, block1Y.y, block1Z.y);
+
 		texels[8] = f32vec3(block2X.w, block2Y.w, block2Z.w);
 		texels[9] = f32vec3(block2X.z, block2Y.z, block2Z.z);
 		texels[10] = f32vec3(block3X.w, block3Y.w, block3Z.w);
 		texels[11] = f32vec3(block3X.z, block3Y.z, block3Z.z);
+
 		texels[12] = f32vec3(block2X.x, block2Y.x, block2Z.x);
 		texels[13] = f32vec3(block2X.y, block2Y.y, block2Z.y);
 		texels[14] = f32vec3(block3X.x, block3Y.x, block3Z.x);

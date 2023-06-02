@@ -39,7 +39,7 @@ struct Renderer
     void upload_planet_geometry(PlanetGeometry const & geometry);
 
     private:
-        TextureManager manager;
+        std::unique_ptr<TextureManager> manager;
         Context context;
 
         void initialize_main_tasklist();

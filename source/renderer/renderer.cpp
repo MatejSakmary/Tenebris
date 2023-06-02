@@ -5,130 +5,6 @@
 #include <imgui_impl_glfw.h>
 #include <daxa/utils/imgui.hpp>
 
-void Renderer::create_bc6h_texture(ManagedTextureHandle handle)
-{
-    auto info = manager.get_info(handle);
-    const u32 BC_BLOCK_SIZE = 4;
-
-    context.nearest_sampler = context.device.create_sampler({
-        .magnification_filter = daxa::Filter::NEAREST,
-        .minification_filter = daxa::Filter::NEAREST,
-        .mipmap_filter = daxa::Filter::NEAREST,
-        .address_mode_u = daxa::SamplerAddressMode::CLAMP_TO_BORDER,
-        .address_mode_v = daxa::SamplerAddressMode::CLAMP_TO_BORDER,
-        .address_mode_w = daxa::SamplerAddressMode::CLAMP_TO_BORDER,
-        .border_color = daxa::BorderColor::FLOAT_OPAQUE_BLACK
-    });
-
-    context.images.diffuse_map_raw = daxa::TaskImage({
-        .initial_images = {
-            std::array{
-                context.device.create_image({
-                    .format = daxa::Format::R32G32B32A32_SFLOAT,
-                    .size = {static_cast<u32>(info.dimensions.x), static_cast<u32>(info.dimensions.y), 1},
-                    .usage = daxa::ImageUsageFlagBits::SHADER_READ_ONLY | daxa::ImageUsageFlagBits::TRANSFER_DST,
-                    .allocate_info = daxa::AutoAllocInfo{daxa::MemoryFlagBits::DEDICATED_MEMORY},
-                    .name = "diffuse map raw"
-                })
-            }
-        },
-        .name = "task diffuse map raw image"
-    });
-
-
-	u32 width_round = (info.dimensions.x + BC6HCompressTask::BC_BLOCK_SIZE - 1) / BC6HCompressTask::BC_BLOCK_SIZE;
-	u32 height_round = (info.dimensions.y + BC6HCompressTask::BC_BLOCK_SIZE - 1) / BC6HCompressTask::BC_BLOCK_SIZE;
-
-    context.images.diffuse_map_target = daxa::TaskImage({
-        .initial_images = {
-            std::array{
-                context.device.create_image({
-                    .format = daxa::Format::R32G32B32A32_UINT,
-                    .size = {width_round, height_round, 1},
-                    .usage = daxa::ImageUsageFlagBits::TRANSFER_SRC | daxa::ImageUsageFlagBits::SHADER_READ_WRITE,
-                    .allocate_info = daxa::AutoAllocInfo{daxa::MemoryFlagBits::DEDICATED_MEMORY},
-                    .name = "diffuse map target"
-                })
-            }
-        },
-        .name = "task diffuse map target image"
-    });
-
-    context.images.diffuse_map_bc6h = daxa::TaskImage({
-        .initial_images = {
-            std::array{
-                context.device.create_image({
-                    .format = daxa::Format::BC6H_UFLOAT_BLOCK,
-                    .size = {static_cast<u32>(info.dimensions.x), static_cast<u32>(info.dimensions.y), 1},
-                    .usage = daxa::ImageUsageFlagBits::TRANSFER_DST | daxa::ImageUsageFlagBits::SHADER_READ_ONLY,
-                    .allocate_info = daxa::AutoAllocInfo{daxa::MemoryFlagBits::DEDICATED_MEMORY},
-                    .name = "diffuse map bc6h"
-                })
-            }
-        },
-        .name = "task diffuse map bc6h image"
-    });
-
-    daxa::TaskList bc6h_texture = daxa::TaskList({
-        .device = context.device,
-        .name = "bc6h texture task list"
-    });
-
-    bc6h_texture.use_persistent_image(context.images.diffuse_map_bc6h);
-    bc6h_texture.use_persistent_image(context.images.diffuse_map_raw);
-    bc6h_texture.use_persistent_image(context.images.diffuse_map_target);
-
-    bc6h_texture.add_task({
-        .uses = { daxa::ImageTransferWrite<>{context.images.diffuse_map_raw}},
-        .task = [=, this](daxa::TaskInterface ti)
-        {
-            auto cmd_list = ti.get_command_list();
-
-            {
-                cmd_list.copy_buffer_to_image({
-                    .buffer = info.id,
-                    .buffer_offset = 0,
-                    .image = ti.uses[context.images.diffuse_map_raw].image(),
-                    .image_extent = {static_cast<u32>(info.dimensions.x), static_cast<u32>(info.dimensions.y), 1}
-                });
-            }
-        },
-        .name = "compress image",
-    });
-
-    bc6h_texture.add_task(BC6HCompressTask{{
-        .uses = {
-            ._src_texture = context.images.diffuse_map_raw.handle(),
-            ._dst_texture = context.images.diffuse_map_target.handle()
-        }},
-        &context
-    });
-
-    bc6h_texture.add_task({
-        .uses = { 
-            daxa::ImageTransferRead<>{context.images.diffuse_map_target},
-            daxa::ImageTransferWrite<>{context.images.diffuse_map_bc6h}
-        },
-        .task = [=, this](daxa::TaskInterface ti)
-        {
-            auto cmd_list = ti.get_command_list();
-
-            {
-                cmd_list.copy_image_to_image({
-                    .src_image = ti.uses[context.images.diffuse_map_target].image(),
-                    .dst_image = ti.uses[context.images.diffuse_map_bc6h].image(),
-                    .extent = {width_round - 1, height_round - 1, 1}
-                });
-            }
-        },
-        .name = "transfer compressed into bc6h image",
-    });
-
-    bc6h_texture.submit({});
-    bc6h_texture.complete({});
-    bc6h_texture.execute({});
-};
-
 Renderer::Renderer(const AppWindow & window) :
     context { .daxa_context{daxa::create_context({.enable_validation = false})} }
 {
@@ -161,19 +37,6 @@ Renderer::Renderer(const AppWindow & window) :
         .name = "Pipeline Compiler",
     });
 
-    // TODO(msakmary) Move the device pass into texture manager constructor
-    auto diffuse_handle = manager.load_texture({
-        .path = "assets/terrain/rugged_terrain_diffuse_4_channel.exr",
-        .device = context.device
-    });
-
-
-
-    // auto height_handle = manager.load_texture({
-    //     .path = "assets/terrain/rugged_terrain_height.exr",
-    //     .device = context.device
-    // });
-
     auto init_compute_pipeline = [&](daxa::ComputePipelineCompileInfo ci, std::shared_ptr<daxa::ComputePipeline> & pip)
     {
         if(auto result = context.pipeline_manager.add_compute_pipeline(ci); result.is_ok())
@@ -204,8 +67,6 @@ Renderer::Renderer(const AppWindow & window) :
 
     context.linear_sampler = context.device.create_sampler({});
 
-    create_bc6h_texture(diffuse_handle);
-
     ImGui::CreateContext();
     ImGui_ImplGlfw_InitForVulkan(window.get_glfw_window_handle(), true);
     auto &io = ImGui::GetIO();
@@ -226,6 +87,22 @@ Renderer::Renderer(const AppWindow & window) :
     });
 
     create_persistent_resources();
+
+    manager = std::make_unique<TextureManager>(TextureManagerInfo{
+        .device = context.device,
+        .compress_pipeline = context.pipelines.BC6H_compress
+    });
+
+    manager->load_texture({
+        .path = "assets/terrain/rugged_terrain_diffuse.exr",
+        .dest_image = context.images.diffuse_map
+    });
+
+    manager->load_texture({
+        .path = "assets/terrain/rugged_terrain_height.exr",
+        .dest_image = context.images.height_map
+    });
+
     initialize_main_tasklist();
 }
 
@@ -250,6 +127,8 @@ void Renderer::create_persistent_resources()
     context.buffers.terrain_vertices = daxa::TaskBuffer({ .name = "terrain vertices task buffer" });
     context.buffers.terrain_indices = daxa::TaskBuffer({ .name = "terrain indices task buffer" });
     context.images.swapchain = daxa::TaskImage({ .swapchain_image = true, .name = "swapchain task image" });
+    context.images.diffuse_map = daxa::TaskImage({ .name = "diffuse map task image" });
+    context.images.height_map = daxa::TaskImage({ .name = "height map task image" });
 
     f32 mie_scale_height = 1.2f;
     f32 rayleigh_scale_height = 8.0f;

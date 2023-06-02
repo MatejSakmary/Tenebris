@@ -15,6 +15,92 @@ using namespace IMATH_NAMESPACE;
 #include <array>
 #include <variant>
 
+#include "tasks/bc6h_compress.inl"
+
+
+TextureManager::TextureManager(TextureManagerInfo const & c_info) : info{c_info}
+{
+    nearest_sampler = info.device.create_sampler({
+        .magnification_filter = daxa::Filter::NEAREST,
+        .minification_filter = daxa::Filter::NEAREST,
+        .mipmap_filter = daxa::Filter::NEAREST,
+        .address_mode_u = daxa::SamplerAddressMode::CLAMP_TO_BORDER,
+        .address_mode_v = daxa::SamplerAddressMode::CLAMP_TO_BORDER,
+        .address_mode_w = daxa::SamplerAddressMode::CLAMP_TO_BORDER,
+        .border_color = daxa::BorderColor::FLOAT_OPAQUE_BLACK
+    });
+
+    hdr_texture = daxa::TaskImage({.name = "texture manager hdr task image"});
+    uint_compress_texture = daxa::TaskImage({.name = "texture manager uint compress task image"});
+    bc6h_texture = daxa::TaskImage({.name = "texture manager bc6h task image"});
+
+    upload_texture_task_list = daxa::TaskList({
+        .device = info.device,
+        .permutation_condition_count = 1,
+        .name = "texture manager task list"
+    });
+
+    upload_texture_task_list.use_persistent_image(hdr_texture);
+    upload_texture_task_list.use_persistent_image(uint_compress_texture);
+    upload_texture_task_list.use_persistent_image(bc6h_texture);
+
+    DBG_ASSERT_TRUE_M(hdr_texture, "asdgl");
+    upload_texture_task_list.add_task({
+        .uses = { daxa::ImageTransferWrite<>{hdr_texture}},
+        .task = [=, this](daxa::TaskInterface ti)
+        {
+            auto cmd_list = ti.get_command_list();
+
+            DBG_ASSERT_TRUE_M(hdr_texture, "asdgl");
+            auto image_info = info.device.info_image(ti.uses[hdr_texture].image());
+            cmd_list.copy_buffer_to_image({
+                .buffer = this->curr_buffer_id,
+                .buffer_offset = 0,
+                .image = ti.uses[hdr_texture].image(),
+                .image_extent = {static_cast<u32>(image_info.size.x), static_cast<u32>(image_info.size.y), 1}
+            });
+        },
+        .name = "copy buffer into raw image",
+    });
+
+    upload_texture_task_list.conditional({
+        .condition_index = 0,
+        .when_true = [&]()
+        {
+            upload_texture_task_list.add_task(BC6HCompressTask{{
+                .uses = {
+                    ._src_texture = hdr_texture.handle(),
+                    ._dst_texture = uint_compress_texture.handle()
+                }},
+                &(this->info),
+                nearest_sampler
+            });
+
+            upload_texture_task_list.add_task({
+                .uses = { 
+                    daxa::ImageTransferRead<>{uint_compress_texture},
+                    daxa::ImageTransferWrite<>{bc6h_texture}
+                },
+                .task = [&, this](daxa::TaskInterface ti)
+                {
+                    auto cmd_list = ti.get_command_list();
+                    {
+                        auto image_info = info.device.info_image(ti.uses[uint_compress_texture].image());
+                        cmd_list.copy_image_to_image({
+                            .src_image = ti.uses[uint_compress_texture].image(),
+                            .dst_image = ti.uses[bc6h_texture].image(),
+                            .extent = {image_info.size.x - 1, image_info.size.y - 1, 1}
+                        });
+                    }
+                },
+                .name = "transfer compressed into bc6h image",
+            });
+        }
+    });
+
+    upload_texture_task_list.submit({});
+    upload_texture_task_list.complete({});
+}
 
 struct ElemType
 {
@@ -23,11 +109,6 @@ struct ElemType
     PixelType type;
     std::array<std::string, 4> channel_names;
 };
-
-auto TextureManager::get_info(const ManagedTextureHandle & handle) const -> const ManagedTexture &
-{
-    return managed_textures.at(handle.index);
-}
 
 auto get_texture_element(const std::unique_ptr<InputFile> & file) -> ElemType
 {
@@ -42,23 +123,22 @@ auto get_texture_element(const std::unique_ptr<InputFile> & file) -> ElemType
     const ChannelList &channels = file->header().channels();
     for (ChannelList::ConstIterator i = channels.begin(); i != channels.end(); ++i)
     {
-#ifdef __DEBUG__
-        if(!parsed_channels.empty())
-            if(parsed_channels.back().type != i.channel().type ||
-               parsed_channels.back().linear != i.channel().pLinear)
-        {
-            DEBUG_OUT("[TextureManager::get_texture_element()]" <<
-                      "Images with nonuniform channel types are not supported");
-            return {daxa::Format::UNDEFINED, -1u, PixelType::NUM_PIXELTYPES};
-        }
-#endif
         parsed_channels.emplace_back(ChannelInfo{
             .name = i.name(),
             .type = i.channel().type,
             .linear = i.channel().pLinear
         });
+        if(!parsed_channels.empty())
+            if(parsed_channels.back().type != i.channel().type ||
+               parsed_channels.back().linear != i.channel().pLinear)
+        {
+            DBG_ASSERT_TRUE_M(false, "[TextureManager::get_texture_element()] Images with nonuniform channel types are not supported");
+        }
     }
     ElemType ret;
+    DBG_ASSERT_TRUE_M(parsed_channels.size() <= 4, "[TextureManager::get_texture_element()] Not supporting more channels than 4");
+    DBG_ASSERT_TRUE_M(parsed_channels.size() != 2, "[TextureManager::get_texture_element()] Not supporting two channel textures");
+
 #ifdef __DEBUG__
     std::array channels_present{false, false, false, false};
     for(int j = 0; const auto & parsed_channel : parsed_channels)
@@ -79,6 +159,7 @@ auto get_texture_element(const std::unique_ptr<InputFile> & file) -> ElemType
         }
     }
 #endif
+
     // first index is number of channels, second is the channel data type
     std::array<std::array<daxa::Format, 4>, 4> formats_lut =
     {{
@@ -88,7 +169,9 @@ auto get_texture_element(const std::unique_ptr<InputFile> & file) -> ElemType
         {daxa::Format::R32G32B32A32_UINT, daxa::Format::R16G16B16A16_SFLOAT, daxa::Format::R32G32B32A32_SFLOAT, daxa::Format::R8G8B8A8_UINT},
     }};
 
-    auto texture_format = formats_lut.at(parsed_channels.size() - 1).at(u32(parsed_channels.back().type));
+    // no support for texture size 2
+    u32 channel_cnt = parsed_channels.size() == 1 ? 0 : 3;
+    auto texture_format = formats_lut.at(channel_cnt).at(u32(parsed_channels.back().type));
     ret.format = texture_format;
     ret.elem_cnt = u32(parsed_channels.size());
     ret.type = parsed_channels.back().type;
@@ -98,15 +181,26 @@ auto get_texture_element(const std::unique_ptr<InputFile> & file) -> ElemType
 struct CreateStagingBufferInfo
 {
     i32vec2 dimensions;
+    u32 present_channel_count;
     daxa::Device & device;
     std::string name;
     std::array<std::string,4> channel_names;
     std::unique_ptr<InputFile> & file;
 };
+
 template <i32 NumElems, typename T, PixelType PixT>
-auto load_texture_data(const CreateStagingBufferInfo & info) -> daxa::BufferId
+auto load_texture_data(CreateStagingBufferInfo & info) -> daxa::BufferId
 {
     using Elem = std::array<T,NumElems>;
+
+    auto pos_from_name = [](const std::string_view name) -> i32
+    {
+        if(name[0] == 'R') return 0;
+        else if(name[0] == 'G') return 1;
+        else if(name[0] == 'B') return 2;
+        else if(name[0] == 'A') return 3;
+        else return -1;
+    };
 
     auto new_buffer_id = info.device.create_buffer({
         .size = info.dimensions.x * info.dimensions.y * NumElems * u32(sizeof(T)),
@@ -114,14 +208,45 @@ auto load_texture_data(const CreateStagingBufferInfo & info) -> daxa::BufferId
         .name = info.name
     });
     auto * buffer_ptr = info.device.get_host_address_as<Elem>(new_buffer_id);
-
     FrameBuffer frame_buffer;
-    for(int i = 0; i <= NumElems - 1; i++) {
+
+    std::array<int, 4> positions{-1, -1, -1, -1};
+    std::array<bool, 4> position_occupied{false, false, false, false};
+
+    if(info.present_channel_count == 3) { info.channel_names.at(3) = "A"; }
+
+    for(int i = 0; i < NumElems; i++) {
+        positions.at(i) = pos_from_name(info.channel_names.at(i));
+        if (positions.at(i) != -1) {position_occupied.at(positions.at(i)) = true; }
+    }
+
+    for(int i = 0; i < NumElems; i++)
+    {
+        if(positions.at(i) == -1)
+        {
+            for(int j = 0; j < NumElems; j++)
+            {
+                if(!position_occupied.at(j))
+                {
+                    position_occupied.at(j) = true;
+                    positions.at(i) = j;
+                    break;
+                }
+            }
+        }
+    }
+
+    for(int i = 0; i < NumElems; i++) {
         frame_buffer.insert(
             info.channel_names.at(i),
-            // TODO(msakmary) (3 - i) is a hack counting on the fact names will be in the order A,B,G,R
-            //      - channels should get position assigned based on their name not based on the order they come in the image
-            Slice(PixT, reinterpret_cast<char*>(&buffer_ptr[0].at(3 - i)), sizeof(Elem), sizeof(Elem) * info.dimensions.x));
+            Slice(
+                PixT,                                                        // Type
+                reinterpret_cast<char*>(&buffer_ptr[0].at(positions.at(i))), // Position offset
+                sizeof(Elem), sizeof(Elem) * info.dimensions.x,              // x_string and y_stride
+                1, 1,                                                        // sampling rates
+                0.0                                                          // fill value
+            )
+        );  
     }
     try
     {
@@ -133,14 +258,14 @@ auto load_texture_data(const CreateStagingBufferInfo & info) -> daxa::BufferId
     return new_buffer_id;
 }
 
-auto TextureManager::load_texture(const LoadTextureInfo &info) -> ManagedTextureHandle
+void TextureManager::load_texture(const LoadTextureInfo &load_info)
 {
     std::unique_ptr<InputFile> file;
     try {
         // Open the EXR file and read its header
-        file = std::make_unique<InputFile>(info.path.c_str());
+        file = std::make_unique<InputFile>(load_info.path.c_str());
     } catch (const std::exception &e) {
-        DEBUG_OUT("error when reading file: " << info.path << " " << e.what());
+        DEBUG_OUT("error when reading file: " << load_info.path << " " << e.what());
     }
 
     Box2i data_window = file->header().dataWindow();
@@ -150,7 +275,7 @@ auto TextureManager::load_texture(const LoadTextureInfo &info) -> ManagedTexture
     };
     DBG_ASSERT_TRUE_M(data_window.min.x == 0 && data_window.min.y == 0, "TODO(msakmary) Allocate does not handle this case");
 
-    DEBUG_OUT("=========== Loaded texture header: " << info.path << " ===========");
+    DEBUG_OUT("=========== Loaded texture header: " << load_info.path << " ===========");
 
     auto texture_elem = get_texture_element(file);
 
@@ -158,15 +283,16 @@ auto TextureManager::load_texture(const LoadTextureInfo &info) -> ManagedTexture
     DEBUG_OUT("Format " << daxa::to_string(texture_elem.format));
 
     ManagedTexture new_texture = ManagedTexture{
-        .path = info.path,
+        .path = load_info.path,
         .dimensions = size,
         .format = texture_elem.format,
     };
 
     CreateStagingBufferInfo stanging_info{
         .dimensions = size,
+        .present_channel_count = texture_elem.elem_cnt,
         .device = info.device,
-        .name = "managed texture buffer " + info.path,
+        .name = "managed texture buffer " + load_info.path,
         .channel_names = texture_elem.channel_names,
         .file = file
     };
@@ -182,16 +308,14 @@ auto TextureManager::load_texture(const LoadTextureInfo &info) -> ManagedTexture
         }
         case 2:
         {
-            if      (texture_elem.type == PixelType::UINT) { new_texture.id = load_texture_data<2, u32, PixelType::UINT>(stanging_info); }
-            else if (texture_elem.type == PixelType::HALF) { new_texture.id = load_texture_data<2, half, PixelType::HALF>(stanging_info);}
-            else if (texture_elem.type == PixelType::FLOAT) { new_texture.id = load_texture_data<2, f32, PixelType::FLOAT>(stanging_info);}
+            DBG_ASSERT_TRUE_M(false, "[TextureManager::load_texture()] Unsupported number of channels in a texture");
             break;
         }
         case 3:
         {
-            if      (texture_elem.type == PixelType::UINT) { new_texture.id = load_texture_data<3, u32, PixelType::UINT>(stanging_info); }
-            else if (texture_elem.type == PixelType::HALF) { new_texture.id = load_texture_data<3, half, PixelType::HALF>(stanging_info);}
-            else if (texture_elem.type == PixelType::FLOAT) { new_texture.id = load_texture_data<3, f32, PixelType::FLOAT>(stanging_info);}
+            if      (texture_elem.type == PixelType::UINT) { new_texture.id = load_texture_data<4, u32, PixelType::UINT>(stanging_info); }
+            else if (texture_elem.type == PixelType::HALF) { new_texture.id = load_texture_data<4, half, PixelType::HALF>(stanging_info);}
+            else if (texture_elem.type == PixelType::FLOAT) { new_texture.id = load_texture_data<4, f32, PixelType::FLOAT>(stanging_info);}
             break;
         }
         case 4:
@@ -202,11 +326,70 @@ auto TextureManager::load_texture(const LoadTextureInfo &info) -> ManagedTexture
             break;
         }
     }
-    managed_textures.emplace_back(new_texture);
-    return {.index = i32(managed_textures.size()) - 1};
-}
 
-auto TextureManager::reload_textures() -> std::vector<ManagedTextureHandle>
-{
-    return {};
+    should_compress = false;
+    hdr_texture.set_images({
+        .images = {
+            std::array{
+                info.device.create_image({
+                    .format = texture_elem.format,
+                    .size = {static_cast<u32>(new_texture.dimensions.x), static_cast<u32>(new_texture.dimensions.y), 1},
+                    .usage = daxa::ImageUsageFlagBits::SHADER_READ_ONLY | daxa::ImageUsageFlagBits::TRANSFER_DST,
+                    .allocate_info = daxa::AutoAllocInfo{daxa::MemoryFlagBits::DEDICATED_MEMORY},
+                    .name = "raw texture"
+                })
+            }
+        }
+    });
+
+    if(texture_elem.elem_cnt > 1)
+    {
+        should_compress = true;
+	    u32 width_round = (new_texture.dimensions.x + BC6HCompressTask::BC_BLOCK_SIZE - 1) / BC6HCompressTask::BC_BLOCK_SIZE;
+	    u32 height_round = (new_texture.dimensions.y + BC6HCompressTask::BC_BLOCK_SIZE - 1) / BC6HCompressTask::BC_BLOCK_SIZE;
+
+        uint_compress_texture.set_images({
+            .images = {
+                std::array{
+                    info.device.create_image({
+                        .format = daxa::Format::R32G32B32A32_UINT,
+                        .size = {width_round, height_round, 1},
+                        .usage = daxa::ImageUsageFlagBits::TRANSFER_SRC | daxa::ImageUsageFlagBits::SHADER_READ_WRITE,
+                        .allocate_info = daxa::AutoAllocInfo{daxa::MemoryFlagBits::DEDICATED_MEMORY},
+                        .name = "uint compress texture"
+                    })
+                }
+            },
+        });
+
+        bc6h_texture.set_images({
+            .images = {
+                std::array{
+                    info.device.create_image({
+                        .format = daxa::Format::BC6H_UFLOAT_BLOCK,
+                        .size = {static_cast<u32>(new_texture.dimensions.x), static_cast<u32>(new_texture.dimensions.y), 1},
+                        .usage = daxa::ImageUsageFlagBits::TRANSFER_DST | daxa::ImageUsageFlagBits::SHADER_READ_ONLY,
+                        .allocate_info = daxa::AutoAllocInfo{daxa::MemoryFlagBits::DEDICATED_MEMORY},
+                        .name = "diffuse map bc6h"
+                    })
+                }
+            },
+        });
+    }
+
+    curr_buffer_id = new_texture.id;
+    upload_texture_task_list.execute({{&should_compress, 1}});
+
+    info.device.wait_idle();
+    if(texture_elem.elem_cnt == 1)
+    {
+        hdr_texture.swap_images(load_info.dest_image);
+    } else {
+        bc6h_texture.swap_images(load_info.dest_image);
+        info.device.destroy_image(hdr_texture.get_state().images[0]);
+        info.device.destroy_image(uint_compress_texture.get_state().images[0]);
+        hdr_texture.set_images({});
+        uint_compress_texture.set_images({});
+    }
+    info.device.destroy_buffer(curr_buffer_id);
 }

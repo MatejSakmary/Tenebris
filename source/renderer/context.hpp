@@ -26,11 +26,9 @@ struct Context
     {
         daxa::TaskImage swapchain;
 
-        daxa::TaskImage diffuse_map_raw;
-        daxa::TaskImage diffuse_map_target;
-        daxa::TaskImage diffuse_map_bc6h;
-        
+        daxa::TaskImage diffuse_map;
         daxa::TaskImage height_map;
+
     };
 
     struct Pipelines
