@@ -16,11 +16,13 @@ DAXA_INL_TASK_USE_BUFFER(_indices, daxa_BufferPtr(TerrainIndex), VERTEX_SHADER_R
 DAXA_INL_TASK_USE_BUFFER(_globals, daxa_BufferPtr(Globals), SHADER_READ)
 DAXA_INL_TASK_USE_IMAGE(_offscreen, daxa_Image2Df32, COLOR_ATTACHMENT)
 DAXA_INL_TASK_USE_IMAGE(_depth, daxa_Image2Df32, DEPTH_ATTACHMENT)
+DAXA_INL_TASK_USE_IMAGE(_height_map, daxa_Image2Df32, SHADER_READ)
+DAXA_INL_TASK_USE_IMAGE(_diffuse_map, daxa_Image2Df32, FRAGMENT_SHADER_READ)
 DAXA_INL_TASK_USE_END()
 
 #if __cplusplus
 #include "../context.hpp"
-inline auto get_draw_terrain_pipeline() -> daxa::RasterPipelineCompileInfo {
+inline auto get_draw_terrain_pipeline(bool wireframe) -> daxa::RasterPipelineCompileInfo {
     return {
         .vertex_shader_info = daxa::ShaderCompileInfo{ .source = daxa::ShaderFile{"draw_terrain.glsl"}, },
         .tesselation_control_shader_info = daxa::ShaderCompileInfo{ .source = daxa::ShaderFile{"draw_terrain.glsl"}, },
@@ -35,7 +37,7 @@ inline auto get_draw_terrain_pipeline() -> daxa::RasterPipelineCompileInfo {
         .raster = { 
             .primitive_topology = daxa::PrimitiveTopology::PATCH_LIST,
             .primitive_restart_enable = false,
-            .polygon_mode = daxa::PolygonMode::LINE,
+            .polygon_mode = wireframe ? daxa::PolygonMode::LINE : daxa::PolygonMode::FILL,
             .face_culling = daxa::FaceCullFlagBits::BACK_BIT,
         },
         .tesselation = { .control_points = 3 },
@@ -47,6 +49,7 @@ inline auto get_draw_terrain_pipeline() -> daxa::RasterPipelineCompileInfo {
 struct DrawTerrainTask : DrawTerrainTaskBase
 {
     Context *context = {};
+    bool * wireframe = {};
     void callback(daxa::TaskInterface ti)
     {
         auto cmd_list = ti.get_command_list();
@@ -71,8 +74,9 @@ struct DrawTerrainTask : DrawTerrainTaskBase
             }},
             .render_area = {.x = 0, .y = 0, .width = dimensions.x , .height = dimensions.y}
         });
+        if(*wireframe) { cmd_list.set_pipeline(*(context->pipelines.draw_terrain_wireframe)); }
+        else           { cmd_list.set_pipeline(*(context->pipelines.draw_terrain_solid));     }
 
-        cmd_list.set_pipeline(*(context->pipelines.draw_terrain));
         cmd_list.set_index_buffer(uses._indices.buffer(), 0, sizeof(u32));
         cmd_list.push_constant(DrawTerrainPC{.sampler_id = context->linear_sampler});
         cmd_list.draw_indexed({.index_count = u32(context->terrain_index_size)});

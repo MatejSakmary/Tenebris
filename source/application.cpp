@@ -176,6 +176,7 @@ void Application::ui_update()
     ImGui::SliderInt("Minimum tesselation level", &renderer.globals->terrain_min_tess_level, 1, 20);
     ImGui::SliderInt("Maximum tesselation level", &renderer.globals->terrain_max_tess_level, 1, 40);
     if(ImGui::Button("Generate planet", {150, 20})) { renderer.upload_planet_geometry(generate_planet()); }
+    ImGui::Checkbox("Wireframe terrain", &renderer.wireframe_terrain);
     ImGui::End();
 
     ImGui::Begin("Sun Angle");

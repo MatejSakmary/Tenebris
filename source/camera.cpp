@@ -74,6 +74,15 @@ void Camera::update_front_vector(f32 x_offset, f32 y_offset)
     front = front_;
 }
 
+auto Camera::get_ground_view_matrix() const -> f32mat4x4
+{
+    glm::vec3 pos_at_0 = position;
+    pos_at_0.z = 0.0f;
+    auto view_mat = glm::lookAt(pos_at_0, pos_at_0 + front, up);
+
+    return mat_from_span<f32, 4, 4>(std::span<f32, 4 * 4>{ glm::value_ptr(view_mat), 4 * 4 });
+}
+
 auto Camera::get_view_matrix() const -> f32mat4x4
 {
     auto view_mat = glm::lookAt(position, position + front, up);

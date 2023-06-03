@@ -39,7 +39,8 @@ struct Context
         std::shared_ptr<daxa::ComputePipeline> skyview;
         std::shared_ptr<daxa::RasterPipeline> post_process;
         std::shared_ptr<daxa::RasterPipeline> draw_far_sky;
-        std::shared_ptr<daxa::RasterPipeline> draw_terrain;
+        std::shared_ptr<daxa::RasterPipeline> draw_terrain_wireframe;
+        std::shared_ptr<daxa::RasterPipeline> draw_terrain_solid;
     };
 
     struct MainTaskList

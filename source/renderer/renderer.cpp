@@ -61,7 +61,8 @@ Renderer::Renderer(const AppWindow & window) :
     init_compute_pipeline(get_transmittance_LUT_pipeline(), context.pipelines.transmittance);
     init_compute_pipeline(get_multiscattering_LUT_pipeline(), context.pipelines.multiscattering);
     init_compute_pipeline(get_skyview_LUT_pipeline(), context.pipelines.skyview);
-    init_raster_pipeline(get_draw_terrain_pipeline(), context.pipelines.draw_terrain);
+    init_raster_pipeline(get_draw_terrain_pipeline(false), context.pipelines.draw_terrain_solid);
+    init_raster_pipeline(get_draw_terrain_pipeline(true), context.pipelines.draw_terrain_wireframe);
     init_raster_pipeline(get_draw_far_sky_pipeline(), context.pipelines.draw_far_sky);
     init_raster_pipeline(get_post_process_pipeline(context), context.pipelines.post_process);
 
@@ -209,6 +210,8 @@ void Renderer::initialize_main_tasklist()
     context.main_task_list.task_list.use_persistent_buffer(context.buffers.terrain_indices);
     context.main_task_list.task_list.use_persistent_buffer(context.buffers.terrain_vertices);
     context.main_task_list.task_list.use_persistent_image(context.images.swapchain);
+    context.main_task_list.task_list.use_persistent_image(context.images.height_map);
+    context.main_task_list.task_list.use_persistent_image(context.images.diffuse_map);
     
     /* ========================================= PERSISTENT RESOURCES =============================================*/
     auto extent = context.swapchain.get_surface_extent();
@@ -289,8 +292,11 @@ void Renderer::initialize_main_tasklist()
             ._globals = context.buffers.globals.handle(),
             ._offscreen = context.main_task_list.images.offscreen,
             ._depth = context.main_task_list.images.depth.subslice({.image_aspect = daxa::ImageAspectFlagBits::DEPTH}),
+            ._height_map = context.images.height_map.handle(),
+            ._diffuse_map = context.images.diffuse_map.handle()
         }},
-        &context
+        &context,
+        &wireframe_terrain
     });
 
     /* =========================================== DRAW FAR SKY =================================================== */
@@ -447,6 +453,7 @@ void Renderer::draw(const Camera & camera)
     Globals* globals = context.device.get_host_address_as<Globals>(context.buffers.globals.get_state().buffers[0]); 
     auto [front, top, right] = camera.get_frustum_info();
     globals->view = camera.get_view_matrix();
+    globals->ground_view = camera.get_ground_view_matrix();
     globals->camera_front = front;
     globals->camera_frust_top_offset = top;
     globals->camera_frust_right_offset = right;

@@ -35,6 +35,9 @@ struct TextureManagerInfo
 
 struct TextureManager
 {
+    TextureManager(TextureManager const &) = delete;
+    TextureManager & operator= (TextureManager const &) = delete;
+
     TextureManager(TextureManagerInfo const & info);
     void load_texture(const LoadTextureInfo & load_info);
 

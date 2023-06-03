@@ -29,6 +29,7 @@ TextureManager::TextureManager(TextureManagerInfo const & c_info) : info{c_info}
         .address_mode_w = daxa::SamplerAddressMode::CLAMP_TO_BORDER,
         .border_color = daxa::BorderColor::FLOAT_OPAQUE_BLACK
     });
+    setGlobalThreadCount(8);
 
     hdr_texture = daxa::TaskImage({.name = "texture manager hdr task image"});
     uint_compress_texture = daxa::TaskImage({.name = "texture manager uint compress task image"});
@@ -188,6 +189,37 @@ struct CreateStagingBufferInfo
     std::unique_ptr<InputFile> & file;
 };
 
+
+#include <chrono>
+#include <atomic>
+
+namespace shino
+{
+    template <typename Clock = std::chrono::high_resolution_clock>
+    class stopwatch
+    {
+        const typename Clock::time_point start_point;
+    public:
+        stopwatch() : 
+            start_point(Clock::now())
+        {}
+
+        template <typename Rep = typename Clock::duration::rep, typename Units = typename Clock::duration>
+        Rep elapsed_time() const
+        {
+            std::atomic_thread_fence(std::memory_order_relaxed);
+            auto counted_time = std::chrono::duration_cast<Units>(Clock::now() - start_point).count();
+            std::atomic_thread_fence(std::memory_order_relaxed);
+            return static_cast<Rep>(counted_time);
+        }
+    };
+
+    using precise_stopwatch = stopwatch<>;
+    using system_stopwatch = stopwatch<std::chrono::system_clock>;
+    using monotonic_stopwatch = stopwatch<std::chrono::steady_clock>;
+};
+
+
 template <i32 NumElems, typename T, PixelType PixT>
 auto load_texture_data(CreateStagingBufferInfo & info) -> daxa::BufferId
 {
@@ -251,7 +283,10 @@ auto load_texture_data(CreateStagingBufferInfo & info) -> daxa::BufferId
     try
     {
         info.file->setFrameBuffer(frame_buffer);
+        shino::precise_stopwatch stopwatch;
         info.file->readPixels(0, info.dimensions.y - 1);
+        auto actual_wait_time = stopwatch.elapsed_time<unsigned int, std::chrono::milliseconds>();
+        DEBUG_OUT("[TextureManager::loat_texture_data()] Load took " << actual_wait_time << " ms");
     } catch (const std::exception &e) {
         DEBUG_OUT("[TextureManager::load_texture_data()] Error encountered " << e.what());
     }

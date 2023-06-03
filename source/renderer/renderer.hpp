@@ -29,6 +29,7 @@ using namespace daxa::types;
 
 struct Renderer
 {
+    bool wireframe_terrain;
     // TODO(msakmary) Should be per-fif array
     Globals *globals;
     explicit Renderer(const AppWindow & window);
