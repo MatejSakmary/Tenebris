@@ -453,7 +453,6 @@ void Renderer::draw(const Camera & camera)
     Globals* globals = context.device.get_host_address_as<Globals>(context.buffers.globals.get_state().buffers[0]); 
     auto [front, top, right] = camera.get_frustum_info();
     globals->view = camera.get_view_matrix();
-    globals->ground_view = camera.get_ground_view_matrix();
     globals->camera_front = front;
     globals->camera_frust_top_offset = top;
     globals->camera_frust_right_offset = right;

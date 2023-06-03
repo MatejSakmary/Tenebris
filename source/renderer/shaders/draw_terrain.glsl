@@ -10,7 +10,7 @@ layout (location = 0) out f32vec2 out_uv;
 void main()
 {
     // f32vec4 pre_trans_pos = f32vec4(deref(_vertices[gl_VertexIndex]).position, , 1.0);
-    f32vec4 pre_trans_pos = f32vec4(deref(_vertices[gl_VertexIndex]).position, 0.0, 1.0);
+    f32vec4 pre_trans_pos = f32vec4(deref(_vertices[gl_VertexIndex]).position, deref(_globals).atmosphere_bottom, 1.0);
     pre_trans_pos.z += texture(_height_map, pc.sampler_id, f32vec2(pre_trans_pos.xy)).r * 3;
     out_uv = pre_trans_pos.xy;
     gl_Position = pre_trans_pos;
@@ -28,17 +28,10 @@ void main()
         f32vec4 scaled_pos_1 = f32vec4(gl_in[1].gl_Position.xyz * deref(_globals).terrain_scale, 1.0);
         f32vec4 scaled_pos_2 = f32vec4(gl_in[2].gl_Position.xyz * deref(_globals).terrain_scale, 1.0);
         
-        
-        f32 dist_0 = length((deref(_globals).ground_view * scaled_pos_0).xyz);
-        f32 dist_1 = length((deref(_globals).ground_view * scaled_pos_1).xyz);
-        f32 dist_2 = length((deref(_globals).ground_view * scaled_pos_2).xyz);
+        f32 dist_0 = length((deref(_globals).view * scaled_pos_0).xyz);
+        f32 dist_1 = length((deref(_globals).view * scaled_pos_1).xyz);
+        f32 dist_2 = length((deref(_globals).view * scaled_pos_2).xyz);
 
-        // if(gl_PrimitiveID % 2 == 1)
-        // {
-        //     f32 tmp = dist_1;
-        //     dist_1 = dist_2;
-        //     dist_2 = tmp;
-        // }
         f32 depth_0 = clamp((abs((dist_0 + dist_1) / 2.0) - deref(_globals).terrain_min_depth) / deref(_globals).terrain_delta, 0.0, 1.0);
         f32 depth_1 = clamp((abs((dist_1 + dist_2) / 2.0) - deref(_globals).terrain_min_depth) / deref(_globals).terrain_delta, 0.0, 1.0);
         f32 depth_2 = clamp((abs((dist_2 + dist_0) / 2.0) - deref(_globals).terrain_min_depth) / deref(_globals).terrain_delta, 0.0, 1.0);
@@ -70,7 +63,6 @@ void main()
 
     f32vec3 scale = deref(_globals).terrain_scale;
     gl_Position.z = deref(_globals).atmosphere_bottom + texture(_height_map, pc.sampler_id, f32vec2(gl_Position.xy)).r * 3;
-    // gl_Position.z = texture(_height_map, pc.sampler_id, f32vec2(gl_Position.xy)).r * 10;
 
     out_uv = gl_TessCoord.x * in_uv[0] + gl_TessCoord.y * in_uv[1] + gl_TessCoord.z * in_uv[2];
     const f32vec4 pre_trans_scaled_pos = f32vec4(gl_Position.xyz * scale, 1.0);

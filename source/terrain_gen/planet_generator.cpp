@@ -3,7 +3,7 @@
 
 auto generate_planet() -> PlanetGeometry
 {
-    const u32 terrain_res = 50u;
+    const u32 terrain_res = 300u;
 
     PlanetGeometry geometry;
     geometry.vertices.reserve(terrain_res * terrain_res);

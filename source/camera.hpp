@@ -67,7 +67,6 @@ struct Camera
     void set_position(f32vec3 new_position);
     [[nodiscard]] auto get_camera_position() const -> f32vec3;
     [[nodiscard]] auto get_view_matrix() const -> f32mat4x4;
-    [[nodiscard]] auto get_ground_view_matrix() const -> f32mat4x4;
     [[nodiscard]] auto get_projection_matrix(const GetProjectionInfo & info) const -> f32mat4x4;
     [[nodiscard]] auto get_inv_view_proj_matrix(const GetProjectionInfo & info) const -> f32mat4x4;
     [[nodiscard]] auto get_frustum_info() const -> CameraFrustumInfo;
