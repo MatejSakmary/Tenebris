@@ -10,11 +10,11 @@ struct MultiscatteringPC
     daxa_SamplerId sampler_id;
 };
 
-DAXA_INL_TASK_USE_BEGIN(ComputeMultiscatteringTaskBase, DAXA_CBUFFER_SLOT0)
-DAXA_INL_TASK_USE_BUFFER(_globals, daxa_BufferPtr(Globals), COMPUTE_SHADER_READ)
-DAXA_INL_TASK_USE_IMAGE(_transmittance_LUT, daxa_Image2Df32, COMPUTE_SHADER_READ)
-DAXA_INL_TASK_USE_IMAGE(_multiscattering_LUT, daxa_RWImage2Df32, COMPUTE_SHADER_WRITE)
-DAXA_INL_TASK_USE_END()
+DAXA_DECL_TASK_USES_BEGIN(ComputeMultiscatteringTaskBase, DAXA_UNIFORM_BUFFER_SLOT0)
+DAXA_TASK_USE_BUFFER(_globals, daxa_BufferPtr(Globals), COMPUTE_SHADER_READ)
+DAXA_TASK_USE_IMAGE(_transmittance_LUT, REGULAR_2D, COMPUTE_SHADER_READ)
+DAXA_TASK_USE_IMAGE(_multiscattering_LUT, REGULAR_2D, COMPUTE_SHADER_WRITE)
+DAXA_DECL_TASK_USES_END()
 
 #if __cplusplus
 #include "../context.hpp"
@@ -39,7 +39,7 @@ struct ComputeMultiscatteringTask : ComputeMultiscatteringTaskBase
         auto cmd_list = ti.get_command_list();
 
         auto multiscattering_dimensions = context->device.info_image(uses._multiscattering_LUT.image()).size;
-        cmd_list.set_constant_buffer(ti.uses.constant_buffer_set_info());
+        cmd_list.set_uniform_buffer(ti.uses.get_uniform_buffer_info());
         cmd_list.set_pipeline(*(context->pipelines.multiscattering));
         cmd_list.push_constant(MultiscatteringPC{
             .sampler_id = context->linear_sampler,

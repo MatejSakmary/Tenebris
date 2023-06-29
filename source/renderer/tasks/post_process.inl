@@ -10,10 +10,10 @@ struct PostProcessPC
     daxa_SamplerId sampler_id;
 };
 
-DAXA_INL_TASK_USE_BEGIN(PostProcessTaskBase, DAXA_CBUFFER_SLOT0)
-DAXA_INL_TASK_USE_IMAGE(_swapchain, daxa_Image2Du32, COLOR_ATTACHMENT)
-DAXA_INL_TASK_USE_IMAGE(_offscreen, daxa_Image2Df32, FRAGMENT_SHADER_READ)
-DAXA_INL_TASK_USE_END()
+DAXA_DECL_TASK_USES_BEGIN(PostProcessTaskBase, DAXA_UNIFORM_BUFFER_SLOT0)
+DAXA_TASK_USE_IMAGE(_swapchain, REGULAR_2D, COLOR_ATTACHMENT)
+DAXA_TASK_USE_IMAGE(_offscreen, REGULAR_2D, FRAGMENT_SHADER_READ)
+DAXA_DECL_TASK_USES_END()
 
 #if __cplusplus
 #include "../context.hpp"
@@ -42,7 +42,7 @@ struct PostProcessTask : PostProcessTaskBase
         auto cmd_list = ti.get_command_list();
         auto dimensions = context->swapchain.get_surface_extent();
 
-        cmd_list.set_constant_buffer(ti.uses.constant_buffer_set_info());
+        cmd_list.set_uniform_buffer(ti.uses.get_uniform_buffer_info());
         cmd_list.begin_renderpass({
             .color_attachments = {{
                 .image_view = {uses._swapchain.view()},

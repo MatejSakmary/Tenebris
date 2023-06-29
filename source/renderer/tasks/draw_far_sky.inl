@@ -10,12 +10,12 @@ struct DrawSkyPC
     daxa_SamplerId sampler_id;
 };
 
-DAXA_INL_TASK_USE_BEGIN(DrawFarSkyTaskBase, DAXA_CBUFFER_SLOT0)
-DAXA_INL_TASK_USE_BUFFER(_globals, daxa_BufferPtr(Globals), FRAGMENT_SHADER_READ)
-DAXA_INL_TASK_USE_IMAGE(_offscreen, daxa_Image2Df32, COLOR_ATTACHMENT)
-DAXA_INL_TASK_USE_IMAGE(_depth, daxa_Image2Df32, DEPTH_ATTACHMENT)
-DAXA_INL_TASK_USE_IMAGE(_skyview, daxa_Image2Df32, FRAGMENT_SHADER_READ)
-DAXA_INL_TASK_USE_END()
+DAXA_DECL_TASK_USES_BEGIN(DrawFarSkyTaskBase, DAXA_UNIFORM_BUFFER_SLOT0)
+DAXA_TASK_USE_BUFFER(_globals, daxa_BufferPtr(Globals), FRAGMENT_SHADER_READ)
+DAXA_TASK_USE_IMAGE(_offscreen, REGULAR_2D, COLOR_ATTACHMENT)
+DAXA_TASK_USE_IMAGE(_depth, REGULAR_2D, DEPTH_ATTACHMENT)
+DAXA_TASK_USE_IMAGE(_skyview, REGULAR_2D, FRAGMENT_SHADER_READ)
+DAXA_DECL_TASK_USES_END()
 
 #if __cplusplus
 #include "../context.hpp"
@@ -50,7 +50,7 @@ struct DrawFarSkyTask : DrawFarSkyTaskBase
 
         auto swapchain_dimensions = context->swapchain.get_surface_extent();
 
-        cmd_list.set_constant_buffer(ti.uses.constant_buffer_set_info());
+        cmd_list.set_uniform_buffer(ti.uses.get_uniform_buffer_info());
         cmd_list.begin_renderpass({
             .color_attachments = 
             {{

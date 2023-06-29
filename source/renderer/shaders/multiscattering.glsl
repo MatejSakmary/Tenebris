@@ -4,7 +4,7 @@
 #include "common_func.glsl"
 #include "tasks/multiscattering_LUT.inl"
 
-DAXA_USE_PUSH_CONSTANT(MultiscatteringPC, pc)
+DAXA_DECL_PUSH_CONSTANT(MultiscatteringPC, pc)
 
 /* This number should match the number of local threads -> z dimension */
 const f32 SPHERE_SAMPLES = 64.0;
@@ -71,7 +71,7 @@ RaymarchResult integrate_scattered_luminance(f32vec3 world_position, f32vec3 wor
         /* uv coordinates later used to sample transmittance texture */
         f32vec2 trans_texture_uv = transmittance_lut_to_uv(transmittance_lut_params, deref(_globals).atmosphere_bottom, deref(_globals).atmosphere_top);
 
-        f32vec3 transmittance_to_sun = texture(_transmittance_LUT, pc.sampler_id, trans_texture_uv).rgb;
+        f32vec3 transmittance_to_sun = texture(daxa_sampler2D(_transmittance_LUT, pc.sampler_id), trans_texture_uv).rgb;
 
         f32vec3 medium_scattering = sample_medium_scattering(_globals, new_position);
         f32vec3 medium_extinction = sample_medium_extinction(_globals, new_position);
@@ -214,5 +214,5 @@ void main()
     const f32vec3 sum_of_all_multiscattering_events_contribution = f32vec3(1.0/ (1.0 -r.x),1.0/ (1.0 -r.y),1.0/ (1.0 -r.z));
     f32vec3 lum = inscattered_luminance_sum * sum_of_all_multiscattering_events_contribution;
 
-    imageStore(_multiscattering_LUT, i32vec2(gl_GlobalInvocationID.xy), f32vec4(lum, 1.0));
+    imageStore(daxa_image2D(_multiscattering_LUT), i32vec2(gl_GlobalInvocationID.xy), f32vec4(lum, 1.0));
 }

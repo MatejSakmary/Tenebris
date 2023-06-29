@@ -6,7 +6,7 @@
 #include "common_func.glsl"
 #include "tasks/draw_far_sky.inl"
 
-DAXA_USE_PUSH_CONSTANT(DrawSkyPC, pc)
+DAXA_DECL_PUSH_CONSTANT(DrawSkyPC, pc)
 
 layout (location = 0) in f32vec2 in_uv;
 layout (location = 0) out f32vec4 out_color;
@@ -55,7 +55,7 @@ void main()
         f32vec2(deref(_globals).sky_lut_dim),
         view_height);
 
-    L += f32vec3(texture(_skyview, pc.sampler_id, uv).rgb);
+    L += f32vec3(texture(daxa_sampler2D(_skyview, pc.sampler_id), uv).rgb);
 
     if(!intersects_ground) { L += add_sun_circle(world_dir, sun_direction); };
 

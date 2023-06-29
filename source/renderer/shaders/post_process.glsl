@@ -3,12 +3,12 @@
 #include <shared/shared.inl>
 #include "tasks/post_process.inl"
 
-DAXA_USE_PUSH_CONSTANT(PostProcessPC, pc)
+DAXA_DECL_PUSH_CONSTANT(PostProcessPC, pc)
 
 layout (location = 0) in f32vec2 in_uv;
 layout (location = 0) out f32vec4 out_color;
 
 void main()
 {
-    out_color = texture(_offscreen, pc.sampler_id, in_uv);
+    out_color = texture(daxa_sampler2D(_offscreen, pc.sampler_id), in_uv);
 }

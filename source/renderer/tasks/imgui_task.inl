@@ -3,9 +3,9 @@
 #include <daxa/daxa.inl>
 #include <daxa/utils/task_list.inl>
 
-DAXA_INL_TASK_USE_BEGIN(ImGuiTaskBase, DAXA_CBUFFER_SLOT0)
-DAXA_INL_TASK_USE_IMAGE(_swapchain, daxa_Image2Du32, COLOR_ATTACHMENT)
-DAXA_INL_TASK_USE_END()
+DAXA_DECL_TASK_USES_BEGIN(ImGuiTaskBase, DAXA_UNIFORM_BUFFER_SLOT0)
+DAXA_TASK_USE_IMAGE(_swapchain, REGULAR_2D, COLOR_ATTACHMENT)
+DAXA_DECL_TASK_USES_END()
 
 #if __cplusplus
 #include "../context.hpp"

@@ -4,7 +4,7 @@
 #include "common_func.glsl"
 #include "tasks/skyview_LUT.inl"
 
-DAXA_USE_PUSH_CONSTANT(SkyviewPC, pc)
+DAXA_DECL_PUSH_CONSTANT(SkyviewPC, pc)
 
 /* ============================= PHASE FUNCTIONS ============================ */
 f32 cornette_shanks_mie_phase_function(f32 g, f32 cos_theta)
@@ -30,7 +30,7 @@ f32vec3 get_multiple_scattering(f32vec3 world_position, f32 view_zenith_cos_angl
     uv = f32vec2(from_unit_to_subuv(uv.x, deref(_globals).mult_lut_dim.x),
                  from_unit_to_subuv(uv.y, deref(_globals).mult_lut_dim.y));
 
-    return texture(_multiscattering_LUT, pc.sampler_id, uv).rgb;
+    return texture(daxa_sampler2D(_multiscattering_LUT, pc.sampler_id), uv).rgb;
 }
 
 f32vec3 integrate_scattered_luminance(f32vec3 world_position, 
@@ -93,7 +93,7 @@ f32vec3 integrate_scattered_luminance(f32vec3 world_position,
 
         /* uv coordinates later used to sample transmittance texture */
         f32vec2 trans_texture_uv = transmittance_lut_to_uv(transmittance_lut_params, deref(_globals).atmosphere_bottom, deref(_globals).atmosphere_top);
-        f32vec3 transmittance_to_sun = texture(_transmittance_LUT, pc.sampler_id, trans_texture_uv).rgb;
+        f32vec3 transmittance_to_sun = texture(daxa_sampler2D(_transmittance_LUT, pc.sampler_id), trans_texture_uv).rgb;
 
         f32vec3 phase_times_scattering = medium_scattering.mie * mie_phase_value + medium_scattering.ray * rayleigh_phase_value;
 
@@ -158,9 +158,9 @@ void main()
     if (!move_to_top_atmosphere(world_position, world_direction, deref(_globals).atmosphere_bottom, deref(_globals).atmosphere_top))
     {
         /* No intersection with the atmosphere */
-        imageStore(_skyview_LUT, i32vec2(gl_GlobalInvocationID.xy), f32vec4(0.0, 0.0, 0.0, 1.0));
+        imageStore(daxa_image2D(_skyview_LUT), i32vec2(gl_GlobalInvocationID.xy), f32vec4(0.0, 0.0, 0.0, 1.0));
         return;
     }
     f32vec3 luminance = integrate_scattered_luminance(world_position, world_direction, local_sun_direction, 30);
-    imageStore(_skyview_LUT, i32vec2(gl_GlobalInvocationID.xy), f32vec4(luminance, 1.0));
+    imageStore(daxa_image2D(_skyview_LUT), i32vec2(gl_GlobalInvocationID.xy), f32vec4(luminance, 1.0));
 }

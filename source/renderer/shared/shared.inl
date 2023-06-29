@@ -58,18 +58,18 @@ struct Globals
     daxa_i32 terrain_max_tess_level;
 };
 
-DAXA_ENABLE_BUFFER_PTR(Globals)
+DAXA_DECL_BUFFER_PTR(Globals)
 
 struct TerrainVertex
 {
     daxa_f32vec2 position;
 };
-DAXA_ENABLE_BUFFER_PTR(TerrainVertex)
+DAXA_DECL_BUFFER_PTR(TerrainVertex)
 
 struct TerrainIndex
 {
     daxa_u32 index;
 };
-DAXA_ENABLE_BUFFER_PTR(TerrainIndex)
+DAXA_DECL_BUFFER_PTR(TerrainIndex)
 
 

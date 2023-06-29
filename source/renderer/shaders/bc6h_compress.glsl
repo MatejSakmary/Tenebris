@@ -4,7 +4,7 @@
 #include <shared/shared.inl>
 #include <tasks/bc6h_compress.inl>
 
-DAXA_USE_PUSH_CONSTANT(BC6HCompressPC, pc)
+DAXA_DECL_PUSH_CONSTANT(BC6HCompressPC, pc)
 
 // Whether to use P2 modes (4 endpoints) for compression. Slow, but improves quality.
 #define ENCODE_P2 (QUALITY == 1)
@@ -755,18 +755,18 @@ void main()
 		f32vec2 block1UV = uv + f32vec2(2.0f * pc.TextureSizeRcp.x, 0.0f);
 		f32vec2 block2UV = uv + f32vec2(0.0f, 2.0f * pc.TextureSizeRcp.y);
 		f32vec2 block3UV = uv + f32vec2(2.0f * pc.TextureSizeRcp.x, 2.0f * pc.TextureSizeRcp.y);
-		f32vec4  block0X = textureGatherX(_src_texture, pc.point_sampler, block0UV);
-		f32vec4  block1X = textureGatherX(_src_texture, pc.point_sampler, block1UV);
-		f32vec4  block2X = textureGatherX(_src_texture, pc.point_sampler, block2UV);
-		f32vec4  block3X = textureGatherX(_src_texture, pc.point_sampler, block3UV);
-		f32vec4  block0Y = textureGatherY(_src_texture, pc.point_sampler, block0UV);
-		f32vec4  block1Y = textureGatherY(_src_texture, pc.point_sampler, block1UV);
-		f32vec4  block2Y = textureGatherY(_src_texture, pc.point_sampler, block2UV);
-		f32vec4  block3Y = textureGatherY(_src_texture, pc.point_sampler, block3UV);
-		f32vec4  block0Z = textureGatherZ(_src_texture, pc.point_sampler, block0UV);
-		f32vec4  block1Z = textureGatherZ(_src_texture, pc.point_sampler, block1UV);
-		f32vec4  block2Z = textureGatherZ(_src_texture, pc.point_sampler, block2UV);
-		f32vec4  block3Z = textureGatherZ(_src_texture, pc.point_sampler, block3UV);
+		f32vec4  block0X = textureGather(daxa_sampler2D(_src_texture, pc.point_sampler), block0UV, 0);
+		f32vec4  block1X = textureGather(daxa_sampler2D(_src_texture, pc.point_sampler), block1UV, 0);
+		f32vec4  block2X = textureGather(daxa_sampler2D(_src_texture, pc.point_sampler), block2UV, 0);
+		f32vec4  block3X = textureGather(daxa_sampler2D(_src_texture, pc.point_sampler), block3UV, 0);
+		f32vec4  block0Y = textureGather(daxa_sampler2D(_src_texture, pc.point_sampler), block0UV, 1);
+		f32vec4  block1Y = textureGather(daxa_sampler2D(_src_texture, pc.point_sampler), block1UV, 1);
+		f32vec4  block2Y = textureGather(daxa_sampler2D(_src_texture, pc.point_sampler), block2UV, 1);
+		f32vec4  block3Y = textureGather(daxa_sampler2D(_src_texture, pc.point_sampler), block3UV, 1);
+		f32vec4  block0Z = textureGather(daxa_sampler2D(_src_texture, pc.point_sampler), block0UV, 2);
+		f32vec4  block1Z = textureGather(daxa_sampler2D(_src_texture, pc.point_sampler), block1UV, 2);
+		f32vec4  block2Z = textureGather(daxa_sampler2D(_src_texture, pc.point_sampler), block2UV, 2);
+		f32vec4  block3Z = textureGather(daxa_sampler2D(_src_texture, pc.point_sampler), block3UV, 2);
 
 		f32vec3 texels[16];
 		texels[0] = f32vec3(block0X.w, block0Y.w, block0Z.w);
@@ -813,6 +813,6 @@ void main()
 		EncodeP2Pattern(block, blockMSLE, bestPattern, texels);
 #endif
 
-        imageStore(_dst_texture, i32vec2(blockCoord), block);
+        imageStore(daxa_uimage2D(_dst_texture), i32vec2(blockCoord), block);
 	}
 }

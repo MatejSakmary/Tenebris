@@ -12,10 +12,10 @@ struct BC6HCompressPC
     SamplerId point_sampler;
 };
 
-DAXA_INL_TASK_USE_BEGIN(BC6HCompressTaskBase, DAXA_CBUFFER_SLOT0)
-DAXA_INL_TASK_USE_IMAGE(_src_texture, daxa_Image2Df32, COMPUTE_SHADER_READ)
-DAXA_INL_TASK_USE_IMAGE(_dst_texture, daxa_RWImage2Du32, COMPUTE_SHADER_WRITE)
-DAXA_INL_TASK_USE_END()
+DAXA_DECL_TASK_USES_BEGIN(BC6HCompressTaskBase, DAXA_UNIFORM_BUFFER_SLOT0)
+DAXA_TASK_USE_IMAGE(_src_texture, REGULAR_2D, COMPUTE_SHADER_READ)
+DAXA_TASK_USE_IMAGE(_dst_texture, REGULAR_2D, COMPUTE_SHADER_WRITE)
+DAXA_DECL_TASK_USES_END()
 
 #if __cplusplus
 #include "../context.hpp"
@@ -46,7 +46,7 @@ struct BC6HCompressTask : BC6HCompressTaskBase
         auto cmd_list = ti.get_command_list();
 
         auto image_dimensions = info->device.info_image(uses._src_texture.image()).size;
-        cmd_list.set_constant_buffer(ti.uses.constant_buffer_set_info());
+        cmd_list.set_uniform_buffer(ti.uses.get_uniform_buffer_info());
         cmd_list.push_constant(BC6HCompressPC{
             .TextureSizeInBlocks = u32vec2{
                 (image_dimensions.x + BC_BLOCK_SIZE - 1) / BC_BLOCK_SIZE,

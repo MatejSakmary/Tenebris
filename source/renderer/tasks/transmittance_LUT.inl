@@ -5,10 +5,10 @@
 
 #include "../shared/shared.inl"
 
-DAXA_INL_TASK_USE_BEGIN(ComputeTransmittanceTaskBase, DAXA_CBUFFER_SLOT0)
-DAXA_INL_TASK_USE_BUFFER(_globals, daxa_BufferPtr(Globals), COMPUTE_SHADER_READ)
-DAXA_INL_TASK_USE_IMAGE(_transmittance_LUT, daxa_RWImage2Df32, COMPUTE_SHADER_WRITE)
-DAXA_INL_TASK_USE_END()
+DAXA_DECL_TASK_USES_BEGIN(ComputeTransmittanceTaskBase, DAXA_UNIFORM_BUFFER_SLOT0)
+DAXA_TASK_USE_BUFFER(_globals, daxa_BufferPtr(Globals), COMPUTE_SHADER_READ)
+DAXA_TASK_USE_IMAGE(_transmittance_LUT, REGULAR_2D, COMPUTE_SHADER_WRITE)
+DAXA_DECL_TASK_USES_END()
 
 #if __cplusplus
 #include "../context.hpp"
@@ -29,7 +29,7 @@ struct ComputeTransmittanceTask : ComputeTransmittanceTaskBase
         auto cmd_list = ti.get_command_list();
 
         auto image_dimensions = context->device.info_image(uses._transmittance_LUT.image()).size;
-        cmd_list.set_constant_buffer(ti.uses.constant_buffer_set_info());
+        cmd_list.set_uniform_buffer(ti.uses.get_uniform_buffer_info());
         cmd_list.set_pipeline(*(context->pipelines.transmittance));
         cmd_list.dispatch(((image_dimensions.x + 7)/8), ((image_dimensions.y + 3)/4));
     }
