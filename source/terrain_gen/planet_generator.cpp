@@ -3,7 +3,7 @@
 
 auto generate_planet() -> PlanetGeometry
 {
-    const u32 terrain_res = 300u;
+    const u32 terrain_res = 30u;
 
     PlanetGeometry geometry;
     geometry.vertices.reserve(terrain_res * terrain_res);
@@ -22,12 +22,12 @@ auto generate_planet() -> PlanetGeometry
             i32 i1 = i0 + 1;
             i32 i2 = i0 + terrain_res;
             i32 i3 = i2 + 1;
-            geometry.indices.emplace_back(i2);
             geometry.indices.emplace_back(i0);
-            geometry.indices.emplace_back(i3);
             geometry.indices.emplace_back(i1);
+            geometry.indices.emplace_back(i2);
             geometry.indices.emplace_back(i3);
-            geometry.indices.emplace_back(i0);
+            // geometry.indices.emplace_back(i3);
+            // geometry.indices.emplace_back(i0);
         }
     }
     
