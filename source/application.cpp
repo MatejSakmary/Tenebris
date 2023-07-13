@@ -98,7 +98,7 @@ Application::Application() :
     state{ .minimized = false },
     renderer{window},
     camera{{
-        .position = {0.0, 0.0, 6361.0},
+        .position = {10.0, 10.0, 6363.0},
         .front = {0.0, 1.0, 0.0},
         .up = {0.0, 0.0, 1.0}, 
         .aspect_ratio = f32(INIT_WINDOW_DIMENSIONS.x)/f32(INIT_WINDOW_DIMENSIONS.y),
@@ -169,7 +169,9 @@ void Application::ui_update()
     ImGui::End();
 
     ImGui::Begin("Terrain params");
-    ImGui::SliderFloat3("Terrain Scale", reinterpret_cast<f32*>(&renderer.globals->terrain_scale), 1.0f, 1000.0f);
+    ImGui::SliderFloat2("Terrain Scale", reinterpret_cast<f32*>(&renderer.globals->terrain_scale), 1.0f, 1000.0f);
+    ImGui::SliderFloat("Terrain midpoint", &renderer.globals->terrain_midpoint, 0.0f, 1.0f);
+    ImGui::SliderFloat("Terrain height scale", &renderer.globals->terrain_height_scale, 0.1f, 100.0f);
     ImGui::SliderFloat("Delta", &renderer.globals->terrain_delta, 1.0f, 10.0f);
     ImGui::SliderFloat("Min depth", &renderer.globals->terrain_min_depth, 1.0f, 10.0f);
     ImGui::SliderFloat("Max depth", &renderer.globals->terrain_max_depth, 1.0f, 1000.0f);

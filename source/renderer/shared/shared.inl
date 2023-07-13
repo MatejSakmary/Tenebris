@@ -52,7 +52,9 @@ struct Globals
     daxa_f32mat4x4 shadowmap_projection;
 
     // =============== Terrrain ======================
-    daxa_f32vec3 terrain_scale;
+    daxa_f32vec2 terrain_scale;
+    daxa_f32 terrain_midpoint;
+    daxa_f32 terrain_height_scale;
     daxa_f32 terrain_delta;
     daxa_f32 terrain_min_depth;
     daxa_f32 terrain_max_depth;
