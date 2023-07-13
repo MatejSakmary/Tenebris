@@ -35,7 +35,7 @@ TextureManager::TextureManager(TextureManagerInfo const & c_info) : info{c_info}
     uint_compress_texture = daxa::TaskImage({.name = "texture manager uint compress task image"});
     bc6h_texture = daxa::TaskImage({.name = "texture manager bc6h task image"});
 
-    upload_texture_task_list = daxa::TaskList({
+    upload_texture_task_list = daxa::TaskGraph({
         .device = info.device,
         .permutation_condition_count = 1,
         .name = "texture manager task list"
@@ -70,8 +70,8 @@ TextureManager::TextureManager(TextureManagerInfo const & c_info) : info{c_info}
         {
             upload_texture_task_list.add_task(BC6HCompressTask{{
                 .uses = {
-                    ._src_texture = hdr_texture.handle(),
-                    ._dst_texture = uint_compress_texture.handle()
+                    ._src_texture = hdr_texture.view(),
+                    ._dst_texture = uint_compress_texture.view()
                 }},
                 &(this->info),
                 nearest_sampler

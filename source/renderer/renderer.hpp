@@ -3,7 +3,7 @@
 #include <utility>
 
 #include <daxa/daxa.hpp>
-#include <daxa/utils/task_list.hpp>
+#include <daxa/utils/task_graph.hpp>
 #include <daxa/utils/pipeline_manager.hpp>
 
 #include "../window.hpp"

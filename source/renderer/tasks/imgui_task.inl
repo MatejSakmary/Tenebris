@@ -1,7 +1,7 @@
 #pragma once
 
 #include <daxa/daxa.inl>
-#include <daxa/utils/task_list.inl>
+#include <daxa/utils/task_graph.inl>
 
 DAXA_DECL_TASK_USES_BEGIN(ImGuiTaskBase, DAXA_UNIFORM_BUFFER_SLOT0)
 DAXA_TASK_USE_IMAGE(_swapchain, REGULAR_2D, COLOR_ATTACHMENT)

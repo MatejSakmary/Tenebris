@@ -6,9 +6,9 @@
 #include <daxa/utils/imgui.hpp>
 
 Renderer::Renderer(const AppWindow & window) :
-    context { .daxa_context{daxa::create_context({.enable_validation = false})} }
+    context { .daxa_instance{daxa::create_instance({.enable_validation = false})} }
 {
-    context.device = context.daxa_context.create_device({ .name = "Daxa device" });
+    context.device = context.daxa_instance.create_device({ .name = "Daxa device" });
 
     context.swapchain = context.device.create_swapchain({ 
         .native_window = window.get_native_handle(),
@@ -78,7 +78,7 @@ Renderer::Renderer(const AppWindow & window) :
         .format = context.swapchain.get_format(),
     });
 
-    context.main_task_list.task_list = daxa::TaskList({
+    context.main_task_list.task_list = daxa::TaskGraph({
         .device = context.device,
         .swapchain = context.swapchain,
         .reorder_tasks = true,
@@ -198,12 +198,15 @@ void Renderer::create_persistent_resources()
     };
     
     // Terrain
-    globals_buffer_ptr->terrain_scale = {10.0f, 10.0f, 1.0f};
-    globals_buffer_ptr->terrain_delta = 1.0f;
+    globals_buffer_ptr->terrain_scale = {100.0f, 100.0f};
+    globals_buffer_ptr->terrain_height_scale = 70.0f;
+    globals_buffer_ptr->terrain_midpoint = 0.3f;
+    globals_buffer_ptr->terrain_scale = {100.0f, 100.0f};
+    globals_buffer_ptr->terrain_delta = 8.0f;
     globals_buffer_ptr->terrain_min_depth = 1.0f;
     globals_buffer_ptr->terrain_max_depth = 10000.0f;
     globals_buffer_ptr->terrain_min_tess_level = 1;
-    globals_buffer_ptr->terrain_max_tess_level = 10;
+    globals_buffer_ptr->terrain_max_tess_level = 40;
 }
 
 void Renderer::initialize_main_tasklist()
@@ -223,14 +226,12 @@ void Renderer::initialize_main_tasklist()
 
     tl.images.depth = tl.task_list.create_transient_image({
         .format = daxa::Format::D32_SFLOAT,
-        .aspect = daxa::ImageAspectFlagBits::DEPTH,
         .size = {extent.x, extent.y, 1},
         .name = "transient depth"
     });
     
     tl.images.shadowmap = tl.task_list.create_transient_image({
         .format = daxa::Format::D32_SFLOAT,
-        .aspect = daxa::ImageAspectFlagBits::DEPTH,
         .size = {2048u, 2048u, 1u},
         .name = "transient shadowmap"
     });
@@ -266,7 +267,7 @@ void Renderer::initialize_main_tasklist()
     /* =========================================== COMPUTE TRANSMITTANCE ========================================== */
     tl.task_list.add_task(ComputeTransmittanceTask{{
         .uses = {
-            ._globals = context.buffers.globals.handle(),
+            ._globals = context.buffers.globals.view(),
             ._transmittance_LUT = tl.images.transmittance_lut,
         }},
         &context
@@ -275,7 +276,7 @@ void Renderer::initialize_main_tasklist()
     /* =========================================== COMPUTE MULTISCATTERING ======================================== */
     tl.task_list.add_task(ComputeMultiscatteringTask{{
         .uses = {
-            ._globals = context.buffers.globals.handle(),
+            ._globals = context.buffers.globals.view(),
             ._transmittance_LUT = tl.images.transmittance_lut,
             ._multiscattering_LUT = tl.images.multiscattering_lut,
         }},
@@ -285,7 +286,7 @@ void Renderer::initialize_main_tasklist()
     /* =========================================== COMPUTE SKYVIEW ================================================ */
     tl.task_list.add_task(ComputeSkyViewTask{{
         .uses = {
-            ._globals = context.buffers.globals.handle(),
+            ._globals = context.buffers.globals.view(),
             ._transmittance_LUT = tl.images.transmittance_lut,
             ._multiscattering_LUT = tl.images.multiscattering_lut,
             ._skyview_LUT = tl.images.skyview_lut
@@ -296,11 +297,11 @@ void Renderer::initialize_main_tasklist()
     /* =========================================== DRAW SHADOWMAP =================================================== */
     tl.task_list.add_task(TerrainShadowmapTask{{
         .uses = {
-            ._vertices = context.buffers.terrain_vertices.handle(),
-            ._indices = context.buffers.terrain_indices.handle(),
-            ._globals = context.buffers.globals.handle(),
-            ._shadowmap = tl.images.shadowmap.subslice({.image_aspect = daxa::ImageAspectFlagBits::DEPTH}),
-            ._height_map = context.images.height_map.handle(),
+            ._vertices = context.buffers.terrain_vertices.view(),
+            ._indices = context.buffers.terrain_indices.view(),
+            ._globals = context.buffers.globals.view(),
+            ._shadowmap = tl.images.shadowmap,
+            ._height_map = context.images.height_map.view(),
         }},
         &context,
     });
@@ -308,13 +309,13 @@ void Renderer::initialize_main_tasklist()
     /* =========================================== DRAW TERRAIN =================================================== */
     tl.task_list.add_task(DrawTerrainTask{{
         .uses = {
-            ._vertices = context.buffers.terrain_vertices.handle(),
-            ._indices = context.buffers.terrain_indices.handle(),
-            ._globals = context.buffers.globals.handle(),
+            ._vertices = context.buffers.terrain_vertices.view(),
+            ._indices = context.buffers.terrain_indices.view(),
+            ._globals = context.buffers.globals.view(),
             ._offscreen = tl.images.offscreen,
-            ._depth = tl.images.depth.subslice({.image_aspect = daxa::ImageAspectFlagBits::DEPTH}),
-            ._height_map = context.images.height_map.handle(),
-            ._diffuse_map = context.images.diffuse_map.handle()
+            ._depth = tl.images.depth,
+            ._height_map = context.images.height_map.view(),
+            ._diffuse_map = context.images.diffuse_map.view()
         }},
         &context,
         &wireframe_terrain
@@ -323,9 +324,9 @@ void Renderer::initialize_main_tasklist()
     /* =========================================== DRAW FAR SKY =================================================== */
     tl.task_list.add_task(DrawFarSkyTask{{
         .uses = {
-            ._globals = context.buffers.globals.handle(),
+            ._globals = context.buffers.globals.view(),
             ._offscreen = tl.images.offscreen,
-            ._depth = tl.images.depth.subslice({.image_aspect = daxa::ImageAspectFlagBits::DEPTH}),
+            ._depth = tl.images.depth,
             ._skyview = tl.images.skyview_lut
         }},
         &context
@@ -334,7 +335,7 @@ void Renderer::initialize_main_tasklist()
     /* =========================================== POST PROCESS =================================================== */
     tl.task_list.add_task(PostProcessTask{{
         .uses = {
-            ._swapchain = context.images.swapchain.handle(),
+            ._swapchain = context.images.swapchain.view(),
             ._offscreen = tl.images.offscreen,
         }},
         &context
@@ -343,7 +344,7 @@ void Renderer::initialize_main_tasklist()
     /* =========================================== IMGUI ========================================================== */
     tl.task_list.add_task(ImGuiTask{{
         .uses = {
-            ._swapchain = context.images.swapchain.handle(),
+            ._swapchain = context.images.swapchain.view(),
         }},
         &context
     });
@@ -357,7 +358,7 @@ void Renderer::resize()
 {
     context.swapchain.resize();
     
-    context.main_task_list.task_list = daxa::TaskList({
+    context.main_task_list.task_list = daxa::TaskGraph({
         .device = context.device,
         .swapchain = context.swapchain,
         .reorder_tasks = true,
@@ -407,7 +408,7 @@ void Renderer::upload_planet_geometry(PlanetGeometry const & geometry)
         }
     });
 
-    daxa::TaskList upload_geom_tl = daxa::TaskList({
+    daxa::TaskGraph upload_geom_tl = daxa::TaskGraph({
         .device = context.device,
         .staging_memory_pool_size = total_size,
         .name = "copy geometry task list"
@@ -507,17 +508,13 @@ void Renderer::draw(const Camera & camera)
     // DEBUG_OUT(context.main_task_list.task_list.get_debug_string());
 
     auto result = context.pipeline_manager.reload_all();
-    if(result.has_value()) 
+    if(std::holds_alternative<daxa::PipelineReloadSuccess>(result)) 
     {
-        if (result.value().is_ok())
-        {
-            DEBUG_OUT("[Renderer::draw()] Shaders recompiled successfully");
-        }
-        else 
-        {
-            DEBUG_OUT(result.value().to_string());
-        }
-    } 
+        DEBUG_OUT("[Renderer::draw()] Shaders recompiled successfully");
+    } else if (std::holds_alternative<daxa::PipelineReloadError>(result)) 
+    {
+        DEBUG_OUT(std::get<daxa::PipelineReloadError>(result).message);
+    }
 }
 
 Renderer::~Renderer()

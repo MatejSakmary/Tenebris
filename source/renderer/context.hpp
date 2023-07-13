@@ -4,7 +4,7 @@
 #include <array>
 #include <string_view>
 #include <daxa/daxa.hpp>
-#include <daxa/utils/task_list.hpp>
+#include <daxa/utils/task_graph.hpp>
 #include <daxa/utils/imgui.hpp>
 #include <daxa/utils/pipeline_manager.hpp>
 
@@ -57,22 +57,22 @@ struct Context
 
         struct TransientImages
         {
-            daxa::TaskImageHandle transmittance_lut;
-            daxa::TaskImageHandle multiscattering_lut;
-            daxa::TaskImageHandle skyview_lut;
-            daxa::TaskImageHandle offscreen;
-            daxa::TaskImageHandle depth;
-            daxa::TaskImageHandle shadowmap;
+            daxa::TaskImageView transmittance_lut;
+            daxa::TaskImageView multiscattering_lut;
+            daxa::TaskImageView skyview_lut;
+            daxa::TaskImageView offscreen;
+            daxa::TaskImageView depth;
+            daxa::TaskImageView shadowmap;
         };
 
         std::array<bool, Conditionals::COUNT> conditionals;
-        daxa::TaskList task_list;
+        daxa::TaskGraph task_list;
 
         TransientImages images;
         TransientBuffers buffers;
     };
 
-    daxa::Context daxa_context;
+    daxa::Instance daxa_instance;
     daxa::Device device;
     daxa::Swapchain swapchain;
     daxa::PipelineManager pipeline_manager;

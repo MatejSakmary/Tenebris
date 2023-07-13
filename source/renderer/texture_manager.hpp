@@ -4,7 +4,7 @@
 #include <variant>
 
 #include <daxa/daxa.hpp>
-#include <daxa/utils/task_list.hpp>
+#include <daxa/utils/task_graph.hpp>
 using namespace daxa::types;
 
 
@@ -56,5 +56,5 @@ struct TextureManager
 
         daxa::SamplerId nearest_sampler;
 
-        daxa::TaskList upload_texture_task_list;
+        daxa::TaskGraph upload_texture_task_list;
 };

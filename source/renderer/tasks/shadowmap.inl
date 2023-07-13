@@ -1,7 +1,7 @@
 #pragma once
 
 #include <daxa/daxa.inl>
-#include <daxa/utils/task_list.inl>
+#include <daxa/utils/task_graph.inl>
 
 #include "../shared/shared.inl"
 
