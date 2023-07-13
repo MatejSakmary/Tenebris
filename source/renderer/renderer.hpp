@@ -24,6 +24,7 @@
 #include "tasks/draw_far_sky.inl"
 #include "tasks/post_process.inl"
 #include "tasks/imgui_task.inl"
+#include "tasks/shadowmap.inl"
 
 using namespace daxa::types;
 

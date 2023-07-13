@@ -28,7 +28,6 @@ struct Context
 
         daxa::TaskImage diffuse_map;
         daxa::TaskImage height_map;
-
     };
 
     struct Pipelines
@@ -41,6 +40,7 @@ struct Context
         std::shared_ptr<daxa::RasterPipeline> draw_far_sky;
         std::shared_ptr<daxa::RasterPipeline> draw_terrain_wireframe;
         std::shared_ptr<daxa::RasterPipeline> draw_terrain_solid;
+        std::shared_ptr<daxa::RasterPipeline> draw_terrain_shadowmap;
     };
 
     struct MainTaskList
@@ -62,6 +62,7 @@ struct Context
             daxa::TaskImageHandle skyview_lut;
             daxa::TaskImageHandle offscreen;
             daxa::TaskImageHandle depth;
+            daxa::TaskImageHandle shadowmap;
         };
 
         std::array<bool, Conditionals::COUNT> conditionals;

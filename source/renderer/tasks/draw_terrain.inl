@@ -79,8 +79,7 @@ struct DrawTerrainTask : DrawTerrainTaskBase
 
         cmd_list.set_index_buffer(uses._indices.buffer(), 0, sizeof(u32));
         cmd_list.push_constant(DrawTerrainPC{.sampler_id = context->linear_sampler});
-        cmd_list.draw_indexed({.index_count = u32(context->terrain_index_size)});
-        // cmd_list.draw_indexed({.index_count = u32(4)});
+        cmd_list.draw_indexed({.index_count = static_cast<u32>(context->terrain_index_size)});
         cmd_list.end_renderpass();
     }
 };

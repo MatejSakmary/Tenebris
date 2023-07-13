@@ -63,6 +63,7 @@ Renderer::Renderer(const AppWindow & window) :
     init_compute_pipeline(get_skyview_LUT_pipeline(), context.pipelines.skyview);
     init_raster_pipeline(get_draw_terrain_pipeline(false), context.pipelines.draw_terrain_solid);
     init_raster_pipeline(get_draw_terrain_pipeline(true), context.pipelines.draw_terrain_wireframe);
+    init_raster_pipeline(get_terrain_shadowmap_pipeline(), context.pipelines.draw_terrain_shadowmap);
     init_raster_pipeline(get_draw_far_sky_pipeline(), context.pipelines.draw_far_sky);
     init_raster_pipeline(get_post_process_pipeline(context), context.pipelines.post_process);
 
@@ -84,6 +85,7 @@ Renderer::Renderer(const AppWindow & window) :
         .use_split_barriers = true,
         .jit_compile_permutations = false,
         .permutation_condition_count = Context::MainTaskList::Conditionals::COUNT,
+        .record_debug_information = true,
         .name = "main task list"
     });
 
@@ -212,7 +214,7 @@ void Renderer::initialize_main_tasklist()
     context.main_task_list.task_list.use_persistent_image(context.images.swapchain);
     context.main_task_list.task_list.use_persistent_image(context.images.height_map);
     context.main_task_list.task_list.use_persistent_image(context.images.diffuse_map);
-    
+
     /* ========================================= PERSISTENT RESOURCES =============================================*/
     auto extent = context.swapchain.get_surface_extent();
     Globals const * globals = context.device.get_host_address_as<Globals>(context.buffers.globals.get_state().buffers[0]);
@@ -224,6 +226,13 @@ void Renderer::initialize_main_tasklist()
         .aspect = daxa::ImageAspectFlagBits::DEPTH,
         .size = {extent.x, extent.y, 1},
         .name = "transient depth"
+    });
+    
+    tl.images.shadowmap = tl.task_list.create_transient_image({
+        .format = daxa::Format::D32_SFLOAT,
+        .aspect = daxa::ImageAspectFlagBits::DEPTH,
+        .size = {2048u, 2048u, 1u},
+        .name = "transient shadowmap"
     });
 
     tl.images.offscreen = tl.task_list.create_transient_image({
@@ -255,43 +264,55 @@ void Renderer::initialize_main_tasklist()
     /* ============================================================================================================ */
 
     /* =========================================== COMPUTE TRANSMITTANCE ========================================== */
-    context.main_task_list.task_list.add_task(ComputeTransmittanceTask{{
+    tl.task_list.add_task(ComputeTransmittanceTask{{
         .uses = {
             ._globals = context.buffers.globals.handle(),
-            ._transmittance_LUT = context.main_task_list.images.transmittance_lut,
+            ._transmittance_LUT = tl.images.transmittance_lut,
         }},
         &context
     });
 
     /* =========================================== COMPUTE MULTISCATTERING ======================================== */
-    context.main_task_list.task_list.add_task(ComputeMultiscatteringTask{{
+    tl.task_list.add_task(ComputeMultiscatteringTask{{
         .uses = {
             ._globals = context.buffers.globals.handle(),
-            ._transmittance_LUT = context.main_task_list.images.transmittance_lut,
-            ._multiscattering_LUT = context.main_task_list.images.multiscattering_lut,
+            ._transmittance_LUT = tl.images.transmittance_lut,
+            ._multiscattering_LUT = tl.images.multiscattering_lut,
         }},
         &context
     });
 
     /* =========================================== COMPUTE SKYVIEW ================================================ */
-    context.main_task_list.task_list.add_task(ComputeSkyViewTask{{
+    tl.task_list.add_task(ComputeSkyViewTask{{
         .uses = {
             ._globals = context.buffers.globals.handle(),
-            ._transmittance_LUT = context.main_task_list.images.transmittance_lut,
-            ._multiscattering_LUT = context.main_task_list.images.multiscattering_lut,
-            ._skyview_LUT = context.main_task_list.images.skyview_lut
+            ._transmittance_LUT = tl.images.transmittance_lut,
+            ._multiscattering_LUT = tl.images.multiscattering_lut,
+            ._skyview_LUT = tl.images.skyview_lut
         }},
         &context
     });
 
-    /* =========================================== DRAW TERRAIN =================================================== */
-    context.main_task_list.task_list.add_task(DrawTerrainTask{{
+    /* =========================================== DRAW SHADOWMAP =================================================== */
+    tl.task_list.add_task(TerrainShadowmapTask{{
         .uses = {
             ._vertices = context.buffers.terrain_vertices.handle(),
             ._indices = context.buffers.terrain_indices.handle(),
             ._globals = context.buffers.globals.handle(),
-            ._offscreen = context.main_task_list.images.offscreen,
-            ._depth = context.main_task_list.images.depth.subslice({.image_aspect = daxa::ImageAspectFlagBits::DEPTH}),
+            ._shadowmap = tl.images.shadowmap.subslice({.image_aspect = daxa::ImageAspectFlagBits::DEPTH}),
+            ._height_map = context.images.height_map.handle(),
+        }},
+        &context,
+    });
+
+    /* =========================================== DRAW TERRAIN =================================================== */
+    tl.task_list.add_task(DrawTerrainTask{{
+        .uses = {
+            ._vertices = context.buffers.terrain_vertices.handle(),
+            ._indices = context.buffers.terrain_indices.handle(),
+            ._globals = context.buffers.globals.handle(),
+            ._offscreen = tl.images.offscreen,
+            ._depth = tl.images.depth.subslice({.image_aspect = daxa::ImageAspectFlagBits::DEPTH}),
             ._height_map = context.images.height_map.handle(),
             ._diffuse_map = context.images.diffuse_map.handle()
         }},
@@ -300,36 +321,36 @@ void Renderer::initialize_main_tasklist()
     });
 
     /* =========================================== DRAW FAR SKY =================================================== */
-    context.main_task_list.task_list.add_task(DrawFarSkyTask{{
+    tl.task_list.add_task(DrawFarSkyTask{{
         .uses = {
             ._globals = context.buffers.globals.handle(),
-            ._offscreen = context.main_task_list.images.offscreen,
-            ._depth = context.main_task_list.images.depth.subslice({.image_aspect = daxa::ImageAspectFlagBits::DEPTH}),
-            ._skyview = context.main_task_list.images.skyview_lut
+            ._offscreen = tl.images.offscreen,
+            ._depth = tl.images.depth.subslice({.image_aspect = daxa::ImageAspectFlagBits::DEPTH}),
+            ._skyview = tl.images.skyview_lut
         }},
         &context
     });
 
     /* =========================================== POST PROCESS =================================================== */
-    context.main_task_list.task_list.add_task(PostProcessTask{{
+    tl.task_list.add_task(PostProcessTask{{
         .uses = {
             ._swapchain = context.images.swapchain.handle(),
-            ._offscreen = context.main_task_list.images.offscreen,
+            ._offscreen = tl.images.offscreen,
         }},
         &context
     });
 
     /* =========================================== IMGUI ========================================================== */
-    context.main_task_list.task_list.add_task(ImGuiTask{{
+    tl.task_list.add_task(ImGuiTask{{
         .uses = {
             ._swapchain = context.images.swapchain.handle(),
         }},
         &context
     });
 
-    context.main_task_list.task_list.submit({});
-    context.main_task_list.task_list.present({});
-    context.main_task_list.task_list.complete({});
+    tl.task_list.submit({});
+    tl.task_list.present({});
+    tl.task_list.complete({});
 }
 
 void Renderer::resize()
@@ -450,14 +471,25 @@ void Renderer::draw(const Camera & camera)
         .far_plane = 500.0f,
     };
 
+    GetShadowmapProjectionInfo shadow_info {
+        .left = -10.0f,
+        .right = 10.0f,
+        .bottom = -10.0f,
+        .top = 10.0f,
+        .near_plane = 0.1f,
+        .far_plane = 500.0f
+    };
+
     Globals* globals = context.device.get_host_address_as<Globals>(context.buffers.globals.get_state().buffers[0]); 
     auto [front, top, right] = camera.get_frustum_info();
-    globals->view = camera.get_view_matrix();
     globals->camera_front = front;
     globals->camera_frust_top_offset = top;
     globals->camera_frust_right_offset = right;
+    globals->view = camera.get_view_matrix();
     globals->projection = camera.get_projection_matrix(info);
     globals->inv_view_projection = camera.get_inv_view_proj_matrix(info); 
+    globals->shadowmap_view = camera.get_shadowmap_view_matrix(globals->sun_direction);
+    globals->shadowmap_projection = camera.get_shadowmap_projection_matrix(shadow_info);
     globals->camera_position = camera.get_camera_position();
 
     context.images.swapchain.set_images({std::array{context.swapchain.acquire_next_image()}});
@@ -472,6 +504,7 @@ void Renderer::draw(const Camera & camera)
         context.main_task_list.conditionals.data(),
         context.main_task_list.conditionals.size()
     }});
+    // DEBUG_OUT(context.main_task_list.task_list.get_debug_string());
 
     auto result = context.pipeline_manager.reload_all();
     if(result.has_value()) 

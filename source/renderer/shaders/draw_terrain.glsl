@@ -1,10 +1,17 @@
 #define DAXA_ENABLE_SHADER_NO_NAMESPACE 1
 #define DAXA_ENABLE_IMAGE_OVERLOADS_BASIC 1
 #include <shared/shared.inl>
-#include "tasks/draw_terrain.inl"
 #extension GL_EXT_debug_printf : enable
 
+#if defined(SHADOWMAP_DRAW)
+#include "tasks/shadowmap.inl"
+DAXA_DECL_PUSH_CONSTANT(DrawTerrainShadowmapPC, pc)
+#else
+#include "tasks/draw_terrain.inl"
 DAXA_DECL_PUSH_CONSTANT(DrawTerrainPC, pc)
+#endif // SHADOWMAP_DRAW
+
+// #define SHADOWMAP_DRAW
 #if DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_VERTEX
 layout (location = 0) out f32vec2 out_uv;
 void main()
@@ -31,11 +38,17 @@ void main()
         f32vec4 scaled_pos_01 = f32vec4(gl_in[1].gl_Position.xyz * deref(_globals).terrain_scale, 1.0);
         f32vec4 scaled_pos_10 = f32vec4(gl_in[2].gl_Position.xyz * deref(_globals).terrain_scale, 1.0);
         f32vec4 scaled_pos_11 = f32vec4(gl_in[3].gl_Position.xyz * deref(_globals).terrain_scale, 1.0);
-        
+#if defined(SHADOWMAP_DRAW)
+        f32 depth_00 = (deref(_globals).shadowmap_view * scaled_pos_00).z;
+        f32 depth_01 = (deref(_globals).shadowmap_view * scaled_pos_01).z;
+        f32 depth_10 = (deref(_globals).shadowmap_view * scaled_pos_10).z;
+        f32 depth_11 = (deref(_globals).shadowmap_view * scaled_pos_11).z;
+#else
         f32 depth_00 = (deref(_globals).view * scaled_pos_00).z;
         f32 depth_01 = (deref(_globals).view * scaled_pos_01).z;
         f32 depth_10 = (deref(_globals).view * scaled_pos_10).z;
         f32 depth_11 = (deref(_globals).view * scaled_pos_11).z;
+#endif // SHADOWMAP_DRAW
         f32 delta =  deref(_globals).terrain_max_depth - deref(_globals).terrain_min_depth;
 
         f32 dist_00 = clamp(log(abs(depth_00) - deref(_globals).terrain_min_depth) / deref(_globals).terrain_delta, 0.0, 1.0);
@@ -86,11 +99,21 @@ void main()
     out_uv = f32vec2(gl_Position.x, gl_Position.y);
     const f32vec4 pre_trans_scaled_pos = f32vec4(gl_Position.xyz * scale, 1.0);
 
+#if defined(SHADOWMAP_DRAW)
+    f32mat4x4 m_proj_view_model = deref(_globals).shadowmap_projection * deref(_globals).shadowmap_view;
+#else
+    // f32mat4x4 m_proj_view_model = deref(_globals).shadowmap_projection * deref(_globals).shadowmap_view;
     f32mat4x4 m_proj_view_model = deref(_globals).projection * deref(_globals).view;
+#endif // SHADOWMAP_DRAW
     gl_Position = m_proj_view_model * pre_trans_scaled_pos;
 }
 
 #elif DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_FRAGMENT
+#if defined(SHADOWMAP_DRAW)
+void main()
+{
+}
+#else
 layout (location = 0) in f32vec2 uv;
 layout (location = 0) out f32vec4 out_color;
 
@@ -98,4 +121,5 @@ void main()
 {
     out_color = texture(daxa_sampler2D(_diffuse_map, pc.sampler_id), uv);
 }
-#endif
+#endif // SHADOWMAP_DRAW
+#endif // SHADER_STAGE_FRAGMENT
