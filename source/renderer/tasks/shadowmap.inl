@@ -36,7 +36,7 @@ inline auto get_terrain_shadowmap_pipeline() -> daxa::RasterPipelineCompileInfo 
             .primitive_topology = daxa::PrimitiveTopology::PATCH_LIST,
             .primitive_restart_enable = false,
             .polygon_mode = daxa::PolygonMode::FILL,
-            .face_culling = daxa::FaceCullFlagBits::BACK_BIT,
+            .face_culling = daxa::FaceCullFlagBits::FRONT_BIT,
         },
         .tesselation = { .control_points = 4 },
         .push_constant_size = sizeof(DrawTerrainShadowmapPC),

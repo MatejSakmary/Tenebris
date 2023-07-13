@@ -83,10 +83,11 @@ auto Camera::get_view_matrix() const -> f32mat4x4
 
 auto Camera::get_shadowmap_view_matrix(f32vec3 const sun_direction) const -> f32mat4x4
 {
-    const f32 shadowmap_distance = 30.0f;
-    glm::vec3 glm_sun_dir = glm::vec3(sun_direction.x, sun_direction.y, sun_direction.z);
-    glm::vec3 sun_shadowmap_position = position + glm_sun_dir * shadowmap_distance;
-    glm::vec3 front = glm::normalize(position - sun_shadowmap_position);
+    const f32 shadowmap_distance = 100.0f;
+    glm::vec3 glm_sun_dir = glm::normalize(glm::vec3(sun_direction.x, sun_direction.y, sun_direction.z));
+    // glm::vec3 sun_shadowmap_position = position + glm_sun_dir * shadowmap_distance;
+    glm::vec3 sun_shadowmap_position = glm::vec3(50, 50, 6360) + glm_sun_dir * shadowmap_distance;
+    glm::vec3 front = glm::normalize(glm::vec3(50, 50, 6360) - sun_shadowmap_position);
     auto view_mat = glm::lookAt( sun_shadowmap_position, sun_shadowmap_position + front, up);
 
     return mat_from_span<f32, 4, 4>(std::span<f32, 4 * 4>{ glm::value_ptr(view_mat), 4 * 4});

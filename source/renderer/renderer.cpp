@@ -314,6 +314,7 @@ void Renderer::initialize_main_tasklist()
             ._globals = context.buffers.globals.view(),
             ._offscreen = tl.images.offscreen,
             ._depth = tl.images.depth,
+            ._shadowmap = tl.images.shadowmap,
             ._height_map = context.images.height_map.view(),
             ._diffuse_map = context.images.diffuse_map.view()
         }},
@@ -473,11 +474,11 @@ void Renderer::draw(const Camera & camera)
     };
 
     GetShadowmapProjectionInfo shadow_info {
-        .left = -10.0f,
-        .right = 10.0f,
-        .bottom = -10.0f,
-        .top = 10.0f,
-        .near_plane = 0.1f,
+        .left = -60.0f,
+        .right = 60.0f,
+        .bottom = -60.0f,
+        .top = 60.0f,
+        .near_plane = 1.0f,
         .far_plane = 500.0f
     };
 
