@@ -522,7 +522,7 @@ void Renderer::draw(const Camera & camera)
 
 Renderer::~Renderer()
 {
-    auto destroy_if_valid = [&](daxa::TaskBuffer & buffer)
+    auto destroy_buffer_if_valid = [&](daxa::TaskBuffer & buffer)
     {
         if(context.device.is_id_valid(buffer.get_state().buffers[0]))
         {
@@ -530,11 +530,21 @@ Renderer::~Renderer()
         }
     };
 
+    auto destroy_image_if_valid = [&](daxa::TaskImage & image)
+    {
+        if(context.device.is_id_valid(image.get_state().images[0]))
+        {
+            context.device.destroy_image(image.get_state().images[0]);
+        }
+    };
+
     context.device.wait_idle();
     ImGui_ImplGlfw_Shutdown();
-    destroy_if_valid(context.buffers.terrain_indices);
-    destroy_if_valid(context.buffers.terrain_vertices);
-    destroy_if_valid(context.buffers.globals);
+    destroy_buffer_if_valid(context.buffers.terrain_indices);
+    destroy_buffer_if_valid(context.buffers.terrain_vertices);
+    destroy_buffer_if_valid(context.buffers.globals);
+    destroy_image_if_valid(context.images.diffuse_map);
+    destroy_image_if_valid(context.images.height_map);
     context.device.destroy_sampler(context.linear_sampler);
     context.device.collect_garbage();
 }

@@ -41,11 +41,12 @@ struct TextureManager
     TextureManager(TextureManagerInfo const & info);
     void load_texture(const LoadTextureInfo & load_info);
 
+    ~TextureManager();
+
     private:
         bool should_compress = false;
         TextureManagerInfo info;
 
-        daxa::TaskList upload_texture_task_list;
 
         daxa::TaskImage hdr_texture;
         daxa::TaskImage uint_compress_texture;
@@ -54,4 +55,6 @@ struct TextureManager
         daxa::BufferId curr_buffer_id;
 
         daxa::SamplerId nearest_sampler;
+
+        daxa::TaskList upload_texture_task_list;
 };

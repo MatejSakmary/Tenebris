@@ -428,3 +428,8 @@ void TextureManager::load_texture(const LoadTextureInfo &load_info)
     }
     info.device.destroy_buffer(curr_buffer_id);
 }
+
+TextureManager::~TextureManager()
+{
+    info.device.destroy_sampler(nearest_sampler);
+}
