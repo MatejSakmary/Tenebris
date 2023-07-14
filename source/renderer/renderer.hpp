@@ -47,6 +47,5 @@ struct Renderer
 
         void initialize_main_tasklist();
         void create_persistent_resources();
-        void create_astc_texture();
-        void create_bc6h_texture(ManagedTextureHandle handle);
+        void load_textures();
 };

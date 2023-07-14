@@ -7,7 +7,7 @@
 DAXA_DECL_PUSH_CONSTANT(BC6HCompressPC, pc)
 
 // Whether to use P2 modes (4 endpoints) for compression. Slow, but improves quality.
-#define ENCODE_P2 (QUALITY == 1)
+#define ENCODE_P2 1//(QUALITY == 1)
 
 // Improve quality at small performance loss
 #define INSET_COLOR_BBOX 1
@@ -801,7 +801,7 @@ void main()
 
 		for (u32 patternIndex = 1; patternIndex < 32; ++patternIndex)
 		{
-			f32 score = EvaluateP2Pattern(patternIndex, texels);
+			f32 score = EvaluateP2Pattern(i32(patternIndex), texels);
 			if (score < bestScore)
 			{
 				bestPattern = patternIndex;
@@ -810,7 +810,7 @@ void main()
 		}
 
 		// Then encode it
-		EncodeP2Pattern(block, blockMSLE, bestPattern, texels);
+		EncodeP2Pattern(block, blockMSLE, i32(bestPattern), texels);
 #endif
 
         imageStore(daxa_uimage2D(_dst_texture), i32vec2(blockCoord), block);

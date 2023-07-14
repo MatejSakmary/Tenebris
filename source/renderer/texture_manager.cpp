@@ -32,91 +32,110 @@ TextureManager::TextureManager(TextureManagerInfo const & c_info) : info{c_info}
     });
     setGlobalThreadCount(8);
 
-    hdr_texture = daxa::TaskImage({.name = "texture manager hdr task image"});
-    uint_compress_texture = daxa::TaskImage({.name = "texture manager uint compress task image"});
-    bc6h_texture = daxa::TaskImage({.name = "texture manager bc6h task image"});
-    normal_texture = daxa::TaskImage({.name = "texture manager normal task image"});
 
-    upload_texture_task_list = daxa::TaskGraph({
+
+
+    // ================= UPLOAD TEXTURE TASK GRAPH ====================================================
+    load_dst_hdr_texture = daxa::TaskImage({.name = "texture manager load dst task image"});
+    upload_texture_task_graph = daxa::TaskGraph({
         .device = info.device,
-        .permutation_condition_count = Conditionals::COUNT,
-        .name = "texture manager task list"
+        .permutation_condition_count = 0,
+        .name = "texture manager upload task graph"
     });
 
-    upload_texture_task_list.use_persistent_image(hdr_texture);
-    upload_texture_task_list.use_persistent_image(uint_compress_texture);
-    upload_texture_task_list.use_persistent_image(bc6h_texture);
-    upload_texture_task_list.use_persistent_image(normal_texture);
+    upload_texture_task_graph.use_persistent_image(load_dst_hdr_texture);
 
-    upload_texture_task_list.add_task({
-        .uses = { daxa::ImageTransferWrite<>{hdr_texture}},
+    upload_texture_task_graph.add_task({
+        .uses = { daxa::ImageTransferWrite<>{load_dst_hdr_texture}},
         .task = [=, this](daxa::TaskInterface ti)
         {
             auto cmd_list = ti.get_command_list();
 
-            auto image_info = info.device.info_image(ti.uses[hdr_texture].image());
+            auto image_info = info.device.info_image(ti.uses[load_dst_hdr_texture].image());
             cmd_list.copy_buffer_to_image({
-                .buffer = this->curr_buffer_id,
+                .buffer = this->loaded_raw_data_buffer_id,
                 .buffer_offset = 0,
-                .image = ti.uses[hdr_texture].image(),
+                .image = ti.uses[load_dst_hdr_texture].image(),
                 .image_extent = {static_cast<u32>(image_info.size.x), static_cast<u32>(image_info.size.y), 1}
             });
         },
         .name = "copy buffer into raw image",
     });
 
-    upload_texture_task_list.conditional({
-        .condition_index = Conditionals::GEN_NORMALS,
-        .when_true = [&]()
-        {
-            upload_texture_task_list.add_task(HeightToNormalTask{{
-                .uses = {
-                    ._height_texture = hdr_texture.view(),
-                    ._normal_texture = normal_texture.view()
-                }},
-                &(this->info),
-                nearest_sampler
-            });
-        }
+    upload_texture_task_graph.submit({});
+    upload_texture_task_graph.complete({});
+
+    // ================== HEIGHT TO NORMAL TASK GRAPH ================================================
+    normal_src_hdr_texture = daxa::TaskImage({.name = "texture manager normal src task image"});
+    normal_dst_hdr_texture = daxa::TaskImage({.name = "texture manager normal dst task image"}); 
+
+    height_to_normal_task_graph = daxa::TaskGraph({
+        .device = info.device,
+        .permutation_condition_count = 0,
+        .name = "texture manager height to normals task graph"
     });
 
-    upload_texture_task_list.conditional({
-        .condition_index = Conditionals::COMPRESS,
-        .when_true = [&]()
-        {
-            upload_texture_task_list.add_task(BC6HCompressTask{{
-                .uses = {
-                    ._src_texture = hdr_texture.view(),
-                    ._dst_texture = uint_compress_texture.view()
-                }},
-                &(this->info),
-                nearest_sampler
-            });
+    height_to_normal_task_graph.use_persistent_image(normal_src_hdr_texture);
+    height_to_normal_task_graph.use_persistent_image(normal_dst_hdr_texture);
 
-            upload_texture_task_list.add_task({
-                .uses = { 
-                    daxa::ImageTransferRead<>{uint_compress_texture},
-                    daxa::ImageTransferWrite<>{bc6h_texture}
-                },
-                .task = [&, this](daxa::TaskInterface ti)
-                {
-                    auto cmd_list = ti.get_command_list();
-                    {
-                        auto image_info = info.device.info_image(ti.uses[uint_compress_texture].image());
-                        cmd_list.copy_image_to_image({
-                            .src_image = ti.uses[uint_compress_texture].image(),
-                            .dst_image = ti.uses[bc6h_texture].image(),
-                            .extent = {image_info.size.x - 1, image_info.size.y - 1, 1}
-                        });
-                    }
-                },
-                .name = "transfer compressed into bc6h image",
-            });
-        }
+    height_to_normal_task_graph.add_task(HeightToNormalTask{{
+        .uses = {
+            ._height_texture = normal_src_hdr_texture.view(),
+            ._normal_texture = normal_dst_hdr_texture.view()
+        }},
+        &(this->info),
+        nearest_sampler
     });
 
-    upload_texture_task_list.submit({});
-    upload_texture_task_list.complete({});
+    height_to_normal_task_graph.submit({});
+    height_to_normal_task_graph.complete({});
+
+    // ================== COMPRESS TEXTURE TASK GRAPH =================================================
+    compress_src_hdr_texture = daxa::TaskImage({.name = "texture manager compress src task image"});
+    uint_compress_texture = daxa::TaskImage({.name = "texture manager compress uint task image"}); 
+    compress_dst_bc6h_texture = daxa::TaskImage({.name = "texture manager compress dst task image"}); 
+
+    compress_texture_task_graph = daxa::TaskGraph({
+        .device = info.device,
+        .permutation_condition_count = 0,
+        .name = "texture manager compress texture task graph"
+    });
+
+    compress_texture_task_graph.use_persistent_image(compress_src_hdr_texture);
+    compress_texture_task_graph.use_persistent_image(uint_compress_texture);
+    compress_texture_task_graph.use_persistent_image(compress_dst_bc6h_texture);
+
+    compress_texture_task_graph.add_task(BC6HCompressTask{{
+        .uses = {
+            ._src_texture = compress_src_hdr_texture.view(),
+            ._dst_texture = uint_compress_texture.view()
+        }},
+        &(this->info),
+        nearest_sampler
+    });
+
+    compress_texture_task_graph.add_task({
+        .uses = { 
+            daxa::ImageTransferRead<>{uint_compress_texture},
+            daxa::ImageTransferWrite<>{compress_dst_bc6h_texture}
+        },
+        .task = [&, this](daxa::TaskInterface ti)
+        {
+            auto cmd_list = ti.get_command_list();
+            {
+                auto image_info = info.device.info_image(ti.uses[uint_compress_texture].image());
+                cmd_list.copy_image_to_image({
+                    .src_image = ti.uses[uint_compress_texture].image(),
+                    .dst_image = ti.uses[compress_dst_bc6h_texture].image(),
+                    .extent = {image_info.size.x - 1, image_info.size.y - 1, 1}
+                });
+            }
+        },
+        .name = "transfer compressed into bc6h image",
+    });
+
+    compress_texture_task_graph.submit({});
+    compress_texture_task_graph.complete({});
 }
 
 struct ElemType
@@ -234,7 +253,6 @@ namespace shino
     using system_stopwatch = stopwatch<std::chrono::system_clock>;
     using monotonic_stopwatch = stopwatch<std::chrono::steady_clock>;
 };
-
 
 template <i32 NumElems, typename T, PixelType PixT>
 auto load_texture_data(CreateStagingBufferInfo & info) -> daxa::BufferId
@@ -378,10 +396,8 @@ void TextureManager::load_texture(const LoadTextureInfo &load_info)
         }
     }
 
-    conditionals_state.at(Conditionals::COMPRESS) = false;
-    conditionals_state.at(Conditionals::GEN_NORMALS) = false;
-    // Creating the hdr destination image
-    hdr_texture.set_images({
+    // Creating load hdr destination image
+    load_dst_hdr_texture.set_images({
         .images = {
             std::array{
                 info.device.create_image({
@@ -397,81 +413,92 @@ void TextureManager::load_texture(const LoadTextureInfo &load_info)
         }
     });
 
-    if(texture_elem.elem_cnt > 1)
-    {
-        DBG_ASSERT_TRUE_M(!load_info.dest_normal_map.has_value(), 
-            "[TextureManger::load_texture()] Unable to generate normal map from multichannel image");
-
-        conditionals_state.at(Conditionals::COMPRESS) = true;
-	    u32 width_round = (new_texture.dimensions.x + BC6HCompressTask::BC_BLOCK_SIZE - 1) / BC6HCompressTask::BC_BLOCK_SIZE;
-	    u32 height_round = (new_texture.dimensions.y + BC6HCompressTask::BC_BLOCK_SIZE - 1) / BC6HCompressTask::BC_BLOCK_SIZE;
-
-        uint_compress_texture.set_images({
-            .images = {
-                std::array{
-                    info.device.create_image({
-                        .format = daxa::Format::R32G32B32A32_UINT,
-                        .size = {width_round, height_round, 1},
-                        .usage = daxa::ImageUsageFlagBits::TRANSFER_SRC | daxa::ImageUsageFlagBits::SHADER_READ_WRITE,
-                        .allocate_info = daxa::AutoAllocInfo{daxa::MemoryFlagBits::DEDICATED_MEMORY},
-                        .name = "uint compress texture"
-                    })
-                }
-            },
-        });
-
-        bc6h_texture.set_images({
-            .images = {
-                std::array{
-                    info.device.create_image({
-                        .format = daxa::Format::BC6H_UFLOAT_BLOCK,
-                        .size = {static_cast<u32>(new_texture.dimensions.x), static_cast<u32>(new_texture.dimensions.y), 1},
-                        .usage = daxa::ImageUsageFlagBits::TRANSFER_DST | daxa::ImageUsageFlagBits::SHADER_READ_ONLY,
-                        .allocate_info = daxa::AutoAllocInfo{daxa::MemoryFlagBits::DEDICATED_MEMORY},
-                        .name = "diffuse map bc6h"
-                    })
-                }
-            },
-        });
-    }
-
-    if(load_info.dest_normal_map.has_value())
-    {
-        conditionals_state.at(Conditionals::GEN_NORMALS) = true;
-        normal_texture.set_images({
-            .images = {
-                std::array{
-                    info.device.create_image({
-                        .format = daxa::Format::R16G16B16A16_SFLOAT,
-                        .size = {static_cast<u32>(new_texture.dimensions.x), static_cast<u32>(new_texture.dimensions.y), 1},
-                        .usage = daxa::ImageUsageFlagBits::SHADER_READ_WRITE | daxa::ImageUsageFlagBits::SHADER_READ_ONLY,
-                        .allocate_info = daxa::AutoAllocInfo{daxa::MemoryFlagBits::DEDICATED_MEMORY},
-                        .name = "normal map hdr"
-                    })
-                }
-            },
-        });
-    }
-
-    curr_buffer_id = new_texture.id;
-    upload_texture_task_list.execute({{conditionals_state.data(), Conditionals::COUNT}});
+    loaded_raw_data_buffer_id = new_texture.id;
+    upload_texture_task_graph.execute({});
 
     info.device.wait_idle();
-    if(texture_elem.elem_cnt == 1)
-    {
-        hdr_texture.swap_images(load_info.dest_image);
-        if(conditionals_state.at(Conditionals::GEN_NORMALS))
-        {
-            normal_texture.swap_images(*(load_info.dest_normal_map.value()));
-        }
-    } else {
-        bc6h_texture.swap_images(load_info.dest_image);
-        info.device.destroy_image(hdr_texture.get_state().images[0]);
-        info.device.destroy_image(uint_compress_texture.get_state().images[0]);
-        hdr_texture.set_images({});
-        uint_compress_texture.set_images({});
-    }
-    info.device.destroy_buffer(curr_buffer_id);
+    
+    load_dst_hdr_texture.swap_images(load_info.dest_image);
+    load_dst_hdr_texture.set_images({});
+    info.device.destroy_buffer(loaded_raw_data_buffer_id);
+}
+
+void TextureManager::normals_from_heightmap(const NormalsFromHeightInfo & normals_info)
+{
+    auto texture_dimensions = info.device.info_image(normals_info.height_texture.get_state().images[0]).size;
+    normals_info.height_texture.swap_images(normal_src_hdr_texture);
+
+    normal_dst_hdr_texture.set_images({
+        .images = {
+            std::array{
+                info.device.create_image({
+                    .format = daxa::Format::R32G32B32A32_SFLOAT,
+                    .size = {static_cast<u32>(texture_dimensions.x), static_cast<u32>(texture_dimensions.y), 1},
+                    .usage = daxa::ImageUsageFlagBits::SHADER_READ_WRITE | daxa::ImageUsageFlagBits::SHADER_READ_ONLY,
+                    .allocate_info = daxa::AutoAllocInfo{daxa::MemoryFlagBits::DEDICATED_MEMORY},
+                    .name = "normal dst map hdr"
+                })
+            }
+        },
+    });
+
+    height_to_normal_task_graph.execute({});
+    info.device.wait_idle();
+
+    normal_src_hdr_texture.swap_images(normals_info.height_texture);
+    normal_dst_hdr_texture.swap_images(normals_info.normals_texture);
+
+    normal_src_hdr_texture.set_images({});
+    normal_dst_hdr_texture.set_images({});
+}
+
+void TextureManager::compress_hdr_texture(const CompressTextureInfo & compress_info)
+{
+    auto texture_dimensions = info.device.info_image(compress_info.raw_texture.get_state().images[0]).size;
+
+	u32 width_round = (texture_dimensions.x + BC6HCompressTask::BC_BLOCK_SIZE - 1) / BC6HCompressTask::BC_BLOCK_SIZE;
+	u32 height_round = (texture_dimensions.y + BC6HCompressTask::BC_BLOCK_SIZE - 1) / BC6HCompressTask::BC_BLOCK_SIZE;
+
+    compress_info.raw_texture.swap_images(compress_src_hdr_texture);
+
+    uint_compress_texture.set_images({
+        .images = {
+            std::array{
+                info.device.create_image({
+                    .format = daxa::Format::R32G32B32A32_UINT,
+                    .size = {width_round, height_round, 1},
+                    .usage = daxa::ImageUsageFlagBits::TRANSFER_SRC | daxa::ImageUsageFlagBits::SHADER_READ_WRITE,
+                    .allocate_info = daxa::AutoAllocInfo{daxa::MemoryFlagBits::DEDICATED_MEMORY},
+                    .name = "uint compress texture"
+                })
+            }
+        },
+    });
+
+    compress_dst_bc6h_texture.set_images({
+        .images = {
+            std::array{
+                info.device.create_image({
+                    .format = daxa::Format::BC6H_UFLOAT_BLOCK,
+                    .size = {static_cast<u32>(texture_dimensions.x), static_cast<u32>(texture_dimensions.y), 1},
+                    .usage = daxa::ImageUsageFlagBits::TRANSFER_DST | daxa::ImageUsageFlagBits::SHADER_READ_ONLY,
+                    .allocate_info = daxa::AutoAllocInfo{daxa::MemoryFlagBits::DEDICATED_MEMORY},
+                    .name = "diffuse map bc6h"
+                })
+            }
+        },
+    });
+
+    compress_texture_task_graph.execute({});
+    info.device.wait_idle();
+
+    compress_src_hdr_texture.swap_images(compress_info.raw_texture);
+    compress_dst_bc6h_texture.swap_images(compress_info.compressed_texture);
+    info.device.destroy_image(uint_compress_texture.get_state().images[0]);
+
+    compress_src_hdr_texture.set_images({});
+    uint_compress_texture.set_images({});
+    compress_dst_bc6h_texture.set_images({});
 }
 
 TextureManager::~TextureManager()

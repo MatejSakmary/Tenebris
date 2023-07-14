@@ -98,16 +98,7 @@ Renderer::Renderer(const AppWindow & window) :
         .height_to_normal_pipeline = context.pipelines.height_to_normal,
     });
 
-    manager->load_texture({
-        .path = "assets/terrain/rugged_terrain_diffuse.exr",
-        .dest_image = context.images.diffuse_map
-    });
-
-    manager->load_texture({
-        .path = "assets/terrain/rugged_terrain_height.exr",
-        .dest_image = context.images.height_map,
-        .dest_normal_map = &context.images.normal_map
-    });
+    load_textures();
 
     initialize_main_tasklist();
 }
@@ -211,6 +202,40 @@ void Renderer::create_persistent_resources()
     globals_buffer_ptr->terrain_max_depth = 10000.0f;
     globals_buffer_ptr->terrain_min_tess_level = 1;
     globals_buffer_ptr->terrain_max_tess_level = 40;
+}
+
+void Renderer::load_textures()
+{
+    daxa::TaskImage tmp_raw_loaded_image = daxa::TaskImage({.name = "tmp raw loaded task image"});
+
+    manager->load_texture({
+        .path = "assets/terrain/rugged_terrain_diffuse.exr",
+        .dest_image = tmp_raw_loaded_image
+    });
+
+    manager->compress_hdr_texture({
+        .raw_texture = tmp_raw_loaded_image,
+        .compressed_texture = context.images.diffuse_map
+    });
+
+    context.device.destroy_image(tmp_raw_loaded_image.get_state().images[0]);
+
+    manager->load_texture({
+        .path = "assets/terrain/rugged_terrain_height.exr",
+        .dest_image = context.images.height_map,
+    });
+
+    manager->normals_from_heightmap({
+        .height_texture = context.images.height_map,
+        .normals_texture = context.images.normal_map
+    });
+    
+    // manager->compress_hdr_texture({
+    //     .raw_texture = tmp_raw_loaded_image,
+    //     .compressed_texture = context.images.normal_map
+    // });
+
+    // context.device.destroy_image(tmp_raw_loaded_image.get_state().images[0]);
 }
 
 void Renderer::initialize_main_tasklist()

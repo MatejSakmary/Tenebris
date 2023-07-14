@@ -12,12 +12,18 @@ struct LoadTextureInfo
 {
     std::string path = {};
     daxa::TaskImage & dest_image;
-    std::optional<daxa::TaskImage *> dest_normal_map;
 };
 
-struct ManagedTextureHandle
+struct CompressTextureInfo
 {
-    i32 index = -1;
+    daxa::TaskImage & raw_texture;
+    daxa::TaskImage & compressed_texture;
+};
+
+struct NormalsFromHeightInfo
+{
+    daxa::TaskImage & height_texture;
+    daxa::TaskImage & normals_texture;
 };
 
 struct ManagedTexture
@@ -42,6 +48,8 @@ struct TextureManager
 
     TextureManager(TextureManagerInfo const & info);
     void load_texture(const LoadTextureInfo & load_info);
+    void compress_hdr_texture(const CompressTextureInfo & compress_info);
+    void normals_from_heightmap(const NormalsFromHeightInfo & normals_info);
 
     ~TextureManager();
 
@@ -49,25 +57,22 @@ struct TextureManager
         bool should_compress = false;
         TextureManagerInfo info;
 
-        enum Conditionals
-        {
-            COMPRESS = 0,
-            GEN_NORMALS,
-            COUNT
-        };
-
-        std::array<bool, Conditionals::COUNT> conditionals_state;
-
-
-        daxa::TaskImage hdr_texture;
+        // compress image resources
+        daxa::TaskImage compress_src_hdr_texture;
         daxa::TaskImage uint_compress_texture;
-        daxa::TaskImage bc6h_texture;
+        daxa::TaskImage compress_dst_bc6h_texture;
 
-        daxa::TaskImage normal_texture;
+        // load texture resources
+        daxa::BufferId loaded_raw_data_buffer_id;
+        daxa::TaskImage load_dst_hdr_texture;
 
-        daxa::BufferId curr_buffer_id;
+        // normal map get resources
+        daxa::TaskImage normal_src_hdr_texture;
+        daxa::TaskImage normal_dst_hdr_texture;
 
         daxa::SamplerId nearest_sampler;
 
-        daxa::TaskGraph upload_texture_task_list;
+        daxa::TaskGraph upload_texture_task_graph;
+        daxa::TaskGraph compress_texture_task_graph;
+        daxa::TaskGraph height_to_normal_task_graph;
 };
