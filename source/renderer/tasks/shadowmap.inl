@@ -30,13 +30,13 @@ inline auto get_terrain_shadowmap_pipeline() -> daxa::RasterPipelineCompileInfo 
         .depth_test = {
             .depth_attachment_format = daxa::Format::D32_SFLOAT,
             .enable_depth_test = true,
-            .enable_depth_write = true
+            .enable_depth_write = true,
         },
         .raster = { 
             .primitive_topology = daxa::PrimitiveTopology::PATCH_LIST,
             .primitive_restart_enable = false,
             .polygon_mode = daxa::PolygonMode::FILL,
-            .face_culling = daxa::FaceCullFlagBits::FRONT_BIT,
+            .face_culling = daxa::FaceCullFlagBits::BACK_BIT,
         },
         .tesselation = { .control_points = 4 },
         .push_constant_size = sizeof(DrawTerrainShadowmapPC),
@@ -64,7 +64,7 @@ struct TerrainShadowmapTask : TerrainShadowmapTaskBase
                 .store_op = daxa::AttachmentStoreOp::STORE,
                 .clear_value = daxa::ClearValue{daxa::DepthValue{1.0f, 0}},
             }},
-            .render_area = {.x = 0, .y = 0, .width = dimensions.x, .height = dimensions.y}
+            .render_area = {.x = 0, .y = 0, .width = dimensions.x, .height = dimensions.y},
         });
         cmd_list.set_pipeline(*(context->pipelines.draw_terrain_shadowmap));
         cmd_list.set_index_buffer(uses._indices.buffer(), 0, sizeof(u32));

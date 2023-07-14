@@ -62,6 +62,7 @@ Renderer::Renderer(const AppWindow & window) :
     init_compute_pipeline(get_transmittance_LUT_pipeline(), context.pipelines.transmittance);
     init_compute_pipeline(get_multiscattering_LUT_pipeline(), context.pipelines.multiscattering);
     init_compute_pipeline(get_skyview_LUT_pipeline(), context.pipelines.skyview);
+    init_compute_pipeline(get_esm_pass_pipeline(), context.pipelines.esm_pass);
     init_raster_pipeline(get_draw_terrain_pipeline(false), context.pipelines.draw_terrain_solid);
     init_raster_pipeline(get_draw_terrain_pipeline(true), context.pipelines.draw_terrain_wireframe);
     init_raster_pipeline(get_terrain_shadowmap_pipeline(), context.pipelines.draw_terrain_shadowmap);
@@ -262,8 +263,14 @@ void Renderer::initialize_main_tasklist()
     
     tl.images.shadowmap = tl.task_list.create_transient_image({
         .format = daxa::Format::D32_SFLOAT,
-        .size = {2048u, 2048u, 1u},
+        .size = {4096u, 4096u, 1u},
         .name = "transient shadowmap"
+    });
+
+    tl.images.esm = tl.task_list.create_transient_image({
+        .format = daxa::Format::R32_SFLOAT,
+        .size = {4096u, 4096u, 1u},
+        .name = "transient esm"
     });
 
     tl.images.offscreen = tl.task_list.create_transient_image({
@@ -335,6 +342,15 @@ void Renderer::initialize_main_tasklist()
         }},
         &context,
     });
+    
+    /* =========================================== ESM PASS ======================================================= */
+    tl.task_list.add_task(ESMPassTask{{
+        .uses = {
+            ._shadowmap = tl.images.shadowmap,
+            ._esm_map = tl.images.esm
+        }},
+        &context,
+    });
 
     /* =========================================== DRAW TERRAIN =================================================== */
     tl.task_list.add_task(DrawTerrainTask{{
@@ -344,7 +360,7 @@ void Renderer::initialize_main_tasklist()
             ._globals = context.buffers.globals.view(),
             ._offscreen = tl.images.offscreen,
             ._depth = tl.images.depth,
-            ._shadowmap = tl.images.shadowmap,
+            ._esm = tl.images.esm,
             ._height_map = context.images.height_map.view(),
             ._diffuse_map = context.images.diffuse_map.view(),
             ._normal_map = context.images.normal_map.view(),
@@ -505,11 +521,11 @@ void Renderer::draw(const Camera & camera)
     };
 
     GetShadowmapProjectionInfo shadow_info {
-        .left = -60.0f,
-        .right = 60.0f,
-        .bottom = -60.0f,
-        .top = 60.0f,
-        .near_plane = 1.0f,
+        .left = -50.0f,
+        .right = 50.0f,
+        .bottom = -50.0f,
+        .top = 50.0f,
+        .near_plane = 0.1f,
         .far_plane = 500.0f
     };
 

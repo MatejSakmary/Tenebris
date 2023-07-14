@@ -26,6 +26,7 @@
 #include "tasks/post_process.inl"
 #include "tasks/imgui_task.inl"
 #include "tasks/shadowmap.inl"
+#include "tasks/ESM_pass.inl"
 
 using namespace daxa::types;
 

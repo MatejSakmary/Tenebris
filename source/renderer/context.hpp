@@ -38,6 +38,8 @@ struct Context
         std::shared_ptr<daxa::ComputePipeline> transmittance;
         std::shared_ptr<daxa::ComputePipeline> multiscattering;
         std::shared_ptr<daxa::ComputePipeline> skyview;
+        std::shared_ptr<daxa::ComputePipeline> esm_pass;
+
         std::shared_ptr<daxa::RasterPipeline> post_process;
         std::shared_ptr<daxa::RasterPipeline> draw_far_sky;
         std::shared_ptr<daxa::RasterPipeline> draw_terrain_wireframe;
@@ -65,6 +67,7 @@ struct Context
             daxa::TaskImageView offscreen;
             daxa::TaskImageView depth;
             daxa::TaskImageView shadowmap;
+            daxa::TaskImageView esm;
         };
 
         std::array<bool, Conditionals::COUNT> conditionals;

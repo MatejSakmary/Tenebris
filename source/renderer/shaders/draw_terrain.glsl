@@ -67,6 +67,7 @@ layout (quads, fractional_odd_spacing , cw) in;
 // layout (quads, equal_spacing , cw) in;
 layout (location = 0) out f32vec2 out_uv;
 layout (location = 1) out f32vec3 world_space_pos;
+layout (location = 2) out f32vec3 view_space_pos;
 
 void main()
 {
@@ -89,13 +90,19 @@ void main()
     const f32 adjusted_height = (sampled_height - deref(_globals).terrain_midpoint) * deref(_globals).terrain_height_scale;
 
     gl_Position.xy *= deref(_globals).terrain_scale;
-    gl_Position.z = deref(_globals).atmosphere_bottom + adjusted_height;
+    if(out_uv.x < 0.99 && out_uv.x > 0.01 && out_uv.y < 0.99 && out_uv.y > 0.01)
+    {
+        gl_Position.z = deref(_globals).atmosphere_bottom + adjusted_height;
+    } else {
+        gl_Position.z = deref(_globals).atmosphere_bottom;
+    }
     world_space_pos = gl_Position.xyz;
 
     const f32vec4 pre_trans_scaled_pos = f32vec4(gl_Position.xyz, 1.0);
 
 #if defined(SHADOWMAP_DRAW)
     f32mat4x4 m_proj_view_model = deref(_globals).shadowmap_projection * deref(_globals).shadowmap_view;
+    view_space_pos = f32vec4(deref(_globals).shadowmap_view * pre_trans_scaled_pos).xyz;
 #else
     // f32mat4x4 m_proj_view_model = deref(_globals).shadowmap_projection * deref(_globals).shadowmap_view;
     f32mat4x4 m_proj_view_model = deref(_globals).projection * deref(_globals).view;
@@ -105,8 +112,14 @@ void main()
 
 #elif DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_FRAGMENT
 #if defined(SHADOWMAP_DRAW)
+layout (location = 2) in f32vec3 view_space_pos;
+
 void main()
 {
+    const f32 near = 0.1;
+    const f32 far = 500.0;
+    const f32 depth_factor = 1/(far - near);
+    gl_FragDepth = length(view_space_pos) * depth_factor;
 }
 #else
 layout (location = 0) in f32vec2 uv;
@@ -117,19 +130,32 @@ void main()
 {
     out_color = texture(daxa_sampler2D(_diffuse_map, pc.linear_sampler_id), uv);
     f32vec3 normal = texture(daxa_sampler2D(_normal_map, pc.linear_sampler_id), uv).xyz;
+
     const f32vec4 shadow_proj_world_pos = deref(_globals).shadowmap_projection * deref(_globals).shadowmap_view * f32vec4(world_space_pos, 1.0);
     const f32vec3 ndc_pos = shadow_proj_world_pos.xyz / shadow_proj_world_pos.w;
     const f32vec2 shadow_map_uv = (ndc_pos.xy + f32vec2(1.0)) / f32vec2(2.0);
+    const f32 shadowmap_dist = texture(daxa_sampler2D(_esm, pc.linear_sampler_id), shadow_map_uv).r;
 
-    const f32 shadow_dist = texture(daxa_sampler2D(_shadowmap, pc.nearest_sampler_id), shadow_map_uv).r;
+    const f32vec3 shadow_view_pos = f32vec4(deref(_globals).shadowmap_view * f32vec4(world_space_pos, 1.0)).xyz;
+    const f32 near = 0.1;
+    const f32 far = 500.0;
+    const f32 depth_factor = 1/(far - near);
+    const f32 real_dist = length(shadow_view_pos) * depth_factor;
 
+    const f32 c = 80.0;
+    f32 shadow = exp(-c * real_dist) * shadowmap_dist;
+
+    const f32 threshold = 0.005;
+
+    // if(shadow > 1.0 + threshold)
+    // {
+    //     out_color = f32vec4(1.0, 0.0, 0.0, 1.0);
+    //     return;
+    // }
+    shadow = clamp(shadow, 0.0, 1.0);
+    out_color *= shadow;
     const f32 sun_norm_dot = dot(normal, deref(_globals).sun_direction);
-    if(ndc_pos.z > shadow_dist || sun_norm_dot < 0)
-    {
-        out_color *= 0.1f;
-    }
-    // out_color *= diffuse;
-    // out_color = f32vec4(shadow_dist,shadow_dist,shadow_dist, 1.0 );
+    out_color *= clamp(sun_norm_dot, 0.1, 1.0);
 }
 #endif // SHADOWMAP_DRAW
 #endif // SHADER_STAGE_FRAGMENT
