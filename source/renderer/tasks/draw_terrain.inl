@@ -7,7 +7,8 @@
 
 struct DrawTerrainPC
 {
-    daxa_SamplerId sampler_id;
+    daxa_SamplerId linear_sampler_id;
+    daxa_SamplerId nearest_sampler_id;
 };
 
 DAXA_DECL_TASK_USES_BEGIN(DrawTerrainTaskBase, DAXA_UNIFORM_BUFFER_SLOT0)
@@ -19,6 +20,7 @@ DAXA_TASK_USE_IMAGE(_depth, REGULAR_2D, DEPTH_ATTACHMENT)
 DAXA_TASK_USE_IMAGE(_shadowmap, REGULAR_2D, SHADER_READ)
 DAXA_TASK_USE_IMAGE(_height_map, REGULAR_2D, SHADER_READ)
 DAXA_TASK_USE_IMAGE(_diffuse_map, REGULAR_2D, FRAGMENT_SHADER_READ)
+DAXA_TASK_USE_IMAGE(_normal_map, REGULAR_2D, FRAGMENT_SHADER_READ)
 DAXA_DECL_TASK_USES_END()
 
 #if __cplusplus
@@ -79,7 +81,10 @@ struct DrawTerrainTask : DrawTerrainTaskBase
         else           { cmd_list.set_pipeline(*(context->pipelines.draw_terrain_solid));     }
 
         cmd_list.set_index_buffer(uses._indices.buffer(), 0, sizeof(u32));
-        cmd_list.push_constant(DrawTerrainPC{.sampler_id = context->linear_sampler});
+        cmd_list.push_constant(DrawTerrainPC{ 
+            .linear_sampler_id = context->linear_sampler,
+            .nearest_sampler_id = context->nearest_sampler
+        });
         cmd_list.draw_indexed({.index_count = static_cast<u32>(context->terrain_index_size)});
         cmd_list.end_renderpass();
     }

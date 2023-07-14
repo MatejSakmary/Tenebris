@@ -12,6 +12,7 @@ struct LoadTextureInfo
 {
     std::string path = {};
     daxa::TaskImage & dest_image;
+    std::optional<daxa::TaskImage *> dest_normal_map;
 };
 
 struct ManagedTextureHandle
@@ -31,6 +32,7 @@ struct TextureManagerInfo
 {
     daxa::Device device;
     std::shared_ptr<daxa::ComputePipeline> compress_pipeline;
+    std::shared_ptr<daxa::ComputePipeline> height_to_normal_pipeline;
 };
 
 struct TextureManager
@@ -47,10 +49,21 @@ struct TextureManager
         bool should_compress = false;
         TextureManagerInfo info;
 
+        enum Conditionals
+        {
+            COMPRESS = 0,
+            GEN_NORMALS,
+            COUNT
+        };
+
+        std::array<bool, Conditionals::COUNT> conditionals_state;
+
 
         daxa::TaskImage hdr_texture;
         daxa::TaskImage uint_compress_texture;
         daxa::TaskImage bc6h_texture;
+
+        daxa::TaskImage normal_texture;
 
         daxa::BufferId curr_buffer_id;
 

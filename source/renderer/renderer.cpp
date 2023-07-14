@@ -58,6 +58,7 @@ Renderer::Renderer(const AppWindow & window) :
     };
 
     init_compute_pipeline(get_BC6H_pipeline(), context.pipelines.BC6H_compress);
+    init_compute_pipeline(get_height_to_normal_pipeline(), context.pipelines.height_to_normal);
     init_compute_pipeline(get_transmittance_LUT_pipeline(), context.pipelines.transmittance);
     init_compute_pipeline(get_multiscattering_LUT_pipeline(), context.pipelines.multiscattering);
     init_compute_pipeline(get_skyview_LUT_pipeline(), context.pipelines.skyview);
@@ -93,7 +94,8 @@ Renderer::Renderer(const AppWindow & window) :
 
     manager = std::make_unique<TextureManager>(TextureManagerInfo{
         .device = context.device,
-        .compress_pipeline = context.pipelines.BC6H_compress
+        .compress_pipeline = context.pipelines.BC6H_compress,
+        .height_to_normal_pipeline = context.pipelines.height_to_normal,
     });
 
     manager->load_texture({
@@ -103,7 +105,8 @@ Renderer::Renderer(const AppWindow & window) :
 
     manager->load_texture({
         .path = "assets/terrain/rugged_terrain_height.exr",
-        .dest_image = context.images.height_map
+        .dest_image = context.images.height_map,
+        .dest_normal_map = &context.images.normal_map
     });
 
     initialize_main_tasklist();
@@ -132,6 +135,7 @@ void Renderer::create_persistent_resources()
     context.images.swapchain = daxa::TaskImage({ .swapchain_image = true, .name = "swapchain task image" });
     context.images.diffuse_map = daxa::TaskImage({ .name = "diffuse map task image" });
     context.images.height_map = daxa::TaskImage({ .name = "height map task image" });
+    context.images.normal_map = daxa::TaskImage({ .name = "normal map task image" });
 
     f32 mie_scale_height = 1.2f;
     f32 rayleigh_scale_height = 8.0f;
@@ -217,6 +221,7 @@ void Renderer::initialize_main_tasklist()
     context.main_task_list.task_list.use_persistent_image(context.images.swapchain);
     context.main_task_list.task_list.use_persistent_image(context.images.height_map);
     context.main_task_list.task_list.use_persistent_image(context.images.diffuse_map);
+    context.main_task_list.task_list.use_persistent_image(context.images.normal_map);
 
     /* ========================================= PERSISTENT RESOURCES =============================================*/
     auto extent = context.swapchain.get_surface_extent();
@@ -316,7 +321,8 @@ void Renderer::initialize_main_tasklist()
             ._depth = tl.images.depth,
             ._shadowmap = tl.images.shadowmap,
             ._height_map = context.images.height_map.view(),
-            ._diffuse_map = context.images.diffuse_map.view()
+            ._diffuse_map = context.images.diffuse_map.view(),
+            ._normal_map = context.images.normal_map.view(),
         }},
         &context,
         &wireframe_terrain
@@ -543,6 +549,7 @@ Renderer::~Renderer()
     destroy_buffer_if_valid(context.buffers.globals);
     destroy_image_if_valid(context.images.diffuse_map);
     destroy_image_if_valid(context.images.height_map);
+    destroy_image_if_valid(context.images.normal_map);
     context.device.destroy_sampler(context.linear_sampler);
     context.device.collect_garbage();
 }

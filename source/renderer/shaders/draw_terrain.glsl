@@ -18,7 +18,7 @@ void main()
     f32vec2 pos = deref(_vertices[gl_VertexIndex]).position;
 
     f32vec4 pre_scale_pos = f32vec4(deref(_vertices[gl_VertexIndex]).position, deref(_globals).atmosphere_bottom, 1.0);
-    const f32 sampled_height = texture(daxa_sampler2D(_height_map, pc.sampler_id), f32vec2(pre_scale_pos.xy)).r;
+    const f32 sampled_height = texture(daxa_sampler2D(_height_map, pc.linear_sampler_id), f32vec2(pre_scale_pos.xy)).r;
     const f32 adjusted_height = (sampled_height - deref(_globals).terrain_midpoint) * deref(_globals).terrain_height_scale;
 
     pre_scale_pos.z += adjusted_height;
@@ -85,7 +85,7 @@ void main()
 
     out_uv = f32vec2(gl_Position.x, gl_Position.y);
 
-    const f32 sampled_height = texture(daxa_sampler2D(_height_map, pc.sampler_id), f32vec2(out_uv.xy)).r;
+    const f32 sampled_height = texture(daxa_sampler2D(_height_map, pc.linear_sampler_id), f32vec2(out_uv.xy)).r;
     const f32 adjusted_height = (sampled_height - deref(_globals).terrain_midpoint) * deref(_globals).terrain_height_scale;
 
     gl_Position.xy *= deref(_globals).terrain_scale;
@@ -115,16 +115,20 @@ layout (location = 0) out f32vec4 out_color;
 
 void main()
 {
-    out_color = texture(daxa_sampler2D(_diffuse_map, pc.sampler_id), uv);
+    out_color = texture(daxa_sampler2D(_diffuse_map, pc.linear_sampler_id), uv);
+    f32vec3 normal = texture(daxa_sampler2D(_normal_map, pc.linear_sampler_id), uv).xyz;
     const f32vec4 shadow_proj_world_pos = deref(_globals).shadowmap_projection * deref(_globals).shadowmap_view * f32vec4(world_space_pos, 1.0);
     const f32vec3 ndc_pos = shadow_proj_world_pos.xyz / shadow_proj_world_pos.w;
     const f32vec2 shadow_map_uv = (ndc_pos.xy + f32vec2(1.0)) / f32vec2(2.0);
 
-    const f32 shadow_dist = texture(daxa_sampler2D(_shadowmap, pc.sampler_id), shadow_map_uv).r;
-    if(ndc_pos.z > shadow_dist)
+    const f32 shadow_dist = texture(daxa_sampler2D(_shadowmap, pc.nearest_sampler_id), shadow_map_uv).r;
+
+    const f32 sun_norm_dot = dot(normal, deref(_globals).sun_direction);
+    if(ndc_pos.z > shadow_dist || sun_norm_dot < 0)
     {
         out_color *= 0.1f;
     }
+    // out_color *= diffuse;
     // out_color = f32vec4(shadow_dist,shadow_dist,shadow_dist, 1.0 );
 }
 #endif // SHADOWMAP_DRAW

@@ -7,7 +7,7 @@
 
 struct DrawTerrainShadowmapPC
 {
-    daxa_SamplerId sampler_id;
+    daxa_SamplerId linear_sampler_id;
 };
 
 DAXA_DECL_TASK_USES_BEGIN(TerrainShadowmapTaskBase, DAXA_UNIFORM_BUFFER_SLOT0)
@@ -68,7 +68,7 @@ struct TerrainShadowmapTask : TerrainShadowmapTaskBase
         });
         cmd_list.set_pipeline(*(context->pipelines.draw_terrain_shadowmap));
         cmd_list.set_index_buffer(uses._indices.buffer(), 0, sizeof(u32));
-        cmd_list.push_constant(DrawTerrainShadowmapPC{.sampler_id = context->linear_sampler});
+        cmd_list.push_constant(DrawTerrainShadowmapPC{ .linear_sampler_id = context->linear_sampler});
         cmd_list.draw_indexed({.index_count = static_cast<u32>(context->terrain_index_size)});
         cmd_list.end_renderpass();
     }

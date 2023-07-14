@@ -60,4 +60,4 @@ struct BC6HCompressTask : BC6HCompressTaskBase
         cmd_list.dispatch(((image_dimensions.x + divx - 1)/divx), ((image_dimensions.y + divy - 1)/divy));
     }
 };
-#endif //cplusplus
+#endif // __cplusplus
