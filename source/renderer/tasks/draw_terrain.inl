@@ -9,16 +9,16 @@ struct DrawTerrainPC
 {
     daxa_SamplerId linear_sampler_id;
     daxa_SamplerId nearest_sampler_id;
-    daxa_u32vec2 esm_resolution;
 };
 
 DAXA_DECL_TASK_USES_BEGIN(DrawTerrainTaskBase, DAXA_UNIFORM_BUFFER_SLOT0)
 DAXA_TASK_USE_BUFFER(_vertices, daxa_BufferPtr(TerrainVertex), VERTEX_SHADER_READ)
 DAXA_TASK_USE_BUFFER(_indices, daxa_BufferPtr(TerrainIndex), VERTEX_SHADER_READ)
 DAXA_TASK_USE_BUFFER(_globals, daxa_BufferPtr(Globals), SHADER_READ)
-DAXA_TASK_USE_IMAGE(_offscreen, REGULAR_2D, COLOR_ATTACHMENT)
+DAXA_TASK_USE_IMAGE(_g_albedo, REGULAR_2D, COLOR_ATTACHMENT)
+DAXA_TASK_USE_IMAGE(_g_normals, REGULAR_2D, COLOR_ATTACHMENT)
+DAXA_TASK_USE_IMAGE(_g_world_pos, REGULAR_2D, COLOR_ATTACHMENT)
 DAXA_TASK_USE_IMAGE(_depth, REGULAR_2D, DEPTH_ATTACHMENT)
-DAXA_TASK_USE_IMAGE(_esm, REGULAR_2D, SHADER_READ)
 DAXA_TASK_USE_IMAGE(_height_map, REGULAR_2D, SHADER_READ)
 DAXA_TASK_USE_IMAGE(_diffuse_map, REGULAR_2D, FRAGMENT_SHADER_READ)
 DAXA_TASK_USE_IMAGE(_normal_map, REGULAR_2D, FRAGMENT_SHADER_READ)
@@ -32,7 +32,11 @@ inline auto get_draw_terrain_pipeline(bool wireframe) -> daxa::RasterPipelineCom
         .tesselation_control_shader_info = daxa::ShaderCompileInfo{ .source = daxa::ShaderFile{"draw_terrain.glsl"}, },
         .tesselation_evaluation_shader_info = daxa::ShaderCompileInfo{ .source = daxa::ShaderFile{"draw_terrain.glsl"}, },
         .fragment_shader_info = daxa::ShaderCompileInfo{ .source = daxa::ShaderFile{"draw_terrain.glsl"}, },
-        .color_attachments = {{.format = daxa::Format::R16G16B16A16_SFLOAT}},
+        .color_attachments = {
+            {.format = daxa::Format::R16G16B16A16_SFLOAT}, // g_albedo
+            {.format = daxa::Format::R16G16B16A16_SFLOAT}, // g_normals
+            {.format = daxa::Format::R16G16B16A16_SFLOAT}, // g_world_pos
+        },
         .depth_test = { 
             .depth_attachment_format = daxa::Format::D32_SFLOAT,
             .enable_depth_test = true,
@@ -59,16 +63,27 @@ struct DrawTerrainTask : DrawTerrainTaskBase
         auto cmd_list = ti.get_command_list();
 
         auto dimensions = context->swapchain.get_surface_extent();
-        auto esm_resolution = context->device.info_image(uses._esm.image()).size;
 
         cmd_list.set_uniform_buffer(ti.uses.get_uniform_buffer_info());
         cmd_list.begin_renderpass({
             .color_attachments = 
-            {{
-                .image_view = {uses._offscreen.view()},
-                .load_op = daxa::AttachmentLoadOp::CLEAR,
-                .clear_value = std::array<f32, 4>{0.0, 0.0, 0.0, 1.0}
-            }},
+            {
+                {
+                    .image_view = {uses._g_albedo.view()},
+                    .load_op = daxa::AttachmentLoadOp::CLEAR,
+                    .clear_value = std::array<f32, 4>{0.0, 0.0, 0.0, 1.0}
+                },
+                {
+                    .image_view = {uses._g_normals.view()},
+                    .load_op = daxa::AttachmentLoadOp::CLEAR,
+                    .clear_value = std::array<f32, 4>{0.0, 0.0, 0.0, 1.0}
+                },
+                {
+                    .image_view = {uses._g_world_pos.view()},
+                    .load_op = daxa::AttachmentLoadOp::CLEAR,
+                    .clear_value = std::array<f32, 4>{0.0, 0.0, 0.0, 1.0}
+                },
+            },
             .depth_attachment = 
             {{
                 .image_view = {uses._depth.view()},
@@ -86,7 +101,6 @@ struct DrawTerrainTask : DrawTerrainTaskBase
         cmd_list.push_constant(DrawTerrainPC{ 
             .linear_sampler_id = context->linear_sampler,
             .nearest_sampler_id = context->nearest_sampler,
-            .esm_resolution = {esm_resolution.x, esm_resolution.y}
         });
         cmd_list.draw_indexed({.index_count = static_cast<u32>(context->terrain_index_size)});
         cmd_list.end_renderpass();

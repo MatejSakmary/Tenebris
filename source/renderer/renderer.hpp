@@ -22,7 +22,7 @@
 #include "tasks/multiscattering_LUT.inl"
 #include "tasks/skyview_LUT.inl"
 #include "tasks/draw_terrain.inl"
-#include "tasks/draw_far_sky.inl"
+#include "tasks/deferred_pass.inl"
 #include "tasks/post_process.inl"
 #include "tasks/imgui_task.inl"
 #include "tasks/shadowmap.inl"

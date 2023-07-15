@@ -66,7 +66,7 @@ Renderer::Renderer(const AppWindow & window) :
     init_raster_pipeline(get_draw_terrain_pipeline(false), context.pipelines.draw_terrain_solid);
     init_raster_pipeline(get_draw_terrain_pipeline(true), context.pipelines.draw_terrain_wireframe);
     init_raster_pipeline(get_terrain_shadowmap_pipeline(), context.pipelines.draw_terrain_shadowmap);
-    init_raster_pipeline(get_draw_far_sky_pipeline(), context.pipelines.draw_far_sky);
+    init_raster_pipeline(get_deferred_pass_pipeline(), context.pipelines.deferred_pass);
     init_raster_pipeline(get_post_process_pipeline(context), context.pipelines.post_process);
 
     context.linear_sampler = context.device.create_sampler({
@@ -278,10 +278,28 @@ void Renderer::initialize_main_tasklist()
         .name = "transient esm"
     });
 
+    tl.images.g_albedo = tl.task_list.create_transient_image({
+        .format = daxa::Format::R16G16B16A16_SFLOAT,
+        .size = {extent.x, extent.y, 1},
+        .name = "transient gbuffer albedo"
+    });
+
+    tl.images.g_normals = tl.task_list.create_transient_image({
+        .format = daxa::Format::R16G16B16A16_SFLOAT,
+        .size = {extent.x, extent.y, 1},
+        .name = "transient gbuffer normals"
+    });
+
+    tl.images.g_world_pos = tl.task_list.create_transient_image({
+        .format = daxa::Format::R32G32B32A32_SFLOAT,
+        .size = {extent.x, extent.y, 1},
+        .name = "transient gbuffer world pos"
+    });
+
     tl.images.offscreen = tl.task_list.create_transient_image({
         .format = daxa::Format::R16G16B16A16_SFLOAT,
         .size = {extent.x, extent.y, 1},
-        .name = "transient offscreen"
+        .name = "offscreen"
     });
 
     tl.images.transmittance_lut = tl.task_list.create_transient_image({
@@ -336,6 +354,24 @@ void Renderer::initialize_main_tasklist()
         &context
     });
 
+    /* =========================================== DRAW TERRAIN G BUFFER =========================================== */
+    tl.task_list.add_task(DrawTerrainTask{{
+        .uses = {
+            ._vertices = context.buffers.terrain_vertices.view(),
+            ._indices = context.buffers.terrain_indices.view(),
+            ._globals = context.buffers.globals.view(),
+            ._g_albedo = tl.images.g_albedo,
+            ._g_normals = tl.images.g_normals,
+            ._g_world_pos = tl.images.g_world_pos,
+            ._depth = tl.images.depth,
+            ._height_map = context.images.height_map.view(),
+            ._diffuse_map = context.images.diffuse_map.view(),
+            ._normal_map = context.images.normal_map.view(),
+        }},
+        &context,
+        &wireframe_terrain
+    });
+
     /* =========================================== DRAW SHADOWMAP =================================================== */
     tl.task_list.add_task(TerrainShadowmapTask{{
         .uses = {
@@ -344,6 +380,7 @@ void Renderer::initialize_main_tasklist()
             ._globals = context.buffers.globals.view(),
             ._shadowmap = tl.images.shadowmap,
             ._height_map = context.images.height_map.view(),
+            ._depth = tl.images.depth,
         }},
         &context,
     });
@@ -357,29 +394,15 @@ void Renderer::initialize_main_tasklist()
         &context,
     });
 
-    /* =========================================== DRAW TERRAIN =================================================== */
-    tl.task_list.add_task(DrawTerrainTask{{
+    /* =========================================== DEFERRED PASS ================================================== */
+    tl.task_list.add_task(DeferredPassTask{{
         .uses = {
-            ._vertices = context.buffers.terrain_vertices.view(),
-            ._indices = context.buffers.terrain_indices.view(),
             ._globals = context.buffers.globals.view(),
             ._offscreen = tl.images.offscreen,
-            ._depth = tl.images.depth,
+            ._g_albedo = tl.images.g_albedo,
+            ._g_normals = tl.images.g_normals,
+            ._g_world_pos = tl.images.g_world_pos,
             ._esm = tl.images.esm,
-            ._height_map = context.images.height_map.view(),
-            ._diffuse_map = context.images.diffuse_map.view(),
-            ._normal_map = context.images.normal_map.view(),
-        }},
-        &context,
-        &wireframe_terrain
-    });
-
-    /* =========================================== DRAW FAR SKY =================================================== */
-    tl.task_list.add_task(DrawFarSkyTask{{
-        .uses = {
-            ._globals = context.buffers.globals.view(),
-            ._offscreen = tl.images.offscreen,
-            ._depth = tl.images.depth,
             ._skyview = tl.images.skyview_lut
         }},
         &context

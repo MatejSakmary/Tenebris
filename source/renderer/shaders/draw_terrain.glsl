@@ -124,51 +124,15 @@ void main()
 #else
 layout (location = 0) in f32vec2 uv;
 layout (location = 1) in f32vec3 world_space_pos;
-layout (location = 0) out f32vec4 out_color;
+layout (location = 0) out f32vec4 albedo_out;
+layout (location = 1) out f32vec4 normal_out;
+layout (location = 2) out f32vec4 world_pos_out;
 
 void main()
 {
-    out_color = texture(daxa_sampler2D(_diffuse_map, pc.linear_sampler_id), uv);
-    f32vec3 normal = texture(daxa_sampler2D(_normal_map, pc.linear_sampler_id), uv).xyz;
-
-    const f32vec4 shadow_proj_world_pos = deref(_globals).shadowmap_projection * deref(_globals).shadowmap_view * f32vec4(world_space_pos, 1.0);
-    const f32vec3 ndc_pos = shadow_proj_world_pos.xyz / shadow_proj_world_pos.w;
-    const f32vec2 shadow_map_uv = (ndc_pos.xy + f32vec2(1.0)) / f32vec2(2.0);
-    const f32 shadowmap_dist = texture(daxa_sampler2D(_esm, pc.linear_sampler_id), shadow_map_uv).r;
-
-    const f32vec3 shadow_view_pos = f32vec4(deref(_globals).shadowmap_view * f32vec4(world_space_pos, 1.0)).xyz;
-    const f32 near = 4.0;
-    const f32 far = 200.0;
-    const f32 depth_factor = 1/(far - near);
-    const f32 real_dist = length(shadow_view_pos) * depth_factor;
-
-    const f32 c = 80.0;
-    f32 shadow = exp(-c * real_dist) * shadowmap_dist;
-
-    if(shadowmap_dist == 0.0f)
-    {
-        shadow = 1.0f;
-    }
-
-    const f32 threshold = 0.02;
-
-    if(shadow > 1.0 + threshold)
-    {
-        f32vec4 gather = textureGather(daxa_sampler2D(_esm, pc.linear_sampler_id), shadow_map_uv, 0);
-        f32vec4 shadow_gathered = clamp(exp(-c * real_dist) * gather, f32vec4(0.0, 0.0, 0.0, 0.0), f32vec4(1.0, 1.0, 1.0, 1.0));
-
-        // This is needed because textureGather and fract are slightly imprecise so 
-        const f32 offset = 1.0/512.0;
-        f32vec2 shadow_pix_coord = shadow_map_uv * pc.esm_resolution + (-0.5 + offset);
-        f32vec2 blend_factor = fract(shadow_pix_coord);
-
-        // texel gather component mapping - (00,w);(01,x);(11,y);(10,z) 
-        f32 tmp0 = mix(shadow_gathered.w, shadow_gathered.z, blend_factor.x);
-        f32 tmp1 = mix(shadow_gathered.x, shadow_gathered.y, blend_factor.x);
-        shadow = mix( tmp0, tmp1, blend_factor.y);
-    }
-    const f32 sun_norm_dot = dot(normal, deref(_globals).sun_direction);
-    out_color *= clamp(sun_norm_dot, 0.0, 1.0) * clamp(shadow, 0.0, 1.0) + 0.02;
+    albedo_out = texture(daxa_sampler2D(_diffuse_map, pc.linear_sampler_id), uv);
+    normal_out = texture(daxa_sampler2D(_normal_map, pc.linear_sampler_id), uv);
+    world_pos_out = f32vec4(world_space_pos, 1.0);
 }
 #endif // SHADOWMAP_DRAW
 #endif // SHADER_STAGE_FRAGMENT

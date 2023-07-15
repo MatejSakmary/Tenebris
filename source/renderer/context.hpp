@@ -41,7 +41,7 @@ struct Context
         std::shared_ptr<daxa::ComputePipeline> esm_pass;
 
         std::shared_ptr<daxa::RasterPipeline> post_process;
-        std::shared_ptr<daxa::RasterPipeline> draw_far_sky;
+        std::shared_ptr<daxa::RasterPipeline> deferred_pass;
         std::shared_ptr<daxa::RasterPipeline> draw_terrain_wireframe;
         std::shared_ptr<daxa::RasterPipeline> draw_terrain_solid;
         std::shared_ptr<daxa::RasterPipeline> draw_terrain_shadowmap;
@@ -64,8 +64,15 @@ struct Context
             daxa::TaskImageView transmittance_lut;
             daxa::TaskImageView multiscattering_lut;
             daxa::TaskImageView skyview_lut;
+
+            // GBuffer
+            daxa::TaskImageView g_albedo;
+            daxa::TaskImageView g_normals;
+            daxa::TaskImageView g_world_pos;
+
             daxa::TaskImageView offscreen;
             daxa::TaskImageView depth;
+
             daxa::TaskImageView shadowmap;
             daxa::TaskImageView esm;
         };
