@@ -116,8 +116,8 @@ layout (location = 2) in f32vec3 view_space_pos;
 
 void main()
 {
-    const f32 near = 0.1;
-    const f32 far = 500.0;
+    const f32 near = 4.0;
+    const f32 far = 100.0;
     const f32 depth_factor = 1/(far - near);
     gl_FragDepth = length(view_space_pos) * depth_factor;
 }
@@ -137,25 +137,23 @@ void main()
     const f32 shadowmap_dist = texture(daxa_sampler2D(_esm, pc.linear_sampler_id), shadow_map_uv).r;
 
     const f32vec3 shadow_view_pos = f32vec4(deref(_globals).shadowmap_view * f32vec4(world_space_pos, 1.0)).xyz;
-    const f32 near = 0.1;
-    const f32 far = 500.0;
+    const f32 near = 4.0;
+    const f32 far = 100.0;
     const f32 depth_factor = 1/(far - near);
     const f32 real_dist = length(shadow_view_pos) * depth_factor;
 
     const f32 c = 80.0;
     f32 shadow = exp(-c * real_dist) * shadowmap_dist;
 
-    const f32 threshold = 0.005;
+    const f32 threshold = 0.020;
 
-    // if(shadow > 1.0 + threshold)
-    // {
-    //     out_color = f32vec4(1.0, 0.0, 0.0, 1.0);
-    //     return;
-    // }
-    shadow = clamp(shadow, 0.0, 1.0);
-    out_color *= shadow;
+    if(shadow > 1.0 + threshold)
+    {
+        out_color = f32vec4(1.0, 0.0, 0.0, 1.0);
+        return;
+    }
     const f32 sun_norm_dot = dot(normal, deref(_globals).sun_direction);
-    out_color *= clamp(sun_norm_dot, 0.1, 1.0);
+    out_color *= clamp(sun_norm_dot, 0.0, 1.0) * clamp(shadow, 0.0, 1.0) + 0.02;
 }
 #endif // SHADOWMAP_DRAW
 #endif // SHADER_STAGE_FRAGMENT

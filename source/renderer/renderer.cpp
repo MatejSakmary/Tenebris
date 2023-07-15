@@ -525,8 +525,8 @@ void Renderer::draw(const Camera & camera)
         .right = 50.0f,
         .bottom = -50.0f,
         .top = 50.0f,
-        .near_plane = 0.1f,
-        .far_plane = 500.0f
+        .near_plane = 4.0f,
+        .far_plane = 100.0f
     };
 
     Globals* globals = context.device.get_host_address_as<Globals>(context.buffers.globals.get_state().buffers[0]); 
