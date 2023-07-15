@@ -69,7 +69,12 @@ Renderer::Renderer(const AppWindow & window) :
     init_raster_pipeline(get_draw_far_sky_pipeline(), context.pipelines.draw_far_sky);
     init_raster_pipeline(get_post_process_pipeline(context), context.pipelines.post_process);
 
-    context.linear_sampler = context.device.create_sampler({});
+    context.linear_sampler = context.device.create_sampler({
+        .address_mode_u = daxa::SamplerAddressMode::CLAMP_TO_BORDER,
+        .address_mode_v = daxa::SamplerAddressMode::CLAMP_TO_BORDER,
+        .address_mode_w = daxa::SamplerAddressMode::CLAMP_TO_BORDER,
+        .border_color = daxa::BorderColor::FLOAT_OPAQUE_BLACK,
+    });
 
     ImGui::CreateContext();
     ImGui_ImplGlfw_InitForVulkan(window.get_glfw_window_handle(), true);
@@ -521,12 +526,18 @@ void Renderer::draw(const Camera & camera)
     };
 
     GetShadowmapProjectionInfo shadow_info {
-        .left = -50.0f,
-        .right = 50.0f,
-        .bottom = -50.0f,
-        .top = 50.0f,
+        // .left = -50.0f,
+        // .right = 50.0f,
+        // .bottom = -50.0f,
+        // .top = 50.0f,
+        // .near_plane = 4.0f,
+        // .far_plane = 100.0f
+        .left = -20.0f,
+        .right = 20.0f,
+        .bottom = -20.0f,
+        .top = 20.0f,
         .near_plane = 4.0f,
-        .far_plane = 100.0f
+        .far_plane = 200.0f
     };
 
     Globals* globals = context.device.get_host_address_as<Globals>(context.buffers.globals.get_state().buffers[0]); 

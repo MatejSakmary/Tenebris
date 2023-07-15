@@ -68,7 +68,7 @@ struct TerrainShadowmapTask : TerrainShadowmapTaskBase
         });
         cmd_list.set_pipeline(*(context->pipelines.draw_terrain_shadowmap));
         cmd_list.set_index_buffer(uses._indices.buffer(), 0, sizeof(u32));
-        cmd_list.push_constant(DrawTerrainShadowmapPC{ .linear_sampler_id = context->linear_sampler});
+        cmd_list.push_constant(DrawTerrainShadowmapPC{ .linear_sampler_id = context->linear_sampler });
         cmd_list.draw_indexed({.index_count = static_cast<u32>(context->terrain_index_size)});
         cmd_list.end_renderpass();
     }

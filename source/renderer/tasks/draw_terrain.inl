@@ -9,6 +9,7 @@ struct DrawTerrainPC
 {
     daxa_SamplerId linear_sampler_id;
     daxa_SamplerId nearest_sampler_id;
+    daxa_u32vec2 esm_resolution;
 };
 
 DAXA_DECL_TASK_USES_BEGIN(DrawTerrainTaskBase, DAXA_UNIFORM_BUFFER_SLOT0)
@@ -58,6 +59,7 @@ struct DrawTerrainTask : DrawTerrainTaskBase
         auto cmd_list = ti.get_command_list();
 
         auto dimensions = context->swapchain.get_surface_extent();
+        auto esm_resolution = context->device.info_image(uses._esm.image()).size;
 
         cmd_list.set_uniform_buffer(ti.uses.get_uniform_buffer_info());
         cmd_list.begin_renderpass({
@@ -83,7 +85,8 @@ struct DrawTerrainTask : DrawTerrainTaskBase
         cmd_list.set_index_buffer(uses._indices.buffer(), 0, sizeof(u32));
         cmd_list.push_constant(DrawTerrainPC{ 
             .linear_sampler_id = context->linear_sampler,
-            .nearest_sampler_id = context->nearest_sampler
+            .nearest_sampler_id = context->nearest_sampler,
+            .esm_resolution = {esm_resolution.x, esm_resolution.y}
         });
         cmd_list.draw_indexed({.index_count = static_cast<u32>(context->terrain_index_size)});
         cmd_list.end_renderpass();

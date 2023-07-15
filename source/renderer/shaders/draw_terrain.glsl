@@ -117,7 +117,7 @@ layout (location = 2) in f32vec3 view_space_pos;
 void main()
 {
     const f32 near = 4.0;
-    const f32 far = 100.0;
+    const f32 far = 200.0;
     const f32 depth_factor = 1/(far - near);
     gl_FragDepth = length(view_space_pos) * depth_factor;
 }
@@ -138,19 +138,34 @@ void main()
 
     const f32vec3 shadow_view_pos = f32vec4(deref(_globals).shadowmap_view * f32vec4(world_space_pos, 1.0)).xyz;
     const f32 near = 4.0;
-    const f32 far = 100.0;
+    const f32 far = 200.0;
     const f32 depth_factor = 1/(far - near);
     const f32 real_dist = length(shadow_view_pos) * depth_factor;
 
     const f32 c = 80.0;
     f32 shadow = exp(-c * real_dist) * shadowmap_dist;
 
-    const f32 threshold = 0.020;
+    if(shadowmap_dist == 0.0f)
+    {
+        shadow = 1.0f;
+    }
+
+    const f32 threshold = 0.02;
 
     if(shadow > 1.0 + threshold)
     {
-        out_color = f32vec4(1.0, 0.0, 0.0, 1.0);
-        return;
+        f32vec4 gather = textureGather(daxa_sampler2D(_esm, pc.linear_sampler_id), shadow_map_uv, 0);
+        f32vec4 shadow_gathered = clamp(exp(-c * real_dist) * gather, f32vec4(0.0, 0.0, 0.0, 0.0), f32vec4(1.0, 1.0, 1.0, 1.0));
+
+        // This is needed because textureGather and fract are slightly imprecise so 
+        const f32 offset = 1.0/512.0;
+        f32vec2 shadow_pix_coord = shadow_map_uv * pc.esm_resolution + (-0.5 + offset);
+        f32vec2 blend_factor = fract(shadow_pix_coord);
+
+        // texel gather component mapping - (00,w);(01,x);(11,y);(10,z) 
+        f32 tmp0 = mix(shadow_gathered.w, shadow_gathered.z, blend_factor.x);
+        f32 tmp1 = mix(shadow_gathered.x, shadow_gathered.y, blend_factor.x);
+        shadow = mix( tmp0, tmp1, blend_factor.y);
     }
     const f32 sun_norm_dot = dot(normal, deref(_globals).sun_direction);
     out_color *= clamp(sun_norm_dot, 0.0, 1.0) * clamp(shadow, 0.0, 1.0) + 0.02;

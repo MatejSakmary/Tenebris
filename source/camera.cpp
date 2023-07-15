@@ -83,7 +83,7 @@ auto Camera::get_view_matrix() const -> f32mat4x4
 
 auto Camera::get_shadowmap_view_matrix(f32vec3 const sun_direction) const -> f32mat4x4
 {
-    const f32 shadowmap_distance = 40.0f;
+    const f32 shadowmap_distance = 70.0f;
     glm::vec3 glm_sun_dir = glm::normalize(glm::vec3(sun_direction.x, sun_direction.y, sun_direction.z));
     // glm::vec3 sun_shadowmap_position = position + glm_sun_dir * shadowmap_distance;
     glm::vec3 sun_shadowmap_position = glm::vec3(50, 50, 6360) + glm_sun_dir * shadowmap_distance;
