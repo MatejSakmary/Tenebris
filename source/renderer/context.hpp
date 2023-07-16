@@ -15,6 +15,7 @@ using namespace std::literals;
 
 struct Context
 {
+    static constexpr u32 frames_in_flight = 2;
     struct Buffers
     {
         daxa::TaskBuffer globals;
@@ -91,6 +92,8 @@ struct Context
 
     Images images;
     Buffers buffers;
+
+    Globals globals;
 
     MainTaskList main_task_list;
     Pipelines pipelines;

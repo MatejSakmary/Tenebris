@@ -23,7 +23,9 @@ f32vec3 add_sun_circle(f32vec3 world_dir, f32vec3 sun_dir)
 
 f32vec3 get_far_sky_color(f32vec2 remap_uv)
 {
-    f32vec3 camera = deref(_globals).camera_position;
+    const f32 unit_scale = 0.0001;
+    f32vec3 camera = deref(_globals).camera_position * unit_scale;
+    camera.z += deref(_globals).atmosphere_bottom;
     f32vec3 sun_direction = normalize(deref(_globals).sun_direction);
 
     f32vec3 world_dir = normalize(
@@ -91,8 +93,7 @@ void main()
 
         const f32 threshold = 0.02;
 
-        // if(shadow > 1.0 + threshold)
-        if(false)
+        if(shadow > 1.0 + threshold)
         {
             f32vec4 gather = textureGather(daxa_sampler2D(_esm, pc.linear_sampler_id), shadow_map_uv, 0);
             f32vec4 shadow_gathered = clamp(exp(-c * real_dist) * gather, f32vec4(0.0, 0.0, 0.0, 0.0), f32vec4(1.0, 1.0, 1.0, 1.0));

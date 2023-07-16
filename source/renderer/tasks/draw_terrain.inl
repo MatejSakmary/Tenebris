@@ -41,6 +41,7 @@ inline auto get_draw_terrain_pipeline(bool wireframe) -> daxa::RasterPipelineCom
             .depth_attachment_format = daxa::Format::D32_SFLOAT,
             .enable_depth_test = true,
             .enable_depth_write = true,
+            .depth_test_compare_op = daxa::CompareOp::GREATER_OR_EQUAL,
         },
         .raster = { 
             .primitive_topology = daxa::PrimitiveTopology::PATCH_LIST,
@@ -90,7 +91,7 @@ struct DrawTerrainTask : DrawTerrainTaskBase
                 .layout = daxa::ImageLayout::ATTACHMENT_OPTIMAL,
                 .load_op = daxa::AttachmentLoadOp::CLEAR,
                 .store_op = daxa::AttachmentStoreOp::STORE,
-                .clear_value = daxa::ClearValue{daxa::DepthValue{1.0f, 0}},
+                .clear_value = daxa::ClearValue{daxa::DepthValue{0.0f, 0}},
             }},
             .render_area = {.x = 0, .y = 0, .width = dimensions.x , .height = dimensions.y}
         });

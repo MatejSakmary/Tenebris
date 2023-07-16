@@ -116,10 +116,7 @@ void Renderer::create_persistent_resources()
             .buffers = std::array{
                 context.device.create_buffer(daxa::BufferInfo{
                     .size = sizeof(Globals),
-                    .allocate_info = daxa::AutoAllocInfo(
-                        daxa::MemoryFlagBits::HOST_ACCESS_RANDOM |
-                        daxa::MemoryFlagBits::DEDICATED_MEMORY
-                    ),
+                    .allocate_info = daxa::AutoAllocInfo(daxa::MemoryFlagBits::DEDICATED_MEMORY),
                     .name = "atmosphere parameters",
                 })
             },
@@ -136,61 +133,61 @@ void Renderer::create_persistent_resources()
 
     f32 mie_scale_height = 1.2f;
     f32 rayleigh_scale_height = 8.0f;
-    Globals *globals_buffer_ptr = context.device.get_host_address_as<Globals>(context.buffers.globals.get_state().buffers[0]);
-    this->globals = globals_buffer_ptr;
+
+    globals = &context.globals;
 
     // Random variables
-    globals_buffer_ptr->trans_lut_dim = {256u, 64u};
-    globals_buffer_ptr->mult_lut_dim = {32u, 32u};
-    globals_buffer_ptr->sky_lut_dim = {192u, 128u};
+    globals->trans_lut_dim = {256u, 64u};
+    globals->mult_lut_dim = {32u, 32u};
+    globals->sky_lut_dim = {192u, 128u};
 
     // Atmosphere
-    globals_buffer_ptr->sun_direction = {0.99831, 0.0, 0.05814};
-    globals_buffer_ptr->atmosphere_bottom = 6360.0f;
-    globals_buffer_ptr->atmosphere_top = 6460.0f;
-    globals_buffer_ptr->mie_scattering = { 0.003996f, 0.003996f, 0.003996f };
-    globals_buffer_ptr->mie_extinction = { 0.004440f, 0.004440f, 0.004440f };
-    globals_buffer_ptr->mie_scale_height = mie_scale_height;
-    globals_buffer_ptr->mie_phase_function_g = 0.80f;
-    globals_buffer_ptr->mie_density[0] = {
+    globals->sun_direction = {0.99831, 0.0, 0.05814};
+    globals->atmosphere_bottom = 6360.0f;
+    globals->atmosphere_top = 6460.0f;
+    globals->mie_scattering = { 0.003996f, 0.003996f, 0.003996f };
+    globals->mie_extinction = { 0.004440f, 0.004440f, 0.004440f };
+    globals->mie_scale_height = mie_scale_height;
+    globals->mie_phase_function_g = 0.80f;
+    globals->mie_density[0] = {
         .layer_width = 0.0f,
         .exp_term    = 0.0f,
         .exp_scale   = 0.0f,
         .lin_term    = 0.0f,
         .const_term  = 0.0f 
     };
-    globals_buffer_ptr->mie_density[1] = {
+    globals->mie_density[1] = {
         .layer_width = 0.0f,
         .exp_term    = 1.0f,
         .exp_scale   = -1.0f / mie_scale_height,
         .lin_term    = 0.0f,
         .const_term  = 0.0f 
     };
-    globals_buffer_ptr->rayleigh_scattering = { 0.005802f, 0.013558f, 0.033100f };
-    globals_buffer_ptr->rayleigh_scale_height = rayleigh_scale_height;
-    globals_buffer_ptr->rayleigh_density[0] = {
+    globals->rayleigh_scattering = { 0.005802f, 0.013558f, 0.033100f };
+    globals->rayleigh_scale_height = rayleigh_scale_height;
+    globals->rayleigh_density[0] = {
         .layer_width = 0.0f,
         .exp_term    = 0.0f,
         .exp_scale   = 0.0f,
         .lin_term    = 0.0f,
         .const_term  = 0.0f 
     };
-    globals_buffer_ptr->rayleigh_density[1] = {
+    globals->rayleigh_density[1] = {
         .layer_width = 0.0f,
         .exp_term    = 1.0f,
         .exp_scale   = -1.0f / rayleigh_scale_height,
         .lin_term    = 0.0f,
         .const_term  = 0.0f
     };
-    globals_buffer_ptr->absorption_extinction = { 0.000650f, 0.001881f, 0.000085f };
-    globals_buffer_ptr->absorption_density[0] = {
+    globals->absorption_extinction = { 0.000650f, 0.001881f, 0.000085f };
+    globals->absorption_density[0] = {
         .layer_width = 25.0f,
         .exp_term    = 0.0f,
         .exp_scale   = 0.0f,
         .lin_term    = 1.0f / 15.0f,
         .const_term  = -2.0f / 3.0f 
     };
-    globals_buffer_ptr->absorption_density[1] = {
+    globals->absorption_density[1] = {
         .layer_width = 0.0f,
         .exp_term    = 1.0f,
         .exp_scale   = 0.0f,
@@ -199,15 +196,15 @@ void Renderer::create_persistent_resources()
     };
     
     // Terrain
-    globals_buffer_ptr->terrain_scale = {100.0f, 100.0f};
-    globals_buffer_ptr->terrain_height_scale = 70.0f;
-    globals_buffer_ptr->terrain_midpoint = 0.3f;
-    globals_buffer_ptr->terrain_scale = {100.0f, 100.0f};
-    globals_buffer_ptr->terrain_delta = 8.0f;
-    globals_buffer_ptr->terrain_min_depth = 1.0f;
-    globals_buffer_ptr->terrain_max_depth = 10000.0f;
-    globals_buffer_ptr->terrain_min_tess_level = 1;
-    globals_buffer_ptr->terrain_max_tess_level = 40;
+    globals->terrain_scale = {100.0f, 100.0f};
+    globals->terrain_height_scale = 70.0f;
+    globals->terrain_midpoint = 0.2f;
+    globals->terrain_scale = {100.0f, 100.0f};
+    globals->terrain_delta = 8.0f;
+    globals->terrain_min_depth = 1.0f;
+    globals->terrain_max_depth = 10000.0f;
+    globals->terrain_min_tess_level = 1;
+    globals->terrain_max_tess_level = 40;
 }
 
 void Renderer::load_textures()
@@ -256,7 +253,6 @@ void Renderer::initialize_main_tasklist()
 
     /* ========================================= PERSISTENT RESOURCES =============================================*/
     auto extent = context.swapchain.get_surface_extent();
-    Globals const * globals = context.device.get_host_address_as<Globals>(context.buffers.globals.get_state().buffers[0]);
 
     auto & tl = context.main_task_list;
 
@@ -323,6 +319,34 @@ void Renderer::initialize_main_tasklist()
     /* ============================================================================================================ */
     /* ===============================================  TASKS  ==================================================== */
     /* ============================================================================================================ */
+
+    /* =========================================== UPLOAD GLOBALS ================================================= */
+    tl.task_list.add_task({
+        .uses = { 
+            daxa::BufferHostTransferWrite{context.buffers.globals},
+        },
+        .task = [=, this](daxa::TaskInterface ti)
+        {
+            auto cmd_list = ti.get_command_list();
+            {
+                u32 size = sizeof(Globals);
+                auto staging_mem_result = ti.get_allocator().allocate(size);
+                DBG_ASSERT_TRUE_M(
+                    staging_mem_result.has_value(),
+                    "[Renderer::initialize_task_list()] Failed to create globals staging buffer"
+                );
+                auto staging_mem = staging_mem_result.value();
+                memcpy(staging_mem.host_address, globals, size);
+                cmd_list.copy_buffer_to_buffer({
+                    .src_buffer = ti.get_allocator().get_buffer(),
+                    .src_offset = staging_mem.buffer_offset,
+                    .dst_buffer = ti.uses[context.buffers.globals].buffer(),
+                    .size = size
+                });
+            }
+        },
+        .name = "upload globals",
+    });
 
     /* =========================================== COMPUTE TRANSMITTANCE ========================================== */
     tl.task_list.add_task(ComputeTransmittanceTask{{
@@ -540,13 +564,9 @@ void Renderer::upload_planet_geometry(PlanetGeometry const & geometry)
     upload_geom_tl.execute({});
 };
 
-void Renderer::draw(const Camera & camera) 
+void Renderer::draw(Camera & camera) 
 {
     auto extent = context.swapchain.get_surface_extent();
-    GetProjectionInfo info {
-        .near_plane = 0.1f,
-        .far_plane = 500.0f,
-    };
 
     GetShadowmapProjectionInfo shadow_info {
         // .left = -50.0f,
@@ -563,14 +583,13 @@ void Renderer::draw(const Camera & camera)
         .far_plane = 200.0f
     };
 
-    Globals* globals = context.device.get_host_address_as<Globals>(context.buffers.globals.get_state().buffers[0]); 
     auto [front, top, right] = camera.get_frustum_info();
     globals->camera_front = front;
     globals->camera_frust_top_offset = top;
     globals->camera_frust_right_offset = right;
     globals->view = camera.get_view_matrix();
-    globals->projection = camera.get_projection_matrix(info);
-    globals->inv_view_projection = camera.get_inv_view_proj_matrix(info); 
+    globals->projection = camera.get_projection_matrix();
+    globals->inv_view_projection = camera.get_inv_view_proj_matrix(); 
     globals->shadowmap_view = camera.get_shadowmap_view_matrix(globals->sun_direction);
     globals->shadowmap_projection = camera.get_shadowmap_projection_matrix(shadow_info);
     globals->camera_position = camera.get_camera_position();

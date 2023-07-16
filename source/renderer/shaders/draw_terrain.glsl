@@ -17,7 +17,7 @@ void main()
 {
     f32vec2 pos = deref(_vertices[gl_VertexIndex]).position;
 
-    f32vec4 pre_scale_pos = f32vec4(deref(_vertices[gl_VertexIndex]).position, deref(_globals).atmosphere_bottom, 1.0);
+    f32vec4 pre_scale_pos = f32vec4(deref(_vertices[gl_VertexIndex]).position, 0.0, 1.0);
     const f32 sampled_height = texture(daxa_sampler2D(_height_map, pc.linear_sampler_id), f32vec2(pre_scale_pos.xy)).r;
     const f32 adjusted_height = (sampled_height - deref(_globals).terrain_midpoint) * deref(_globals).terrain_height_scale;
 
@@ -90,11 +90,11 @@ void main()
     const f32 adjusted_height = (sampled_height - deref(_globals).terrain_midpoint) * deref(_globals).terrain_height_scale;
 
     gl_Position.xy *= deref(_globals).terrain_scale;
-    if(out_uv.x < 0.99 && out_uv.x > 0.01 && out_uv.y < 0.99 && out_uv.y > 0.01)
+    if(out_uv.x < 0.999 && out_uv.x > 0.001 && out_uv.y < 0.999 && out_uv.y > 0.001)
     {
-        gl_Position.z = deref(_globals).atmosphere_bottom + adjusted_height;
+        gl_Position.z = adjusted_height;
     } else {
-        gl_Position.z = deref(_globals).atmosphere_bottom;
+        gl_Position.z = -1000.0;
     }
     world_space_pos = gl_Position.xyz;
 

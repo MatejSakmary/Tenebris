@@ -33,12 +33,6 @@ enum Direction
     UNKNOWN [[maybe_unused]]
 };
 
-struct GetProjectionInfo
-{
-    f32 near_plane;
-    f32 far_plane;
-};
-
 struct GetShadowmapProjectionInfo
 {
     f32 left;
@@ -56,6 +50,7 @@ struct CameraInfo
     f32vec3 up;
     f32 aspect_ratio;
     f32 fov;
+    f32 near_plane;
 };
 
 struct CameraFrustumInfo
@@ -69,6 +64,7 @@ struct Camera
 {
     f32 aspect_ratio;
     f32 fov;
+    f32 near_plane;
 
     explicit Camera(const CameraInfo & info);
 
@@ -76,14 +72,21 @@ struct Camera
     void update_front_vector(f32 x_offset, f32 y_offset);
     void set_position(f32vec3 new_position);
     [[nodiscard]] auto get_camera_position() const -> f32vec3;
-    [[nodiscard]] auto get_view_matrix() const -> f32mat4x4;
-    [[nodiscard]] auto get_shadowmap_view_matrix(f32vec3 const sun_direction) const -> f32mat4x4;
-    [[nodiscard]] auto get_projection_matrix(const GetProjectionInfo & info) const -> f32mat4x4;
-    [[nodiscard]] auto get_shadowmap_projection_matrix(const GetShadowmapProjectionInfo & info) const -> f32mat4x4;
-    [[nodiscard]] auto get_inv_view_proj_matrix(const GetProjectionInfo & info) const -> f32mat4x4;
-    [[nodiscard]] auto get_frustum_info() const -> CameraFrustumInfo;
+    [[nodiscard]] auto get_view_matrix() -> f32mat4x4;
+    [[nodiscard]] auto get_projection_matrix() -> f32mat4x4;
+    [[nodiscard]] auto get_inv_view_proj_matrix() -> f32mat4x4;
+
+    [[nodiscard]] auto get_shadowmap_view_matrix(f32vec3 const sun_direction) -> f32mat4x4;
+    [[nodiscard]] auto get_shadowmap_projection_matrix(const GetShadowmapProjectionInfo & info) -> f32mat4x4;
+    [[nodiscard]] auto get_frustum_info() -> CameraFrustumInfo;
 
     private:
+        void recalculate_matrices();
+
+        bool matrix_dirty;
+        glm::mat4x4 projection;
+        glm::mat4x4 view;
+
         glm::vec3 position;
         glm::vec3 front;
         glm::vec3 up;

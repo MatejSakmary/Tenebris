@@ -98,11 +98,12 @@ Application::Application() :
     state{ .minimized = false },
     renderer{window},
     camera{{
-        .position = {50.0, 50.0, 6363.0},
+        .position = {50.0, 50.0, 0.0},
         .front = {0.0, 1.0, 0.0},
         .up = {0.0, 0.0, 1.0}, 
         .aspect_ratio = f32(INIT_WINDOW_DIMENSIONS.x)/f32(INIT_WINDOW_DIMENSIONS.y),
-        .fov = glm::radians(70.0f)
+        .fov = glm::radians(70.0f),
+        .near_plane = 0.1f,
     }},
     geometry{generate_planet()}
 {
