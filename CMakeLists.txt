@@ -7,6 +7,7 @@ add_executable( ${PROJECT_NAME}
     "source/main.cpp"
     "source/application.cpp"
     "source/camera.cpp"
+    "source/gui_manager.cpp"
     "source/renderer/renderer.cpp"
     "source/terrain_gen/planet_generator.cpp"
     "source/renderer/texture_manager.cpp")
@@ -19,7 +20,7 @@ find_package(glm CONFIG REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
 find_package(OpenEXR CONFIG REQUIRED)
-find_path(STB_INCLUDE_DIRS "stb_c_lexer.h")
+find_package(nlohmann_json CONFIG REQUIRED)
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
 
@@ -34,10 +35,10 @@ if(CMAKE_SYSTEM_NAME MATCHES "Windows" AND CMAKE_CXX_COMPILER_ID MATCHES "Clang"
     set_target_properties(Imath::Imath PROPERTIES INTERFACE_COMPILE_OPTIONS "")
 endif()
 
-target_include_directories(${PROJECT_NAME} PRIVATE ${STB_INCLUDE_DIRS})
 target_include_directories(${PROJECT_NAME} PRIVATE "external/")
 target_link_libraries(${PROJECT_NAME} PRIVATE
     imgui::imgui
+    nlohmann_json::nlohmann_json    
     daxa::daxa
     OpenEXR::OpenEXR
     glm::glm

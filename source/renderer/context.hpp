@@ -93,8 +93,6 @@ struct Context
     Images images;
     Buffers buffers;
 
-    Globals globals;
-
     MainTaskList main_task_list;
     Pipelines pipelines;
 

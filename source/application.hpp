@@ -5,7 +5,7 @@ using namespace daxa::types;
 
 #include "terrain_gen/planet_generator.hpp"
 #include "renderer/renderer.hpp"
-#include "gui_state.hpp"
+#include "gui_manager.hpp"
 #include "window.hpp"
 #include "camera.hpp"
 #include "renderer/texture_manager.hpp"
@@ -41,7 +41,6 @@ struct Application
         f32vec2 last_mouse_pos;
 
         KeyTable key_table;
-        GuiState gui_state;
     };
 
     public:
@@ -53,8 +52,9 @@ struct Application
     private:
         AppWindow window;
         AppState state;
-        Renderer renderer;
         Camera camera;
+        GuiManager gui;
+        Renderer renderer;
         PlanetGeometry geometry;
 
         void ui_update();

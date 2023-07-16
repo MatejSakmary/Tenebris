@@ -80,8 +80,8 @@ void main()
         const f32 shadowmap_dist = texture(daxa_sampler2D(_esm, pc.linear_sampler_id), shadow_map_uv).r;
 
         const f32vec3 shadow_view_pos = f32vec4(deref(_globals).shadowmap_view * f32vec4(world_pos, 1.0)).xyz;
-        const f32 near = 4.0;
-        const f32 far = 200.0;
+        const f32 near = 2000.0;
+        const f32 far = 12000.0;
         const f32 depth_factor = 1/(far - near);
         const f32 real_dist = length(shadow_view_pos) * depth_factor;
 

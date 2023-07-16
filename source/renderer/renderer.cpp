@@ -5,8 +5,9 @@
 #include <imgui_impl_glfw.h>
 #include <daxa/utils/imgui.hpp>
 
-Renderer::Renderer(const AppWindow & window) :
-    context { .daxa_instance{daxa::create_instance({.enable_validation = false})} }
+Renderer::Renderer(const AppWindow & window, Globals * globals) :
+    context { .daxa_instance{daxa::create_instance({.enable_validation = false})} },
+    globals{globals}
 {
     context.device = context.daxa_instance.create_device({ .name = "Daxa device" });
 
@@ -131,80 +132,78 @@ void Renderer::create_persistent_resources()
     context.images.height_map = daxa::TaskImage({ .name = "height map task image" });
     context.images.normal_map = daxa::TaskImage({ .name = "normal map task image" });
 
-    f32 mie_scale_height = 1.2f;
-    f32 rayleigh_scale_height = 8.0f;
+    // f32 mie_scale_height = 1.2f;
+    // f32 rayleigh_scale_height = 8.0f;
 
-    globals = &context.globals;
 
-    // Random variables
-    globals->trans_lut_dim = {256u, 64u};
-    globals->mult_lut_dim = {32u, 32u};
-    globals->sky_lut_dim = {192u, 128u};
+    // // Random variables
+    // globals->trans_lut_dim = {256u, 64u};
+    // globals->mult_lut_dim = {32u, 32u};
+    // globals->sky_lut_dim = {192u, 128u};
 
-    // Atmosphere
-    globals->sun_direction = {0.99831, 0.0, 0.05814};
-    globals->atmosphere_bottom = 6360.0f;
-    globals->atmosphere_top = 6460.0f;
-    globals->mie_scattering = { 0.003996f, 0.003996f, 0.003996f };
-    globals->mie_extinction = { 0.004440f, 0.004440f, 0.004440f };
-    globals->mie_scale_height = mie_scale_height;
-    globals->mie_phase_function_g = 0.80f;
-    globals->mie_density[0] = {
-        .layer_width = 0.0f,
-        .exp_term    = 0.0f,
-        .exp_scale   = 0.0f,
-        .lin_term    = 0.0f,
-        .const_term  = 0.0f 
-    };
-    globals->mie_density[1] = {
-        .layer_width = 0.0f,
-        .exp_term    = 1.0f,
-        .exp_scale   = -1.0f / mie_scale_height,
-        .lin_term    = 0.0f,
-        .const_term  = 0.0f 
-    };
-    globals->rayleigh_scattering = { 0.005802f, 0.013558f, 0.033100f };
-    globals->rayleigh_scale_height = rayleigh_scale_height;
-    globals->rayleigh_density[0] = {
-        .layer_width = 0.0f,
-        .exp_term    = 0.0f,
-        .exp_scale   = 0.0f,
-        .lin_term    = 0.0f,
-        .const_term  = 0.0f 
-    };
-    globals->rayleigh_density[1] = {
-        .layer_width = 0.0f,
-        .exp_term    = 1.0f,
-        .exp_scale   = -1.0f / rayleigh_scale_height,
-        .lin_term    = 0.0f,
-        .const_term  = 0.0f
-    };
-    globals->absorption_extinction = { 0.000650f, 0.001881f, 0.000085f };
-    globals->absorption_density[0] = {
-        .layer_width = 25.0f,
-        .exp_term    = 0.0f,
-        .exp_scale   = 0.0f,
-        .lin_term    = 1.0f / 15.0f,
-        .const_term  = -2.0f / 3.0f 
-    };
-    globals->absorption_density[1] = {
-        .layer_width = 0.0f,
-        .exp_term    = 1.0f,
-        .exp_scale   = 0.0f,
-        .lin_term    = -1.0f / 15.0f,
-        .const_term  = 8.0f / 3.0f
-    };
+    // // Atmosphere
+    // globals->sun_direction = {0.99831, 0.0, 0.05814};
+    // globals->atmosphere_bottom = 6360.0f;
+    // globals->atmosphere_top = 6460.0f;
+    // globals->mie_scattering = { 0.003996f, 0.003996f, 0.003996f };
+    // globals->mie_extinction = { 0.004440f, 0.004440f, 0.004440f };
+    // globals->mie_scale_height = mie_scale_height;
+    // globals->mie_phase_function_g = 0.80f;
+    // globals->mie_density[0] = {
+    //     .layer_width = 0.0f,
+    //     .exp_term    = 0.0f,
+    //     .exp_scale   = 0.0f,
+    //     .lin_term    = 0.0f,
+    //     .const_term  = 0.0f 
+    // };
+    // globals->mie_density[1] = {
+    //     .layer_width = 0.0f,
+    //     .exp_term    = 1.0f,
+    //     .exp_scale   = -1.0f / mie_scale_height,
+    //     .lin_term    = 0.0f,
+    //     .const_term  = 0.0f 
+    // };
+    // globals->rayleigh_scattering = { 0.005802f, 0.013558f, 0.033100f };
+    // globals->rayleigh_scale_height = rayleigh_scale_height;
+    // globals->rayleigh_density[0] = {
+    //     .layer_width = 0.0f,
+    //     .exp_term    = 0.0f,
+    //     .exp_scale   = 0.0f,
+    //     .lin_term    = 0.0f,
+    //     .const_term  = 0.0f 
+    // };
+    // globals->rayleigh_density[1] = {
+    //     .layer_width = 0.0f,
+    //     .exp_term    = 1.0f,
+    //     .exp_scale   = -1.0f / rayleigh_scale_height,
+    //     .lin_term    = 0.0f,
+    //     .const_term  = 0.0f
+    // };
+    // globals->absorption_extinction = { 0.000650f, 0.001881f, 0.000085f };
+    // globals->absorption_density[0] = {
+    //     .layer_width = 25.0f,
+    //     .exp_term    = 0.0f,
+    //     .exp_scale   = 0.0f,
+    //     .lin_term    = 1.0f / 15.0f,
+    //     .const_term  = -2.0f / 3.0f 
+    // };
+    // globals->absorption_density[1] = {
+    //     .layer_width = 0.0f,
+    //     .exp_term    = 1.0f,
+    //     .exp_scale   = 0.0f,
+    //     .lin_term    = -1.0f / 15.0f,
+    //     .const_term  = 8.0f / 3.0f
+    // };
     
-    // Terrain
-    globals->terrain_scale = {100.0f, 100.0f};
-    globals->terrain_height_scale = 70.0f;
-    globals->terrain_midpoint = 0.2f;
-    globals->terrain_scale = {100.0f, 100.0f};
-    globals->terrain_delta = 8.0f;
-    globals->terrain_min_depth = 1.0f;
-    globals->terrain_max_depth = 10000.0f;
-    globals->terrain_min_tess_level = 1;
-    globals->terrain_max_tess_level = 40;
+    // // Terrain
+    // globals->terrain_scale = {100.0f, 100.0f};
+    // globals->terrain_height_scale = 70.0f;
+    // globals->terrain_midpoint = 0.2f;
+    // globals->terrain_delta = 8.0f;
+    // globals->terrain_min_depth = 1.0f;
+    // globals->terrain_max_depth = 10000.0f;
+    // globals->terrain_min_tess_level = 1;
+    // globals->terrain_max_tess_level = 40;
 }
 
 void Renderer::load_textures()
@@ -575,12 +574,12 @@ void Renderer::draw(Camera & camera)
         // .top = 50.0f,
         // .near_plane = 4.0f,
         // .far_plane = 100.0f
-        .left = -20.0f,
-        .right = 20.0f,
-        .bottom = -20.0f,
-        .top = 20.0f,
-        .near_plane = 4.0f,
-        .far_plane = 200.0f
+        .left = -2500.0f,
+        .right = 2500.0f,
+        .bottom = -2500.0f,
+        .top = 2500.0f,
+        .near_plane = 2000.0f,
+        .far_plane = 12000.0f
     };
 
     auto [front, top, right] = camera.get_frustum_info();

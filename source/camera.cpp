@@ -12,7 +12,7 @@ Camera::Camera(const CameraInfo & info) :
     aspect_ratio{info.aspect_ratio},
     fov{info.fov},
     near_plane{info.near_plane},
-    speed{1.0f},
+    speed{100.0f},
     pitch{0.0f},
     sensitivity{0.08f},
     roll_sensitivity{20.0f}
@@ -143,11 +143,11 @@ auto Camera::get_frustum_info() -> CameraFrustumInfo
 
 auto Camera::get_shadowmap_view_matrix(f32vec3 const sun_direction) -> f32mat4x4
 {
-    const f32 shadowmap_distance = 70.0f;
+    const f32 shadowmap_distance = 7000.0f;
     glm::vec3 glm_sun_dir = glm::normalize(glm::vec3(sun_direction.x, sun_direction.y, sun_direction.z));
     // glm::vec3 sun_shadowmap_position = position + glm_sun_dir * shadowmap_distance;
-    glm::vec3 sun_shadowmap_position = glm::vec3(50, 50, 0.0) + glm_sun_dir * shadowmap_distance;
-    glm::vec3 front = glm::normalize(glm::vec3(50, 50, 0.0) - sun_shadowmap_position);
+    glm::vec3 sun_shadowmap_position = glm::vec3(5000, 5000, 0.0) + glm_sun_dir * shadowmap_distance;
+    glm::vec3 front = glm::normalize(glm::vec3(5000, 5000, 0.0) - sun_shadowmap_position);
     auto view_mat = glm::lookAt( sun_shadowmap_position, sun_shadowmap_position + front, up);
 
     return mat_from_span<f32, 4, 4>(std::span<f32, 4 * 4>{ glm::value_ptr(view_mat), 4 * 4});

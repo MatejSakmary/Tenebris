@@ -116,8 +116,8 @@ layout (location = 2) in f32vec3 view_space_pos;
 
 void main()
 {
-    const f32 near = 4.0;
-    const f32 far = 200.0;
+    const f32 near = 2000.0;
+    const f32 far = 12000.0;
     const f32 depth_factor = 1/(far - near);
     gl_FragDepth = length(view_space_pos) * depth_factor;
 }

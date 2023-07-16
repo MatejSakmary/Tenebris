@@ -5,7 +5,7 @@
     "daxa",
     "glfw3",
     "glm",
-    "stb",
+    "nlohmann-json",    
     "openexr",
     {
       "name": "imgui",

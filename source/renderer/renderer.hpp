@@ -8,7 +8,6 @@
 
 #include "../window.hpp"
 #include "../utils.hpp"
-#include "../gui_state.hpp"
 #include "../camera.hpp"
 #include "shared/shared.inl"
 #include "context.hpp"
@@ -32,9 +31,9 @@ using namespace daxa::types;
 
 struct Renderer
 {
-    bool wireframe_terrain;
+    bool wireframe_terrain = {};
     Globals *globals;
-    explicit Renderer(const AppWindow & window);
+    explicit Renderer(const AppWindow & window, Globals * globals);
     ~Renderer();
 
     void resize();

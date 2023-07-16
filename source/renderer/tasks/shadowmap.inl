@@ -39,6 +39,7 @@ inline auto get_terrain_shadowmap_pipeline() -> daxa::RasterPipelineCompileInfo 
             .primitive_restart_enable = false,
             .polygon_mode = daxa::PolygonMode::FILL,
             .face_culling = daxa::FaceCullFlagBits::BACK_BIT,
+            .depth_clamp_enable = true,
         },
         .tesselation = { .control_points = 4 },
         .push_constant_size = sizeof(DrawTerrainShadowmapPC),
