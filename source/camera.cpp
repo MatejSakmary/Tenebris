@@ -5,6 +5,7 @@
 auto constexpr static inline daxa_vec3_to_glm(f32vec3 vec) -> glm::vec3 { return glm::vec3(vec.x, vec.y, vec.z); }
 
 Camera::Camera(const CameraInfo & info) : 
+    offset{i32vec3{0, 0, 0}},
     matrix_dirty{true},
     position{daxa_vec3_to_glm(info.position)},
     front{daxa_vec3_to_glm(info.front)},
@@ -22,6 +23,8 @@ Camera::Camera(const CameraInfo & info) :
 void Camera::set_position(f32vec3 new_position)
 {
     position = daxa_vec3_to_glm(new_position);
+    offset = i32vec3{0, 0, 0};
+    move_camera(0.0f, Direction::UP);
     matrix_dirty = true;
 }
 
@@ -57,6 +60,13 @@ void Camera::move_camera(f32 delta_time, Direction direction)
     default:
         DEBUG_OUT("[Camera::move_camera()] Unknown enum value");
         break;
+    }
+    if(glm::abs(position.x) > 1.0f || glm::abs(position.y) > 1.0f || glm::abs(position.z) > 1.0f)
+    {
+        glm::vec3 fract = glm::fract(position);
+        glm::ivec3 tmp_pos = glm::ivec3(position - fract);
+        offset = offset - vec_from_span<i32, 3>(std::span<i32, 3>{glm::value_ptr(tmp_pos), 3});
+        position = fract;
     }
     matrix_dirty = true;
 }
@@ -141,13 +151,13 @@ auto Camera::get_frustum_info() -> CameraFrustumInfo
     };
 }
 
-auto Camera::get_shadowmap_view_matrix(f32vec3 const sun_direction) -> f32mat4x4
+auto Camera::get_shadowmap_view_matrix(f32vec3 const & sun_direction, i32vec3 const & offset) -> f32mat4x4
 {
     const f32 shadowmap_distance = 7000.0f;
     glm::vec3 glm_sun_dir = glm::normalize(glm::vec3(sun_direction.x, sun_direction.y, sun_direction.z));
     // glm::vec3 sun_shadowmap_position = position + glm_sun_dir * shadowmap_distance;
-    glm::vec3 sun_shadowmap_position = glm::vec3(5000, 5000, 0.0) + glm_sun_dir * shadowmap_distance;
-    glm::vec3 front = glm::normalize(glm::vec3(5000, 5000, 0.0) - sun_shadowmap_position);
+    glm::vec3 sun_shadowmap_position = glm::vec3(5000, 5000, 0.0) + glm::vec3(offset.x, offset.y, offset.z) + glm_sun_dir * shadowmap_distance;
+    glm::vec3 front = -glm_sun_dir;
     auto view_mat = glm::lookAt( sun_shadowmap_position, sun_shadowmap_position + front, up);
 
     return mat_from_span<f32, 4, 4>(std::span<f32, 4 * 4>{ glm::value_ptr(view_mat), 4 * 4});

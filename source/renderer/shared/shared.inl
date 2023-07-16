@@ -53,6 +53,7 @@ struct Globals
 
     // =============== Terrrain ======================
     daxa_f32vec2 terrain_scale;
+    daxa_i32vec3 offset;
     daxa_f32 terrain_midpoint;
     daxa_f32 terrain_height_scale;
     daxa_f32 terrain_delta;

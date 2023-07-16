@@ -36,6 +36,12 @@ void main()
         f32vec4 scaled_pos_01 = f32vec4(gl_in[1].gl_Position.xy * deref(_globals).terrain_scale, gl_in[1].gl_Position.z, 1.0);
         f32vec4 scaled_pos_10 = f32vec4(gl_in[2].gl_Position.xy * deref(_globals).terrain_scale, gl_in[2].gl_Position.z, 1.0);
         f32vec4 scaled_pos_11 = f32vec4(gl_in[3].gl_Position.xy * deref(_globals).terrain_scale, gl_in[3].gl_Position.z, 1.0);
+
+        scaled_pos_00.xyz += deref(_globals).offset; 
+        scaled_pos_01.xyz += deref(_globals).offset; 
+        scaled_pos_10.xyz += deref(_globals).offset; 
+        scaled_pos_11.xyz += deref(_globals).offset; 
+
         f32 depth_00 = (deref(_globals).view * scaled_pos_00).z;
         f32 depth_01 = (deref(_globals).view * scaled_pos_01).z;
         f32 depth_10 = (deref(_globals).view * scaled_pos_10).z;
@@ -98,7 +104,9 @@ void main()
     }
     world_space_pos = gl_Position.xyz;
 
-    const f32vec4 pre_trans_scaled_pos = f32vec4(gl_Position.xyz, 1.0);
+    f32vec4 pre_trans_scaled_pos = f32vec4(gl_Position.xyz, 1.0);
+    // offset the position by the camera
+    pre_trans_scaled_pos.xyz += deref(_globals).offset;
 
 #if defined(SHADOWMAP_DRAW)
     f32mat4x4 m_proj_view_model = deref(_globals).shadowmap_projection * deref(_globals).shadowmap_view;

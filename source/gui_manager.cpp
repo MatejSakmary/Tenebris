@@ -74,6 +74,7 @@ void GuiManager::on_update()
     }
 
     ImGui::Text("Camera position is x: %f y: %f z: %f", camera_position.x, camera_position.y, camera_position.z);
+    ImGui::Text("Camera offset it is x: %d y: %d z: %d", camera->offset.x, camera->offset.y, camera->offset.z);
     ImGui::End();
 
     ImGui::Begin("LUT sizes");
@@ -193,7 +194,8 @@ void GuiManager::load(std::string path, bool constructor_load)
     read_density_profile_layer("absorption_density", 1, globals.absorption_density[1]);
 
     // Camera
-    read_vec("camera position", globals.camera_position);
+    read_vec("camera_position", globals.camera_position);
+    read_vec("camera_offset", globals.offset);
 
     // Terrain
     read_vec("terrain_scale", globals.terrain_scale);
@@ -213,6 +215,7 @@ void GuiManager::load(std::string path, bool constructor_load)
     };
     
     info.camera->set_position(globals.camera_position);
+    info.camera->offset = globals.offset;
     curr_path = path;
     if(!constructor_load) info.renderer->resize();
 }
@@ -271,7 +274,8 @@ void GuiManager::save(std::string path)
     write_density_profile_layer("absorption_density", 1, globals.absorption_density[1]);
 
     // Camera
-    write_vec("camera position", globals.camera_position);
+    write_vec("camera_position", globals.camera_position);
+    write_vec("camera_offset", globals.offset);
 
     // Terrain
     write_vec("terrain_scale", globals.terrain_scale);

@@ -129,8 +129,8 @@ void main()
         gl_GlobalInvocationID.y >= deref(_globals).sky_lut_dim.y)
     { return; } 
 
-    const f32 unit_scale = 0.0001;
-    f32vec3 world_position = deref(_globals).camera_position * unit_scale;
+    const f32 unit_scale = 0.001;
+    f32vec3 world_position = (deref(_globals).camera_position - deref(_globals).offset) * unit_scale;
     world_position.z += deref(_globals).atmosphere_bottom;
 
     f32vec2 uv = f32vec2(gl_GlobalInvocationID.xy) / f32vec2(deref(_globals).sky_lut_dim.xy);

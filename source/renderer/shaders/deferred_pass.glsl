@@ -23,15 +23,18 @@ f32vec3 add_sun_circle(f32vec3 world_dir, f32vec3 sun_dir)
 
 f32vec3 get_far_sky_color(f32vec2 remap_uv)
 {
-    const f32 unit_scale = 0.0001;
-    f32vec3 camera = deref(_globals).camera_position * unit_scale;
+    const f32 unit_scale = 0.001;
+    f32vec3 camera = (deref(_globals).camera_position - deref(_globals).offset) * unit_scale;
     camera.z += deref(_globals).atmosphere_bottom;
     f32vec3 sun_direction = normalize(deref(_globals).sun_direction);
 
-    f32vec3 world_dir = normalize(
-        deref(_globals).camera_front +
-        remap_uv.x * deref(_globals).camera_frust_right_offset +
-        remap_uv.y * deref(_globals).camera_frust_top_offset);
+    f32vec4 h_pos = deref(_globals).inv_view_projection * f32vec4(remap_uv, 1.0, 1.0);
+
+    f32vec3 world_dir = normalize((h_pos.xyz / h_pos.w) - deref(_globals).camera_position);
+    // f32vec3 world_dir = normalize(
+    //     deref(_globals).camera_front +
+    //     remap_uv.x * deref(_globals).camera_frust_right_offset +
+    //     remap_uv.y * deref(_globals).camera_frust_top_offset);
 
     f32vec3 world_pos = camera;
 
@@ -70,7 +73,7 @@ void main()
         f32vec2 remap_uv = (uv * 2.0) - 1.0;
         out_color = f32vec4(get_far_sky_color(remap_uv), 1.0);
     } else {
-        f32vec3 world_pos = texture(daxa_sampler2D(_g_world_pos, pc.nearest_sampler_id), uv).xyz;
+        f32vec3 world_pos = texture(daxa_sampler2D(_g_world_pos, pc.nearest_sampler_id), uv).xyz + deref(_globals).offset;
         f32vec4 albedo = texture(daxa_sampler2D(_g_albedo, pc.nearest_sampler_id), uv);
 
         const f32vec4 shadow_proj_world_pos = deref(_globals).shadowmap_projection * deref(_globals).shadowmap_view * f32vec4(world_pos, 1.0);

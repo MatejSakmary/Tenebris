@@ -62,6 +62,7 @@ struct CameraFrustumInfo
 
 struct Camera
 {
+    i32vec3 offset;
     f32 aspect_ratio;
     f32 fov;
     f32 near_plane;
@@ -76,7 +77,7 @@ struct Camera
     [[nodiscard]] auto get_projection_matrix() -> f32mat4x4;
     [[nodiscard]] auto get_inv_view_proj_matrix() -> f32mat4x4;
 
-    [[nodiscard]] auto get_shadowmap_view_matrix(f32vec3 const sun_direction) -> f32mat4x4;
+    [[nodiscard]] auto get_shadowmap_view_matrix(f32vec3 const & sun_direction, i32vec3 const & offset) -> f32mat4x4;
     [[nodiscard]] auto get_shadowmap_projection_matrix(const GetShadowmapProjectionInfo & info) -> f32mat4x4;
     [[nodiscard]] auto get_frustum_info() -> CameraFrustumInfo;
 
