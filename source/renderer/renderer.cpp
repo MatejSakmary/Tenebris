@@ -212,12 +212,6 @@ void Renderer::initialize_main_tasklist()
         .name = "transient gbuffer normals"
     });
 
-    tl.images.g_world_pos = tl.task_list.create_transient_image({
-        .format = daxa::Format::R32G32B32A32_SFLOAT,
-        .size = {extent.x, extent.y, 1},
-        .name = "transient gbuffer world pos"
-    });
-
     tl.images.offscreen = tl.task_list.create_transient_image({
         .format = daxa::Format::R16G16B16A16_SFLOAT,
         .size = {extent.x, extent.y, 1},
@@ -312,7 +306,6 @@ void Renderer::initialize_main_tasklist()
             ._globals = context.buffers.globals.view(),
             ._g_albedo = tl.images.g_albedo,
             ._g_normals = tl.images.g_normals,
-            ._g_world_pos = tl.images.g_world_pos,
             ._depth = tl.images.depth,
             ._height_map = context.images.height_map.view(),
             ._diffuse_map = context.images.diffuse_map.view(),
@@ -351,9 +344,9 @@ void Renderer::initialize_main_tasklist()
             ._offscreen = tl.images.offscreen,
             ._g_albedo = tl.images.g_albedo,
             ._g_normals = tl.images.g_normals,
-            ._g_world_pos = tl.images.g_world_pos,
             ._esm = tl.images.esm,
-            ._skyview = tl.images.skyview_lut
+            ._skyview = tl.images.skyview_lut,
+            ._depth = tl.images.depth
         }},
         &context
     });
@@ -495,12 +488,6 @@ void Renderer::draw(Camera & camera)
     auto extent = context.swapchain.get_surface_extent();
 
     GetShadowmapProjectionInfo shadow_info {
-        // .left = -50.0f,
-        // .right = 50.0f,
-        // .bottom = -50.0f,
-        // .top = 50.0f,
-        // .near_plane = 4.0f,
-        // .far_plane = 100.0f
         .left = -2500.0f,
         .right = 2500.0f,
         .bottom = -2500.0f,

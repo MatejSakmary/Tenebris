@@ -134,13 +134,11 @@ layout (location = 0) in f32vec2 uv;
 layout (location = 1) in f32vec3 world_space_pos;
 layout (location = 0) out f32vec4 albedo_out;
 layout (location = 1) out f32vec4 normal_out;
-layout (location = 2) out f32vec4 world_pos_out;
 
 void main()
 {
     albedo_out = texture(daxa_sampler2D(_diffuse_map, pc.linear_sampler_id), uv);
     normal_out = texture(daxa_sampler2D(_normal_map, pc.linear_sampler_id), uv);
-    world_pos_out = f32vec4(world_space_pos, 1.0);
 }
 #endif // SHADOWMAP_DRAW
 #endif // SHADER_STAGE_FRAGMENT

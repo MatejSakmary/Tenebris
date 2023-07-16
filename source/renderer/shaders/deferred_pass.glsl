@@ -73,7 +73,13 @@ void main()
         f32vec2 remap_uv = (uv * 2.0) - 1.0;
         out_color = f32vec4(get_far_sky_color(remap_uv), 1.0);
     } else {
-        f32vec3 world_pos = texture(daxa_sampler2D(_g_world_pos, pc.nearest_sampler_id), uv).xyz + deref(_globals).offset;
+        f32 depth = texture(daxa_sampler2D(_depth, pc.nearest_sampler_id), uv).x;
+
+        f32vec2 remap_uv = (uv * 2.0) - 1.0;
+        f32vec4 h_pos = deref(_globals).inv_view_projection * f32vec4(remap_uv, depth, 1.0);
+        f32vec3 world_pos = h_pos.xyz / h_pos.w;
+
+
         f32vec4 albedo = texture(daxa_sampler2D(_g_albedo, pc.nearest_sampler_id), uv);
 
         const f32vec4 shadow_proj_world_pos = deref(_globals).shadowmap_projection * deref(_globals).shadowmap_view * f32vec4(world_pos, 1.0);
@@ -112,7 +118,7 @@ void main()
             shadow = mix( tmp0, tmp1, blend_factor.y);
         }
         const f32 sun_norm_dot = dot(normal, deref(_globals).sun_direction);
-        // out_color = f32vec4(shadow, shadow, shadow, 1.0);
+        // out_color = f32vec4(world_pos - world_pos_2, 1.0);
         out_color = albedo * (clamp(sun_norm_dot, 0.0, 1.0) * clamp(shadow, 0.0, 1.0) + 0.02);
     }
 }

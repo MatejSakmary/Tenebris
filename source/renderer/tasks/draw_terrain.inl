@@ -17,7 +17,6 @@ DAXA_TASK_USE_BUFFER(_indices, daxa_BufferPtr(TerrainIndex), VERTEX_SHADER_READ)
 DAXA_TASK_USE_BUFFER(_globals, daxa_BufferPtr(Globals), SHADER_READ)
 DAXA_TASK_USE_IMAGE(_g_albedo, REGULAR_2D, COLOR_ATTACHMENT)
 DAXA_TASK_USE_IMAGE(_g_normals, REGULAR_2D, COLOR_ATTACHMENT)
-DAXA_TASK_USE_IMAGE(_g_world_pos, REGULAR_2D, COLOR_ATTACHMENT)
 DAXA_TASK_USE_IMAGE(_depth, REGULAR_2D, DEPTH_ATTACHMENT)
 DAXA_TASK_USE_IMAGE(_height_map, REGULAR_2D, SHADER_READ)
 DAXA_TASK_USE_IMAGE(_diffuse_map, REGULAR_2D, FRAGMENT_SHADER_READ)
@@ -35,7 +34,6 @@ inline auto get_draw_terrain_pipeline(bool wireframe) -> daxa::RasterPipelineCom
         .color_attachments = {
             {.format = daxa::Format::R16G16B16A16_SFLOAT}, // g_albedo
             {.format = daxa::Format::R16G16B16A16_SFLOAT}, // g_normals
-            {.format = daxa::Format::R16G16B16A16_SFLOAT}, // g_world_pos
         },
         .depth_test = { 
             .depth_attachment_format = daxa::Format::D32_SFLOAT,
@@ -76,11 +74,6 @@ struct DrawTerrainTask : DrawTerrainTaskBase
                 },
                 {
                     .image_view = {uses._g_normals.view()},
-                    .load_op = daxa::AttachmentLoadOp::CLEAR,
-                    .clear_value = std::array<f32, 4>{0.0, 0.0, 0.0, 1.0}
-                },
-                {
-                    .image_view = {uses._g_world_pos.view()},
                     .load_op = daxa::AttachmentLoadOp::CLEAR,
                     .clear_value = std::array<f32, 4>{0.0, 0.0, 0.0, 1.0}
                 },

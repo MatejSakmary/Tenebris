@@ -15,6 +15,8 @@ GuiManager::GuiManager(GuiManagerInfo const & info) :
         ImGuiFileBrowserFlags_CloseOnEsc
     }
 {
+    file_browser.SetTypeFilters(std::vector<std::string>{".json"});
+    file_browser.SetPwd("assets/gui_state");
     curr_path = "assets/gui_state/defaults.json";
     load(curr_path, true);
 }

@@ -69,7 +69,6 @@ struct Context
             // GBuffer
             daxa::TaskImageView g_albedo;
             daxa::TaskImageView g_normals;
-            daxa::TaskImageView g_world_pos;
 
             daxa::TaskImageView offscreen;
             daxa::TaskImageView depth;
