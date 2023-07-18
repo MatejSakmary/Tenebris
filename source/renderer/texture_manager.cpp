@@ -403,9 +403,10 @@ void TextureManager::load_texture(const LoadTextureInfo &load_info)
                 info.device.create_image({
                     .format = texture_elem.format,
                     .size = {static_cast<u32>(new_texture.dimensions.x), static_cast<u32>(new_texture.dimensions.y), 1},
-                    .usage = daxa::ImageUsageFlagBits::SHADER_READ_ONLY | 
-                             daxa::ImageUsageFlagBits::TRANSFER_DST |
-                             daxa::ImageUsageFlagBits::SHADER_READ_WRITE,
+                    // TODO(msakmary) The usages should probably be exposed to the user
+                    .usage = daxa::ImageUsageFlagBits::SHADER_SAMPLED | 
+                             daxa::ImageUsageFlagBits::SHADER_STORAGE |
+                             daxa::ImageUsageFlagBits::TRANSFER_DST,
                     .allocate_info = daxa::AutoAllocInfo{daxa::MemoryFlagBits::DEDICATED_MEMORY},
                     .name = "raw texture"
                 })
@@ -434,7 +435,7 @@ void TextureManager::normals_from_heightmap(const NormalsFromHeightInfo & normal
                 info.device.create_image({
                     .format = daxa::Format::R32G32B32A32_SFLOAT,
                     .size = {static_cast<u32>(texture_dimensions.x), static_cast<u32>(texture_dimensions.y), 1},
-                    .usage = daxa::ImageUsageFlagBits::SHADER_READ_WRITE | daxa::ImageUsageFlagBits::SHADER_READ_ONLY,
+                    .usage = daxa::ImageUsageFlagBits::SHADER_SAMPLED | daxa::ImageUsageFlagBits::SHADER_STORAGE,
                     .allocate_info = daxa::AutoAllocInfo{daxa::MemoryFlagBits::DEDICATED_MEMORY},
                     .name = "normal dst map hdr"
                 })
@@ -467,7 +468,7 @@ void TextureManager::compress_hdr_texture(const CompressTextureInfo & compress_i
                 info.device.create_image({
                     .format = daxa::Format::R32G32B32A32_UINT,
                     .size = {width_round, height_round, 1},
-                    .usage = daxa::ImageUsageFlagBits::TRANSFER_SRC | daxa::ImageUsageFlagBits::SHADER_READ_WRITE,
+                    .usage = daxa::ImageUsageFlagBits::TRANSFER_SRC | daxa::ImageUsageFlagBits::SHADER_STORAGE,
                     .allocate_info = daxa::AutoAllocInfo{daxa::MemoryFlagBits::DEDICATED_MEMORY},
                     .name = "uint compress texture"
                 })
@@ -481,7 +482,7 @@ void TextureManager::compress_hdr_texture(const CompressTextureInfo & compress_i
                 info.device.create_image({
                     .format = daxa::Format::BC6H_UFLOAT_BLOCK,
                     .size = {static_cast<u32>(texture_dimensions.x), static_cast<u32>(texture_dimensions.y), 1},
-                    .usage = daxa::ImageUsageFlagBits::TRANSFER_DST | daxa::ImageUsageFlagBits::SHADER_READ_ONLY,
+                    .usage = daxa::ImageUsageFlagBits::TRANSFER_DST | daxa::ImageUsageFlagBits::SHADER_SAMPLED,
                     .allocate_info = daxa::AutoAllocInfo{daxa::MemoryFlagBits::DEDICATED_MEMORY},
                     .name = "diffuse map bc6h"
                 })
