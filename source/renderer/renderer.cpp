@@ -64,8 +64,8 @@ Renderer::Renderer(const AppWindow & window, Globals * globals) :
     init_compute_pipeline(get_multiscattering_LUT_pipeline(), context.pipelines.multiscattering);
     init_compute_pipeline(get_skyview_LUT_pipeline(), context.pipelines.skyview);
     init_compute_pipeline(get_esm_pass_pipeline(), context.pipelines.esm_pass);
-    init_compute_pipeline(get_analyse_depthbuffer_pipeline(true), context.pipelines.analyze_depthbuffer_first_pass);
-    init_compute_pipeline(get_analyse_depthbuffer_pipeline(false), context.pipelines.analyze_depthbuffer_subsequent_pass);
+    init_compute_pipeline(get_analyze_depthbuffer_pipeline(true), context.pipelines.analyze_depthbuffer_first_pass);
+    init_compute_pipeline(get_analyze_depthbuffer_pipeline(false), context.pipelines.analyze_depthbuffer_subsequent_pass);
     init_raster_pipeline(get_draw_terrain_pipeline(false), context.pipelines.draw_terrain_solid);
     init_raster_pipeline(get_draw_terrain_pipeline(true), context.pipelines.draw_terrain_wireframe);
     init_raster_pipeline(get_terrain_shadowmap_pipeline(), context.pipelines.draw_terrain_shadowmap);
@@ -178,8 +178,9 @@ void Renderer::initialize_main_tasklist()
     auto & tl = context.main_task_list;
 
     u32vec2 limits_size;
-    limits_size.x = (extent.x + AnalyseDepthbufferTask::threadsX - 1) / AnalyseDepthbufferTask::threadsX;
-    limits_size.y = (extent.y + AnalyseDepthbufferTask::threadsY - 1) / AnalyseDepthbufferTask::threadsY;
+    u32vec2 wg_size = AnalyzeDepthbufferTask::wg_total_reads_per_axis;
+    limits_size.x = (extent.x + wg_size.x - 1) / wg_size.x;
+    limits_size.y = (extent.y + wg_size.y - 1) / wg_size.y;
     tl.buffers.depth_limits = tl.task_list.create_transient_buffer({
         .size = static_cast<u32>(sizeof(DepthLimits) * limits_size.x * limits_size.y),
         .name = "depth limits"
@@ -318,7 +319,7 @@ void Renderer::initialize_main_tasklist()
         &wireframe_terrain
     });
     /* =========================================== ANALYSE DEPTHBUFFER ============================================== */
-    tl.task_list.add_task(AnalyseDepthbufferTask{{
+    tl.task_list.add_task(AnalyzeDepthbufferTask{{
         .uses = {
             ._globals = context.buffers.globals.view(),
             ._depth_limits = tl.buffers.depth_limits,

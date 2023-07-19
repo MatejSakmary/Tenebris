@@ -21,7 +21,7 @@
 #include "tasks/multiscattering_LUT.inl"
 #include "tasks/skyview_LUT.inl"
 #include "tasks/draw_terrain.inl"
-#include "tasks/analyse_depthbuffer.inl"
+#include "tasks/analyze_depthbuffer.inl"
 #include "tasks/deferred_pass.inl"
 #include "tasks/post_process.inl"
 #include "tasks/imgui_task.inl"
