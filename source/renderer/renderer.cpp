@@ -18,7 +18,7 @@ Renderer::Renderer(const AppWindow & window, Globals * globals) :
 #elif defined(__linux__)
         .native_window_platform = daxa::NativeWindowPlatform::XLIB_API,
 #endif
-        .present_mode = daxa::PresentMode::FIFO,
+        .present_mode = daxa::PresentMode::IMMEDIATE,
         .image_usage = daxa::ImageUsageFlagBits::TRANSFER_DST | daxa::ImageUsageFlagBits::COLOR_ATTACHMENT,
         .name = "Swapchain",
     });
@@ -64,6 +64,8 @@ Renderer::Renderer(const AppWindow & window, Globals * globals) :
     init_compute_pipeline(get_multiscattering_LUT_pipeline(), context.pipelines.multiscattering);
     init_compute_pipeline(get_skyview_LUT_pipeline(), context.pipelines.skyview);
     init_compute_pipeline(get_esm_pass_pipeline(), context.pipelines.esm_pass);
+    init_compute_pipeline(get_analyse_depthbuffer_pipeline(true), context.pipelines.analyze_depthbuffer_first_pass);
+    init_compute_pipeline(get_analyse_depthbuffer_pipeline(false), context.pipelines.analyze_depthbuffer_subsequent_pass);
     init_raster_pipeline(get_draw_terrain_pipeline(false), context.pipelines.draw_terrain_solid);
     init_raster_pipeline(get_draw_terrain_pipeline(true), context.pipelines.draw_terrain_wireframe);
     init_raster_pipeline(get_terrain_shadowmap_pipeline(), context.pipelines.draw_terrain_shadowmap);
@@ -158,13 +160,6 @@ void Renderer::load_textures()
         .height_texture = context.images.height_map,
         .normals_texture = context.images.normal_map
     });
-    
-    // manager->compress_hdr_texture({
-    //     .raw_texture = tmp_raw_loaded_image,
-    //     .compressed_texture = context.images.normal_map
-    // });
-
-    // context.device.destroy_image(tmp_raw_loaded_image.get_state().images[0]);
 }
 
 void Renderer::initialize_main_tasklist()
@@ -181,6 +176,14 @@ void Renderer::initialize_main_tasklist()
     auto extent = context.swapchain.get_surface_extent();
 
     auto & tl = context.main_task_list;
+
+    u32vec2 limits_size;
+    limits_size.x = (extent.x + AnalyseDepthbufferTask::threadsX - 1) / AnalyseDepthbufferTask::threadsX;
+    limits_size.y = (extent.y + AnalyseDepthbufferTask::threadsY - 1) / AnalyseDepthbufferTask::threadsY;
+    tl.buffers.depth_limits = tl.task_list.create_transient_buffer({
+        .size = static_cast<u32>(sizeof(DepthLimits) * limits_size.x * limits_size.y),
+        .name = "depth limits"
+    });
 
     tl.images.depth = tl.task_list.create_transient_image({
         .format = daxa::Format::D32_SFLOAT,
@@ -314,7 +317,15 @@ void Renderer::initialize_main_tasklist()
         &context,
         &wireframe_terrain
     });
-
+    /* =========================================== ANALYSE DEPTHBUFFER ============================================== */
+    tl.task_list.add_task(AnalyseDepthbufferTask{{
+        .uses = {
+            ._globals = context.buffers.globals.view(),
+            ._depth_limits = tl.buffers.depth_limits,
+            ._depth = tl.images.depth,
+        }},
+        &context
+    });
     /* =========================================== DRAW SHADOWMAP =================================================== */
     tl.task_list.add_task(TerrainShadowmapTask{{
         .uses = {

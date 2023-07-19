@@ -100,7 +100,7 @@ Application::Application() :
         .up = {0.0, 0.0, 1.0}, 
         .aspect_ratio = f32(INIT_WINDOW_DIMENSIONS.x)/f32(INIT_WINDOW_DIMENSIONS.y),
         .fov = glm::radians(70.0f),
-        .near_plane = 0.1f,
+        .near_plane = 10.0f,
     }},
     gui{{ &camera, &renderer }},
     renderer{window, &gui.globals},

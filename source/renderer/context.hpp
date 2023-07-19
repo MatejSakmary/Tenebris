@@ -40,6 +40,8 @@ struct Context
         std::shared_ptr<daxa::ComputePipeline> multiscattering;
         std::shared_ptr<daxa::ComputePipeline> skyview;
         std::shared_ptr<daxa::ComputePipeline> esm_pass;
+        std::shared_ptr<daxa::ComputePipeline> analyze_depthbuffer_first_pass;
+        std::shared_ptr<daxa::ComputePipeline> analyze_depthbuffer_subsequent_pass;
 
         std::shared_ptr<daxa::RasterPipeline> post_process;
         std::shared_ptr<daxa::RasterPipeline> deferred_pass;
@@ -58,6 +60,7 @@ struct Context
 
         struct TransientBuffers
         {
+            daxa::TaskBufferView depth_limits;
         };
 
         struct TransientImages

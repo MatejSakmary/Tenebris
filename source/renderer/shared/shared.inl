@@ -77,4 +77,10 @@ struct TerrainIndex
 };
 DAXA_DECL_BUFFER_PTR(TerrainIndex)
 
+struct DepthLimits
+{
+    daxa_f32vec2 limits;
+};
+DAXA_DECL_BUFFER_PTR(DepthLimits)
+
 
