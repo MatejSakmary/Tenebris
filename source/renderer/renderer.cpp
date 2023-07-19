@@ -66,8 +66,10 @@ Renderer::Renderer(const AppWindow & window, Globals * globals) :
     init_compute_pipeline(get_esm_pass_pipeline(), context.pipelines.esm_pass);
     init_compute_pipeline(get_analyze_depthbuffer_pipeline(true), context.pipelines.analyze_depthbuffer_first_pass);
     init_compute_pipeline(get_analyze_depthbuffer_pipeline(false), context.pipelines.analyze_depthbuffer_subsequent_pass);
+    init_compute_pipeline(get_prepare_shadow_matrices_pipeline(), context.pipelines.prepare_shadow_matrices);
     init_raster_pipeline(get_draw_terrain_pipeline(false), context.pipelines.draw_terrain_solid);
     init_raster_pipeline(get_draw_terrain_pipeline(true), context.pipelines.draw_terrain_wireframe);
+    init_raster_pipeline(get_debug_draw_frustum_pipeline(), context.pipelines.debug_draw_frustum);
     init_raster_pipeline(get_terrain_shadowmap_pipeline(), context.pipelines.draw_terrain_shadowmap);
     init_raster_pipeline(get_deferred_pass_pipeline(), context.pipelines.deferred_pass);
     init_raster_pipeline(get_post_process_pipeline(context), context.pipelines.post_process);
@@ -127,6 +129,66 @@ void Renderer::create_persistent_resources()
         .name = "globals task buffer"
     });
 
+    context.buffers.frustum_indices = daxa::TaskBuffer({
+        .initial_buffers = {
+            .buffers = std::array{
+                context.device.create_buffer(daxa::BufferInfo{
+                    .size = sizeof(FrustumIndex) * DebugDrawFrustumTask::index_count,
+                    .allocate_info = daxa::AutoAllocInfo(daxa::MemoryFlagBits::DEDICATED_MEMORY),
+                    .name = "debug frustum indices",
+                })
+            },
+        },
+        .name = "frustum indices task buffer"
+    });
+
+    auto upload_task_list = daxa::TaskGraph({
+        .device = context.device,
+        .swapchain = context.swapchain,
+        .reorder_tasks = true,
+        .use_split_barriers = true,
+        .jit_compile_permutations = false,
+        .permutation_condition_count = 0,
+        .record_debug_information = true,
+        .name = "upload_task_list"
+    });
+    
+    upload_task_list.use_persistent_buffer(context.buffers.frustum_indices);
+    upload_task_list.add_task({
+        .uses = { 
+            daxa::BufferHostTransferWrite{context.buffers.frustum_indices},
+        },
+        .task = [=, this](daxa::TaskInterface ti)
+        {
+            auto cmd_list = ti.get_command_list();
+            {
+                u32 size = sizeof(FrustumIndex) * DebugDrawFrustumTask::index_count;
+                auto staging_mem_result = ti.get_allocator().allocate(size);
+                DBG_ASSERT_TRUE_M(
+                    staging_mem_result.has_value(),
+                    "[Renderer::create_presistent_resources()] Failed to create frustum indices staging buffer"
+                );
+                auto staging_mem = staging_mem_result.value();
+                std::vector<u32> indices = { 
+                    0, 1, 2, 3, 4, 5, 0, 3, 0xFFFFFFFF,
+                    6, 5, 4, 7, 2, 1, 6, 7, 0xFFFFFFFF
+                }; 
+                memcpy(staging_mem.host_address, indices.data(), size);
+                cmd_list.copy_buffer_to_buffer({
+                    .src_buffer = ti.get_allocator().get_buffer(),
+                    .src_offset = staging_mem.buffer_offset,
+                    .dst_buffer = ti.uses[context.buffers.frustum_indices].buffer(),
+                    .size = size
+                });
+            }
+        },
+        .name = "upload indices",
+    });
+    upload_task_list.submit({});
+    upload_task_list.complete({});
+    upload_task_list.execute({});
+    context.device.wait_idle();
+
     context.buffers.terrain_vertices = daxa::TaskBuffer({ .name = "terrain vertices task buffer" });
     context.buffers.terrain_indices = daxa::TaskBuffer({ .name = "terrain indices task buffer" });
     context.images.swapchain = daxa::TaskImage({ .swapchain_image = true, .name = "swapchain task image" });
@@ -167,6 +229,7 @@ void Renderer::initialize_main_tasklist()
     context.main_task_list.task_list.use_persistent_buffer(context.buffers.globals);
     context.main_task_list.task_list.use_persistent_buffer(context.buffers.terrain_indices);
     context.main_task_list.task_list.use_persistent_buffer(context.buffers.terrain_vertices);
+    context.main_task_list.task_list.use_persistent_buffer(context.buffers.frustum_indices);
     context.main_task_list.task_list.use_persistent_image(context.images.swapchain);
     context.main_task_list.task_list.use_persistent_image(context.images.height_map);
     context.main_task_list.task_list.use_persistent_image(context.images.diffuse_map);
@@ -184,6 +247,18 @@ void Renderer::initialize_main_tasklist()
     tl.buffers.depth_limits = tl.task_list.create_transient_buffer({
         .size = static_cast<u32>(sizeof(DepthLimits) * limits_size.x * limits_size.y),
         .name = "depth limits"
+    });
+
+    tl.buffers.shadowmap_data = tl.task_list.create_transient_buffer({
+        // TODO(msakmary) cascades hardcoded (4)
+        .size = static_cast<u32>(sizeof(ShadowmapMatrix) * 4),
+        .name = "shadowmap matrix data"
+    });
+
+    tl.buffers.frustum_vertices = tl.task_list.create_transient_buffer({
+        // TODO(msakmary) cascades hardcoded (4)
+        .size = static_cast<u32>(sizeof(FrustumVertex) * 8),
+        .name = "debug frustum vertices"
     });
 
     tl.images.depth = tl.task_list.create_transient_image({
@@ -321,12 +396,35 @@ void Renderer::initialize_main_tasklist()
     /* =========================================== ANALYSE DEPTHBUFFER ============================================== */
     tl.task_list.add_task(AnalyzeDepthbufferTask{{
         .uses = {
-            ._globals = context.buffers.globals.view(),
             ._depth_limits = tl.buffers.depth_limits,
             ._depth = tl.images.depth,
         }},
         &context
     });
+    /* =========================================== PREPARE SHADOWMAP MATRICES ======================================= */
+    tl.task_list.add_task(PrepareShadowmapMatricesTask{{
+        .uses = {
+            ._globals = context.buffers.globals.view(),
+            ._depth_limits = tl.buffers.depth_limits,
+            ._shadowmap_matrices = tl.buffers.shadowmap_data,
+            ._frustum_vertices = tl.buffers.frustum_vertices
+        }},
+        &context
+    });
+
+    /* =========================================== DRAW DEBUG FRUSTUM ============================================= */
+    tl.task_list.add_task(DebugDrawFrustumTask{{
+        .uses = {
+            ._globals = context.buffers.globals.view(),
+            ._frustum_vertices = tl.buffers.frustum_vertices,
+            ._frustum_indices = context.buffers.frustum_indices.view(),
+            ._g_albedo = tl.images.g_albedo,
+            ._g_normals = tl.images.g_normals,
+            ._depth = tl.images.depth
+        }},
+        &context,
+    });
+
     /* =========================================== DRAW SHADOWMAP =================================================== */
     tl.task_list.add_task(TerrainShadowmapTask{{
         .uses = {
@@ -565,6 +663,7 @@ Renderer::~Renderer()
     context.device.wait_idle();
     ImGui_ImplGlfw_Shutdown();
     destroy_buffer_if_valid(context.buffers.terrain_indices);
+    destroy_buffer_if_valid(context.buffers.frustum_indices);
     destroy_buffer_if_valid(context.buffers.terrain_vertices);
     destroy_buffer_if_valid(context.buffers.globals);
     destroy_image_if_valid(context.images.diffuse_map);

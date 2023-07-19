@@ -22,6 +22,8 @@
 #include "tasks/skyview_LUT.inl"
 #include "tasks/draw_terrain.inl"
 #include "tasks/analyze_depthbuffer.inl"
+#include "tasks/prepare_shadow_matrices.inl"
+#include "tasks/debug_draw_frustum.inl"
 #include "tasks/deferred_pass.inl"
 #include "tasks/post_process.inl"
 #include "tasks/imgui_task.inl"

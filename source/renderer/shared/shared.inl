@@ -83,4 +83,20 @@ struct DepthLimits
 };
 DAXA_DECL_BUFFER_PTR(DepthLimits)
 
+struct ShadowmapMatrix
+{
+    daxa_f32mat4x4 cascade_matrix;
+};
+DAXA_DECL_BUFFER_PTR(ShadowmapMatrix)
 
+struct FrustumIndex
+{
+    daxa_u32 index;
+};
+DAXA_DECL_BUFFER_PTR(FrustumIndex)
+
+struct FrustumVertex
+{
+    daxa_f32vec3 vertex;
+};
+DAXA_DECL_BUFFER_PTR(FrustumVertex)

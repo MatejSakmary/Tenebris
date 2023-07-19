@@ -79,7 +79,6 @@ void main()
         f32vec4 h_pos = deref(_globals).inv_view_projection * f32vec4(remap_uv, depth, 1.0);
         f32vec3 world_pos = h_pos.xyz / h_pos.w;
 
-
         f32vec4 albedo = texture(daxa_sampler2D(_g_albedo, pc.nearest_sampler_id), uv);
 
         const f32vec4 shadow_proj_world_pos = deref(_globals).shadowmap_projection * deref(_globals).shadowmap_view * f32vec4(world_pos, 1.0);

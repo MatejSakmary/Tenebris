@@ -21,6 +21,7 @@ struct Context
         daxa::TaskBuffer globals;
         daxa::TaskBuffer terrain_vertices;
         daxa::TaskBuffer terrain_indices;
+        daxa::TaskBuffer frustum_indices;
     };
 
     struct Images
@@ -42,9 +43,11 @@ struct Context
         std::shared_ptr<daxa::ComputePipeline> esm_pass;
         std::shared_ptr<daxa::ComputePipeline> analyze_depthbuffer_first_pass;
         std::shared_ptr<daxa::ComputePipeline> analyze_depthbuffer_subsequent_pass;
+        std::shared_ptr<daxa::ComputePipeline> prepare_shadow_matrices;
 
         std::shared_ptr<daxa::RasterPipeline> post_process;
         std::shared_ptr<daxa::RasterPipeline> deferred_pass;
+        std::shared_ptr<daxa::RasterPipeline> debug_draw_frustum;
         std::shared_ptr<daxa::RasterPipeline> draw_terrain_wireframe;
         std::shared_ptr<daxa::RasterPipeline> draw_terrain_solid;
         std::shared_ptr<daxa::RasterPipeline> draw_terrain_shadowmap;
@@ -61,6 +64,8 @@ struct Context
         struct TransientBuffers
         {
             daxa::TaskBufferView depth_limits;
+            daxa::TaskBufferView shadowmap_data;
+            daxa::TaskBufferView frustum_vertices;
         };
 
         struct TransientImages
