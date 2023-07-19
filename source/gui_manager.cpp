@@ -158,10 +158,10 @@ void GuiManager::load(std::string path, bool constructor_load)
     auto read_density_profile_layer = [&json](auto const name, auto const layer, DensityProfileLayer & val)
     {
         val.layer_width = json[name][layer]["layer_width"];
-        val.layer_width = json[name][layer]["exp_term"];
-        val.layer_width = json[name][layer]["exp_scale"];
-        val.layer_width = json[name][layer]["lin_term"];
-        val.layer_width = json[name][layer]["const_term"];
+        val.exp_term = json[name][layer]["exp_term"];
+        val.exp_scale = json[name][layer]["exp_scale"];
+        val.lin_term = json[name][layer]["lin_term"];
+        val.const_term = json[name][layer]["const_term"];
     };
     
     read_vec("trans_lut_dim", globals.trans_lut_dim);
