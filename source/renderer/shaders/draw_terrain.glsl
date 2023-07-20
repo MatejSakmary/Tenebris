@@ -43,14 +43,14 @@ void main()
 #else
         i32vec3 offset;
         f32mat4x4 view;
-        // if(pc.use_secondary_camera == 1)
-        // {
-        //     offset = deref(_globals).secondary_offset;
-        //     view = deref(_globals).secondary_view;
-        // } else {
+        if(pc.use_secondary_camera == 1)
+        {
+            offset = deref(_globals).secondary_offset;
+            view = deref(_globals).secondary_view;
+        } else {
             offset = deref(_globals).offset;
             view = deref(_globals).view;
-        // }
+        }
 #endif
         scaled_pos_00.xyz += offset; 
         scaled_pos_01.xyz += offset; 

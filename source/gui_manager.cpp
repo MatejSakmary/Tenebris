@@ -56,6 +56,7 @@ void GuiManager::on_update()
     if(ImGui::Button("Set Camera Params", {150, 20})) { camera->set_position(new_camera_position);}
     bool use_debug = globals.use_debug_camera == 1;
     ImGui::Checkbox("Use debug camera", &use_debug);
+    ImGui::SliderFloat("Lambda", &globals.lambda, 0.0, 1.0);
     globals.use_debug_camera = use_debug ? 1u : 0u;
 
     if(ImGui::Button("Save", {150, 20})) { save(curr_path); }

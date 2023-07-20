@@ -18,7 +18,7 @@ Renderer::Renderer(const AppWindow & window, Globals * globals) :
 #elif defined(__linux__)
         .native_window_platform = daxa::NativeWindowPlatform::XLIB_API,
 #endif
-        .present_mode = daxa::PresentMode::IMMEDIATE,
+        .present_mode = daxa::PresentMode::MAILBOX,
         .image_usage = daxa::ImageUsageFlagBits::TRANSFER_DST | daxa::ImageUsageFlagBits::COLOR_ATTACHMENT,
         .name = "Swapchain",
     });
@@ -250,19 +250,18 @@ void Renderer::initialize_main_tasklist()
     });
 
     tl.buffers.shadowmap_data = tl.task_list.create_transient_buffer({
-        // TODO(msakmary) cascades hardcoded (4)
-        .size = static_cast<u32>(sizeof(ShadowmapMatrix) * 4),
+        .size = static_cast<u32>(sizeof(ShadowmapMatrix) * NUM_CASCADES),
         .name = "shadowmap matrix data"
     });
 
     #pragma region debug_frustum_draw_resources
     tl.buffers.frustum_vertices = tl.task_list.create_transient_buffer({
-        .size = static_cast<u32>(sizeof(FrustumVertex) * 8 * max_frustum_count),
+        .size = static_cast<u32>(sizeof(FrustumVertex) * 8 * MAX_FRUSTUM_COUNT),
         .name = "debug frustum vertices"
     });
 
     tl.buffers.frustum_colors = tl.task_list.create_transient_buffer({
-        .size = static_cast<u32>(sizeof(FrustumColor) * max_frustum_count),
+        .size = static_cast<u32>(sizeof(FrustumColor) * MAX_FRUSTUM_COUNT),
         .name = "debug frustum colors"
     });
 
@@ -756,14 +755,14 @@ void Renderer::draw(DrawInfo const & info)
     globals->secondary_inv_view_projection = secondary_camera->get_inv_view_proj_matrix(); 
 
     context.main_task_list.conditionals.at(MainConditionals::USE_DEBUG_CAMERA) = globals->use_debug_camera;
-    if(globals->use_debug_camera) 
-    {
-        secondary_camera->write_frustum_vertices({
-            std::span<FrustumVertex, 8>{&context.frustum_vertices[8 * context.debug_frustum_cpu_count], 8 }
-        });
-        context.frustum_colors[context.debug_frustum_cpu_count].color = f32vec3{1.0, 1.0, 1.0};
-        context.debug_frustum_cpu_count += 1;
-    }
+    // if(globals->use_debug_camera) 
+    // {
+    //     secondary_camera->write_frustum_vertices({
+    //         std::span<FrustumVertex, 8>{&context.frustum_vertices[8 * context.debug_frustum_cpu_count], 8 }
+    //     });
+    //     context.frustum_colors[context.debug_frustum_cpu_count].color = f32vec3{1.0, 1.0, 1.0};
+    //     context.debug_frustum_cpu_count += 1;
+    // }
 
     // TEMPORARY - will soon be removed by cascaded shadow maps
     globals->shadowmap_view = info.main_camera.get_shadowmap_view_matrix(globals->sun_direction, globals->offset);

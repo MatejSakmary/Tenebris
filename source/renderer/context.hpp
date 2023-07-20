@@ -113,8 +113,8 @@ struct Context
     u32 terrain_index_size;
 
     u32 debug_frustum_cpu_count;
-    std::array<FrustumVertex, 8 * max_frustum_count> frustum_vertices;
-    std::array<FrustumColor, max_frustum_count> frustum_colors;
+    std::array<FrustumVertex, 8 * MAX_FRUSTUM_COUNT> frustum_vertices;
+    std::array<FrustumColor, MAX_FRUSTUM_COUNT> frustum_colors;
 };
 
 using MainConditionals = Context::MainTaskList::Conditionals;

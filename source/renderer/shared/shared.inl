@@ -5,7 +5,8 @@
 // An atmosphere layer density which can be calculated as:
 //   density = exp_term * exp(exp_scale * h) + linear_term * h + constant_term,
 
-#define max_frustum_count 8
+#define MAX_FRUSTUM_COUNT 8
+#define NUM_CASCADES 4
 struct DensityProfileLayer
 {
     daxa_f32 layer_width;
@@ -73,6 +74,9 @@ struct Globals
     daxa_f32 terrain_max_depth;
     daxa_i32 terrain_min_tess_level;
     daxa_i32 terrain_max_tess_level;
+
+    // ================ Shadows ======================
+    daxa_f32 lambda;
 };
 
 DAXA_DECL_BUFFER_PTR(Globals)
