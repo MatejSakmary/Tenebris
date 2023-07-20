@@ -58,6 +58,7 @@ struct Context
 
         enum Conditionals 
         {
+            USE_DEBUG_CAMERA,
             COUNT
         };
 
@@ -109,3 +110,5 @@ struct Context
 
     u32 terrain_index_size;
 };
+
+using MainConditionals = Context::MainTaskList::Conditionals;

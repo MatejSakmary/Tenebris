@@ -52,7 +52,9 @@ struct Application
     private:
         AppWindow window;
         AppState state;
-        Camera camera;
+        Camera main_camera;
+        Camera debug_camera;
+        Camera * active_camera;
         GuiManager gui;
         Renderer renderer;
         PlanetGeometry geometry;

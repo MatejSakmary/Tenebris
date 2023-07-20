@@ -27,7 +27,7 @@ inline auto get_debug_draw_frustum_pipeline() -> daxa::RasterPipelineCompileInfo
         },
         .depth_test = { 
             .depth_attachment_format = daxa::Format::D32_SFLOAT,
-            .enable_depth_test = false,
+            .enable_depth_test = true,
             .enable_depth_write = true,
             .depth_test_compare_op = daxa::CompareOp::GREATER_OR_EQUAL,
         },

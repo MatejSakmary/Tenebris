@@ -319,6 +319,7 @@ void Renderer::initialize_main_tasklist()
     /* ===============================================  TASKS  ==================================================== */
     /* ============================================================================================================ */
 
+    #pragma region upload_globals
     /* =========================================== UPLOAD GLOBALS ================================================= */
     tl.task_list.add_task({
         .uses = { 
@@ -346,7 +347,9 @@ void Renderer::initialize_main_tasklist()
         },
         .name = "upload globals",
     });
+    #pragma endregion
 
+    #pragma region compute_transmittance
     /* =========================================== COMPUTE TRANSMITTANCE ========================================== */
     tl.task_list.add_task(ComputeTransmittanceTask{{
         .uses = {
@@ -355,7 +358,9 @@ void Renderer::initialize_main_tasklist()
         }},
         &context
     });
+    #pragma endregion
 
+    #pragma region compute_multiscattering
     /* =========================================== COMPUTE MULTISCATTERING ======================================== */
     tl.task_list.add_task(ComputeMultiscatteringTask{{
         .uses = {
@@ -365,7 +370,9 @@ void Renderer::initialize_main_tasklist()
         }},
         &context
     });
+    #pragma endregion
 
+    #pragma region compute_skyview
     /* =========================================== COMPUTE SKYVIEW ================================================ */
     tl.task_list.add_task(ComputeSkyViewTask{{
         .uses = {
@@ -376,32 +383,101 @@ void Renderer::initialize_main_tasklist()
         }},
         &context
     });
+    #pragma endregion
 
-    /* =========================================== DRAW TERRAIN G BUFFER =========================================== */
-    tl.task_list.add_task(DrawTerrainTask{{
-        .uses = {
-            ._vertices = context.buffers.terrain_vertices.view(),
-            ._indices = context.buffers.terrain_indices.view(),
-            ._globals = context.buffers.globals.view(),
-            ._g_albedo = tl.images.g_albedo,
-            ._g_normals = tl.images.g_normals,
-            ._depth = tl.images.depth,
-            ._height_map = context.images.height_map.view(),
-            ._diffuse_map = context.images.diffuse_map.view(),
-            ._normal_map = context.images.normal_map.view(),
-        }},
-        &context,
-        &wireframe_terrain
+    tl.task_list.conditional({
+        .condition_index = MainConditionals::USE_DEBUG_CAMERA,
+        .when_true = [&]()
+        {
+            // primary camera is DEBUG
+            // secondary camera is MAIN
+            auto secondary_camera_depth = tl.task_list.create_transient_image({
+                .format = daxa::Format::D32_SFLOAT,
+                .size = {extent.x, extent.y, 1},
+                .name = "transient secondary camera depth"
+            });
+            
+            #pragma region draw_main_camera_terrain
+            tl.task_list.add_task(DrawTerrainTask{{
+                .uses = {
+                    ._vertices = context.buffers.terrain_vertices.view(),
+                    ._indices = context.buffers.terrain_indices.view(),
+                    ._globals = context.buffers.globals.view(),
+                    ._g_albedo = tl.images.g_albedo,
+                    ._g_normals = tl.images.g_normals,
+                    ._depth = secondary_camera_depth,
+                    ._height_map = context.images.height_map.view(),
+                    ._diffuse_map = context.images.diffuse_map.view(),
+                    ._normal_map = context.images.normal_map.view(),
+                }},
+                &context,
+                &wireframe_terrain,
+                true
+            });
+            #pragma endregion
+
+            #pragma region draw_debug_camera_terrain
+            tl.task_list.add_task(DrawTerrainTask{{
+                .uses = {
+                    ._vertices = context.buffers.terrain_vertices.view(),
+                    ._indices = context.buffers.terrain_indices.view(),
+                    ._globals = context.buffers.globals.view(),
+                    ._g_albedo = tl.images.g_albedo,
+                    ._g_normals = tl.images.g_normals,
+                    ._depth = tl.images.depth,
+                    ._height_map = context.images.height_map.view(),
+                    ._diffuse_map = context.images.diffuse_map.view(),
+                    ._normal_map = context.images.normal_map.view(),
+                }},
+                &context,
+                &wireframe_terrain,
+                false
+            });
+            #pragma endregion
+
+            #pragma region analyze_deptbuffer
+            tl.task_list.add_task(AnalyzeDepthbufferTask{{
+                .uses = {
+                    ._depth_limits = tl.buffers.depth_limits,
+                    ._depth = secondary_camera_depth,
+                }},
+                &context
+            });
+            #pragma endregion
+        },
+        .when_false = [&]()
+        {
+            #pragma region draw_terrain
+            tl.task_list.add_task(DrawTerrainTask{{
+                .uses = {
+                    ._vertices = context.buffers.terrain_vertices.view(),
+                    ._indices = context.buffers.terrain_indices.view(),
+                    ._globals = context.buffers.globals.view(),
+                    ._g_albedo = tl.images.g_albedo,
+                    ._g_normals = tl.images.g_normals,
+                    ._depth = tl.images.depth,
+                    ._height_map = context.images.height_map.view(),
+                    ._diffuse_map = context.images.diffuse_map.view(),
+                    ._normal_map = context.images.normal_map.view(),
+                }},
+                &context,
+                &wireframe_terrain
+            });
+            #pragma endregion
+
+            #pragma region analyze_deptbuffer
+            tl.task_list.add_task(AnalyzeDepthbufferTask{{
+                .uses = {
+                    ._depth_limits = tl.buffers.depth_limits,
+                    ._depth = tl.images.depth,
+                }},
+                &context
+            });
+            #pragma endregion
+        }
     });
-    /* =========================================== ANALYSE DEPTHBUFFER ============================================== */
-    tl.task_list.add_task(AnalyzeDepthbufferTask{{
-        .uses = {
-            ._depth_limits = tl.buffers.depth_limits,
-            ._depth = tl.images.depth,
-        }},
-        &context
-    });
-    /* =========================================== PREPARE SHADOWMAP MATRICES ======================================= */
+
+    #pragma region prepare_shadowmap_matrices
     tl.task_list.add_task(PrepareShadowmapMatricesTask{{
         .uses = {
             ._globals = context.buffers.globals.view(),
@@ -411,7 +487,9 @@ void Renderer::initialize_main_tasklist()
         }},
         &context
     });
+    #pragma endregion
 
+    #pragma region draw_debug_frustum
     /* =========================================== DRAW DEBUG FRUSTUM ============================================= */
     tl.task_list.add_task(DebugDrawFrustumTask{{
         .uses = {
@@ -424,7 +502,9 @@ void Renderer::initialize_main_tasklist()
         }},
         &context,
     });
+    #pragma endregion
 
+    #pragma region draw_shadowmap
     /* =========================================== DRAW SHADOWMAP =================================================== */
     tl.task_list.add_task(TerrainShadowmapTask{{
         .uses = {
@@ -437,7 +517,9 @@ void Renderer::initialize_main_tasklist()
         }},
         &context,
     });
-    
+    #pragma endregion
+
+    #pragma region esm_pass
     /* =========================================== ESM PASS ======================================================= */
     tl.task_list.add_task(ESMPassTask{{
         .uses = {
@@ -446,7 +528,9 @@ void Renderer::initialize_main_tasklist()
         }},
         &context,
     });
+    #pragma endregion
 
+    #pragma region deferred_pass
     /* =========================================== DEFERRED PASS ================================================== */
     tl.task_list.add_task(DeferredPassTask{{
         .uses = {
@@ -460,7 +544,9 @@ void Renderer::initialize_main_tasklist()
         }},
         &context
     });
+    #pragma endregion
 
+    #pragma region post_process
     /* =========================================== POST PROCESS =================================================== */
     tl.task_list.add_task(PostProcessTask{{
         .uses = {
@@ -469,7 +555,9 @@ void Renderer::initialize_main_tasklist()
         }},
         &context
     });
+    #pragma endregion
 
+    #pragma region imgui
     /* =========================================== IMGUI ========================================================== */
     tl.task_list.add_task(ImGuiTask{{
         .uses = {
@@ -477,6 +565,7 @@ void Renderer::initialize_main_tasklist()
         }},
         &context
     });
+    #pragma endregion
 
     tl.task_list.submit({});
     tl.task_list.present({});
@@ -593,7 +682,7 @@ void Renderer::upload_planet_geometry(PlanetGeometry const & geometry)
     upload_geom_tl.execute({});
 };
 
-void Renderer::draw(Camera & camera) 
+void Renderer::draw(DrawInfo const & info) 
 {
     auto extent = context.swapchain.get_surface_extent();
 
@@ -606,17 +695,37 @@ void Renderer::draw(Camera & camera)
         .far_plane = 12000.0f
     };
 
-    auto [front, top, right] = camera.get_frustum_info();
-    globals->offset = camera.offset;
+    Camera * primary_camera = globals->use_debug_camera ? &info.debug_camera : &info.main_camera;
+    Camera * secondary_camera = globals->use_debug_camera ? &info.main_camera : &info.debug_camera;
+
+    globals->camera_position     = primary_camera->get_camera_position();
+    globals->offset              = primary_camera->offset;
+    globals->view                = primary_camera->get_view_matrix();
+    globals->projection          = primary_camera->get_projection_matrix();
+    globals->inv_view_projection = primary_camera->get_inv_view_proj_matrix(); 
+
+    // globals->camera_position     = info.main_camera.get_camera_position();
+    // globals->offset              = info.main_camera.offset;
+    // globals->view                = info.main_camera.get_view_matrix();
+    // globals->projection          = info.main_camera.get_projection_matrix();
+    // globals->inv_view_projection = info.main_camera.get_inv_view_proj_matrix(); 
+
+    globals->secondary_camera_position     = secondary_camera->get_camera_position();
+    globals->secondary_offset              = secondary_camera->offset;
+    globals->secondary_view                = secondary_camera->get_view_matrix();
+    globals->secondary_projection          = secondary_camera->get_projection_matrix();
+    globals->secondary_inv_view_projection = secondary_camera->get_inv_view_proj_matrix(); 
+
+    context.main_task_list.conditionals.at(MainConditionals::USE_DEBUG_CAMERA) = globals->use_debug_camera;
+
+    // TEMPORARY - will soon be removed by cascaded shadow maps
+    globals->shadowmap_view = info.main_camera.get_shadowmap_view_matrix(globals->sun_direction, globals->offset);
+    globals->shadowmap_projection = info.main_camera.get_shadowmap_projection_matrix(shadow_info);
+
+    auto [front, top, right] = info.main_camera.get_frustum_info();
     globals->camera_front = front;
     globals->camera_frust_top_offset = top;
     globals->camera_frust_right_offset = right;
-    globals->view = camera.get_view_matrix();
-    globals->projection = camera.get_projection_matrix();
-    globals->inv_view_projection = camera.get_inv_view_proj_matrix(); 
-    globals->shadowmap_view = camera.get_shadowmap_view_matrix(globals->sun_direction, globals->offset);
-    globals->shadowmap_projection = camera.get_shadowmap_projection_matrix(shadow_info);
-    globals->camera_position = camera.get_camera_position();
 
     context.images.swapchain.set_images({std::array{context.swapchain.acquire_next_image()}});
 

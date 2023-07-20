@@ -41,19 +41,29 @@ struct Globals
     DensityProfileLayer absorption_density[2];
     
     // =============== Camera =========================
+    bool use_debug_camera;
+
     daxa_f32vec3 camera_position;
-    daxa_f32vec3 camera_front;
-    daxa_f32vec3 camera_frust_top_offset;
-    daxa_f32vec3 camera_frust_right_offset;
+    daxa_i32vec3 offset;
     daxa_f32mat4x4 view;
     daxa_f32mat4x4 projection;
     daxa_f32mat4x4 inv_view_projection;
+
+    daxa_f32vec3 secondary_camera_position;
+    daxa_i32vec3 secondary_offset;
+    daxa_f32mat4x4 secondary_view;
+    daxa_f32mat4x4 secondary_projection;
+    daxa_f32mat4x4 secondary_inv_view_projection;
+
     daxa_f32mat4x4 shadowmap_view;
     daxa_f32mat4x4 shadowmap_projection;
 
+    daxa_f32vec3 camera_front;
+    daxa_f32vec3 camera_frust_top_offset;
+    daxa_f32vec3 camera_frust_right_offset;
+
     // =============== Terrrain ======================
     daxa_f32vec2 terrain_scale;
-    daxa_i32vec3 offset;
     daxa_f32 terrain_midpoint;
     daxa_f32 terrain_height_scale;
     daxa_f32 terrain_delta;

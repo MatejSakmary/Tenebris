@@ -19,7 +19,7 @@ void Application::mouse_callback(f64 x, f64 y)
     if(state.fly_cam)
     {
         state.last_mouse_pos = {f32(x), f32(y)};
-        camera.update_front_vector(x_offset, y_offset);
+        active_camera->update_front_vector(x_offset, y_offset);
     }
 }
 
@@ -34,7 +34,7 @@ void Application::window_resize_callback(i32 width, i32 height)
     if(!state.minimized)
     {
         renderer.resize(); 
-        camera.aspect_ratio = f32(width) / f32(height);
+        active_camera->aspect_ratio = f32(width) / f32(height);
     }
 }
 
@@ -94,15 +94,23 @@ Application::Application() :
             {this->window_resize_callback(width, height);},
     }),
     state{ .minimized = false },
-    camera{{
-        .position = {50.0, 50.0, 0.0},
+    main_camera{{
         .front = {0.0, 1.0, 0.0},
         .up = {0.0, 0.0, 1.0}, 
         .aspect_ratio = f32(INIT_WINDOW_DIMENSIONS.x)/f32(INIT_WINDOW_DIMENSIONS.y),
         .fov = glm::radians(70.0f),
         .near_plane = 10.0f,
     }},
-    gui{{ &camera, &renderer }},
+    debug_camera{{
+        .position = {5000.0, 5000.0, 200.0},
+        .front = {0.0, 1.0, 0.0},
+        .up = {0.0, 0.0, 1.0}, 
+        .aspect_ratio = f32(INIT_WINDOW_DIMENSIONS.x)/f32(INIT_WINDOW_DIMENSIONS.y),
+        .fov = glm::radians(70.0f),
+        .near_plane = 10.0f,
+    }},
+    active_camera{&main_camera},
+    gui{{ active_camera, &renderer }},
     renderer{window, &gui.globals},
     geometry{generate_planet()}
 {
@@ -117,14 +125,14 @@ void Application::process_input()
 
     if(state.key_table.data > 0 && state.fly_cam)
     {
-        if(state.key_table.bits.W)      { camera.move_camera(state.delta_time, Direction::FORWARD);    }
-        if(state.key_table.bits.A)      { camera.move_camera(state.delta_time, Direction::LEFT);       }
-        if(state.key_table.bits.S)      { camera.move_camera(state.delta_time, Direction::BACK);       }
-        if(state.key_table.bits.D)      { camera.move_camera(state.delta_time, Direction::RIGHT);      }
-        if(state.key_table.bits.Q)      { camera.move_camera(state.delta_time, Direction::ROLL_LEFT);  }
-        if(state.key_table.bits.E)      { camera.move_camera(state.delta_time, Direction::ROLL_RIGHT); }
-        if(state.key_table.bits.CTRL)   { camera.move_camera(state.delta_time, Direction::DOWN);       }
-        if(state.key_table.bits.SPACE)  { camera.move_camera(state.delta_time, Direction::UP);         }
+        if(state.key_table.bits.W)      { active_camera->move_camera(state.delta_time, Direction::FORWARD);    }
+        if(state.key_table.bits.A)      { active_camera->move_camera(state.delta_time, Direction::LEFT);       }
+        if(state.key_table.bits.S)      { active_camera->move_camera(state.delta_time, Direction::BACK);       }
+        if(state.key_table.bits.D)      { active_camera->move_camera(state.delta_time, Direction::RIGHT);      }
+        if(state.key_table.bits.Q)      { active_camera->move_camera(state.delta_time, Direction::ROLL_LEFT);  }
+        if(state.key_table.bits.E)      { active_camera->move_camera(state.delta_time, Direction::ROLL_RIGHT); }
+        if(state.key_table.bits.CTRL)   { active_camera->move_camera(state.delta_time, Direction::DOWN);       }
+        if(state.key_table.bits.SPACE)  { active_camera->move_camera(state.delta_time, Direction::UP);         }
     }
 }
 
@@ -136,8 +144,9 @@ void Application::main_loop()
         process_input();
         gui.on_update();
 
+        active_camera = gui.globals.use_debug_camera ? &debug_camera : &main_camera;
         if (state.minimized) { continue; } 
     
-        renderer.draw(camera);
+        renderer.draw({main_camera, debug_camera});
     }
 }

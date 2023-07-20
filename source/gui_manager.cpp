@@ -19,6 +19,7 @@ GuiManager::GuiManager(GuiManagerInfo const & info) :
     file_browser.SetPwd("assets/gui_state");
     curr_path = "assets/gui_state/defaults.json";
     load(curr_path, true);
+    globals.use_debug_camera = false;
 }
 
 void GuiManager::on_update()
@@ -53,6 +54,7 @@ void GuiManager::on_update()
 
     ImGui::InputFloat3("New camera pos: ", reinterpret_cast<f32*>(&new_camera_position));
     if(ImGui::Button("Set Camera Params", {150, 20})) { camera->set_position(new_camera_position);}
+    ImGui::Checkbox("Use debug camera", &globals.use_debug_camera);
 
     if(ImGui::Button("Save", {150, 20})) { save(curr_path); }
     ImGui::SameLine();

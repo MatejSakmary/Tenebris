@@ -9,6 +9,7 @@ struct DrawTerrainPC
 {
     daxa_SamplerId linear_sampler_id;
     daxa_SamplerId nearest_sampler_id;
+    daxa_u32 use_secondary_camera;
 };
 
 DAXA_DECL_TASK_USES_BEGIN(DrawTerrainTaskBase, DAXA_UNIFORM_BUFFER_SLOT0)
@@ -57,6 +58,8 @@ struct DrawTerrainTask : DrawTerrainTaskBase
 {
     Context *context = {};
     bool * wireframe = {};
+    bool use_secondary_camera = {};
+
     void callback(daxa::TaskInterface ti)
     {
         auto cmd_list = ti.get_command_list();
@@ -95,6 +98,7 @@ struct DrawTerrainTask : DrawTerrainTaskBase
         cmd_list.push_constant(DrawTerrainPC{ 
             .linear_sampler_id = context->linear_sampler,
             .nearest_sampler_id = context->nearest_sampler,
+            .use_secondary_camera = use_secondary_camera ? 1u : 0u,
         });
         cmd_list.draw_indexed({.index_count = static_cast<u32>(context->terrain_index_size)});
         cmd_list.end_renderpass();

@@ -32,6 +32,12 @@
 
 using namespace daxa::types;
 
+struct DrawInfo
+{
+    Camera & main_camera;
+    Camera & debug_camera;
+};
+
 struct Renderer
 {
     bool wireframe_terrain = {};
@@ -40,7 +46,7 @@ struct Renderer
     ~Renderer();
 
     void resize();
-    void draw(Camera & camera);
+    void draw(DrawInfo const & info);
     void upload_planet_geometry(PlanetGeometry const & geometry);
 
     private:

@@ -37,15 +37,30 @@ void main()
         f32vec4 scaled_pos_10 = f32vec4(gl_in[2].gl_Position.xy * deref(_globals).terrain_scale, gl_in[2].gl_Position.z, 1.0);
         f32vec4 scaled_pos_11 = f32vec4(gl_in[3].gl_Position.xy * deref(_globals).terrain_scale, gl_in[3].gl_Position.z, 1.0);
 
-        scaled_pos_00.xyz += deref(_globals).offset; 
-        scaled_pos_01.xyz += deref(_globals).offset; 
-        scaled_pos_10.xyz += deref(_globals).offset; 
-        scaled_pos_11.xyz += deref(_globals).offset; 
+#if defined(SHADOWMAP_DRAW)
+        i32vec3 offset = deref(_globals).offset;
+        f32mat4x4 view = deref(_globals).view;
+#else
+        i32vec3 offset;
+        f32mat4x4 view;
+        if(pc.use_secondary_camera == 1)
+        {
+            offset = deref(_globals).secondary_offset;
+            view = deref(_globals).secondary_view;
+        } else {
+            offset = deref(_globals).offset;
+            view = deref(_globals).view;
+        }
+#endif
+        scaled_pos_00.xyz += offset; 
+        scaled_pos_01.xyz += offset; 
+        scaled_pos_10.xyz += offset; 
+        scaled_pos_11.xyz += offset; 
 
-        f32 depth_00 = (deref(_globals).view * scaled_pos_00).z;
-        f32 depth_01 = (deref(_globals).view * scaled_pos_01).z;
-        f32 depth_10 = (deref(_globals).view * scaled_pos_10).z;
-        f32 depth_11 = (deref(_globals).view * scaled_pos_11).z;
+        f32 depth_00 = (view * scaled_pos_00).z;
+        f32 depth_01 = (view * scaled_pos_01).z;
+        f32 depth_10 = (view * scaled_pos_10).z;
+        f32 depth_11 = (view * scaled_pos_11).z;
         f32 delta =  deref(_globals).terrain_max_depth - deref(_globals).terrain_min_depth;
 
         f32 dist_00 = clamp(log(abs(depth_00) - deref(_globals).terrain_min_depth) / deref(_globals).terrain_delta, 0.0, 1.0);
@@ -105,15 +120,21 @@ void main()
     world_space_pos = gl_Position.xyz;
 
     f32vec4 pre_trans_scaled_pos = f32vec4(gl_Position.xyz, 1.0);
+#if defined(SHADOWMAP_DRAW)
     // offset the position by the camera
     pre_trans_scaled_pos.xyz += deref(_globals).offset;
-
-#if defined(SHADOWMAP_DRAW)
     f32mat4x4 m_proj_view_model = deref(_globals).shadowmap_projection * deref(_globals).shadowmap_view;
     view_space_pos = f32vec4(deref(_globals).shadowmap_view * pre_trans_scaled_pos).xyz;
 #else
-    // f32mat4x4 m_proj_view_model = deref(_globals).shadowmap_projection * deref(_globals).shadowmap_view;
-    f32mat4x4 m_proj_view_model = deref(_globals).projection * deref(_globals).view;
+    f32mat4x4 m_proj_view_model;
+    if(pc.use_secondary_camera == 1)
+    {
+        pre_trans_scaled_pos.xyz += deref(_globals).secondary_offset;
+        m_proj_view_model = deref(_globals).secondary_projection * deref(_globals).secondary_view;
+    } else {
+        pre_trans_scaled_pos.xyz += deref(_globals).offset;
+        m_proj_view_model = deref(_globals).projection * deref(_globals).view;
+    }
 #endif // SHADOWMAP_DRAW
     gl_Position = m_proj_view_model * pre_trans_scaled_pos;
 }
