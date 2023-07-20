@@ -7,8 +7,10 @@
 
 DAXA_DECL_TASK_USES_BEGIN(DebugDrawFrustumTaskBase, DAXA_UNIFORM_BUFFER_SLOT0)
 DAXA_TASK_USE_BUFFER(_globals, daxa_BufferPtr(Globals), VERTEX_SHADER_READ)
-DAXA_TASK_USE_BUFFER(_frustum_vertices, daxa_BufferPtr(FrustumVertex), VERTEX_SHADER_READ)
 DAXA_TASK_USE_BUFFER(_frustum_indices, daxa_BufferPtr(FrustumIndex), VERTEX_SHADER_READ)
+DAXA_TASK_USE_BUFFER(_frustum_vertices, daxa_BufferPtr(FrustumVertex), VERTEX_SHADER_READ)
+DAXA_TASK_USE_BUFFER(_frustum_colors, daxa_BufferPtr(FrustumColor), VERTEX_SHADER_READ)
+DAXA_TASK_USE_BUFFER(_frustum_indirect, daxa_BufferPtr(DrawIndexedIndirectStruct), DRAW_INDIRECT_INFO_READ)
 DAXA_TASK_USE_IMAGE(_g_albedo, REGULAR_2D, COLOR_ATTACHMENT)
 DAXA_TASK_USE_IMAGE(_g_normals, REGULAR_2D, COLOR_ATTACHMENT)
 DAXA_TASK_USE_IMAGE(_depth, REGULAR_2D, DEPTH_ATTACHMENT)
@@ -77,7 +79,10 @@ struct DebugDrawFrustumTask : DebugDrawFrustumTaskBase
         cmd_list.set_pipeline(*(context->pipelines.debug_draw_frustum)); 
 
         cmd_list.set_index_buffer(uses._frustum_indices.buffer(), 0, sizeof(u32));
-        cmd_list.draw_indexed({.index_count = 18});
+        cmd_list.draw_indirect({
+            .draw_command_buffer = uses._frustum_indirect.buffer(),
+            .is_indexed = true
+        });
         cmd_list.end_renderpass();
     }
 };

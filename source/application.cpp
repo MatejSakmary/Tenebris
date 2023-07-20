@@ -110,7 +110,7 @@ Application::Application() :
         .near_plane = 10.0f,
     }},
     active_camera{&main_camera},
-    gui{{ active_camera, &renderer }},
+    gui{{ &active_camera, &renderer }},
     renderer{window, &gui.globals},
     geometry{generate_planet()}
 {
@@ -125,14 +125,15 @@ void Application::process_input()
 
     if(state.key_table.data > 0 && state.fly_cam)
     {
-        if(state.key_table.bits.W)      { active_camera->move_camera(state.delta_time, Direction::FORWARD);    }
-        if(state.key_table.bits.A)      { active_camera->move_camera(state.delta_time, Direction::LEFT);       }
-        if(state.key_table.bits.S)      { active_camera->move_camera(state.delta_time, Direction::BACK);       }
-        if(state.key_table.bits.D)      { active_camera->move_camera(state.delta_time, Direction::RIGHT);      }
-        if(state.key_table.bits.Q)      { active_camera->move_camera(state.delta_time, Direction::ROLL_LEFT);  }
-        if(state.key_table.bits.E)      { active_camera->move_camera(state.delta_time, Direction::ROLL_RIGHT); }
-        if(state.key_table.bits.CTRL)   { active_camera->move_camera(state.delta_time, Direction::DOWN);       }
-        if(state.key_table.bits.SPACE)  { active_camera->move_camera(state.delta_time, Direction::UP);         }
+        bool camera_sped_up = state.key_table.bits.LEFT_SHIFT;
+        if(state.key_table.bits.W)      { active_camera->move_camera(state.delta_time, Direction::FORWARD, camera_sped_up);    }
+        if(state.key_table.bits.A)      { active_camera->move_camera(state.delta_time, Direction::LEFT, camera_sped_up);       }
+        if(state.key_table.bits.S)      { active_camera->move_camera(state.delta_time, Direction::BACK, camera_sped_up);       }
+        if(state.key_table.bits.D)      { active_camera->move_camera(state.delta_time, Direction::RIGHT, camera_sped_up);      }
+        if(state.key_table.bits.Q)      { active_camera->move_camera(state.delta_time, Direction::ROLL_LEFT, camera_sped_up);  }
+        if(state.key_table.bits.E)      { active_camera->move_camera(state.delta_time, Direction::ROLL_RIGHT, camera_sped_up); }
+        if(state.key_table.bits.CTRL)   { active_camera->move_camera(state.delta_time, Direction::DOWN, camera_sped_up);       }
+        if(state.key_table.bits.SPACE)  { active_camera->move_camera(state.delta_time, Direction::UP, camera_sped_up);         }
     }
 }
 

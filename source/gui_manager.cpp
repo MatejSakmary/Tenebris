@@ -24,7 +24,7 @@ GuiManager::GuiManager(GuiManagerInfo const & info) :
 
 void GuiManager::on_update()
 {
-    Camera * camera = info.camera;
+    Camera * camera = *info.camera;
 
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
@@ -54,7 +54,9 @@ void GuiManager::on_update()
 
     ImGui::InputFloat3("New camera pos: ", reinterpret_cast<f32*>(&new_camera_position));
     if(ImGui::Button("Set Camera Params", {150, 20})) { camera->set_position(new_camera_position);}
-    ImGui::Checkbox("Use debug camera", &globals.use_debug_camera);
+    bool use_debug = globals.use_debug_camera == 1;
+    ImGui::Checkbox("Use debug camera", &use_debug);
+    globals.use_debug_camera = use_debug ? 1u : 0u;
 
     if(ImGui::Button("Save", {150, 20})) { save(curr_path); }
     ImGui::SameLine();
@@ -218,8 +220,8 @@ void GuiManager::load(std::string path, bool constructor_load)
         f32(glm::cos(glm::radians(sun_angle.y)))
     };
     
-    info.camera->set_position(globals.camera_position);
-    info.camera->offset = globals.offset;
+    (*info.camera)->set_position(globals.camera_position);
+    (*info.camera)->offset = globals.offset;
     curr_path = path;
     if(!constructor_load) info.renderer->resize();
 }

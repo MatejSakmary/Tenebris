@@ -16,6 +16,7 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include "utils.hpp"
+#include "renderer/shared/shared.inl"
 
 using namespace daxa::types;
 using namespace daxa::math_operators;
@@ -60,6 +61,11 @@ struct CameraFrustumInfo
     f32vec3 right_frustum_offset;
 };
 
+struct WriteVerticesInfo
+{
+    std::span<FrustumVertex, 8> vertices_dst;
+};
+
 struct Camera
 {
     i32vec3 offset;
@@ -69,7 +75,7 @@ struct Camera
 
     explicit Camera(const CameraInfo & info);
 
-    void move_camera(f32 delta_time, Direction direction);
+    void move_camera(f32 delta_time, Direction direction, bool sped_up);
     void update_front_vector(f32 x_offset, f32 y_offset);
     void set_position(f32vec3 new_position);
     [[nodiscard]] auto get_camera_position() const -> f32vec3;
@@ -80,6 +86,7 @@ struct Camera
     [[nodiscard]] auto get_shadowmap_view_matrix(f32vec3 const & sun_direction, i32vec3 const & offset) -> f32mat4x4;
     [[nodiscard]] auto get_shadowmap_projection_matrix(const GetShadowmapProjectionInfo & info) -> f32mat4x4;
     [[nodiscard]] auto get_frustum_info() -> CameraFrustumInfo;
+    void write_frustum_vertices(WriteVerticesInfo const & info);
 
     private:
         void recalculate_matrices();
@@ -91,8 +98,8 @@ struct Camera
         glm::vec3 position;
         glm::vec3 front;
         glm::vec3 up;
-        f32 pitch;
         f32 speed;
+        f32 pitch;
         f32 sensitivity;
         f32 roll_sensitivity;
 };

@@ -255,11 +255,22 @@ void Renderer::initialize_main_tasklist()
         .name = "shadowmap matrix data"
     });
 
+    #pragma region debug_frustum_draw_resources
     tl.buffers.frustum_vertices = tl.task_list.create_transient_buffer({
-        // TODO(msakmary) cascades hardcoded (4)
-        .size = static_cast<u32>(sizeof(FrustumVertex) * 8),
+        .size = static_cast<u32>(sizeof(FrustumVertex) * 8 * max_frustum_count),
         .name = "debug frustum vertices"
     });
+
+    tl.buffers.frustum_colors = tl.task_list.create_transient_buffer({
+        .size = static_cast<u32>(sizeof(FrustumColor) * max_frustum_count),
+        .name = "debug frustum colors"
+    });
+
+    tl.buffers.frustum_indirect = tl.task_list.create_transient_buffer({
+        .size = static_cast<u32>(sizeof(DrawIndexedIndirectStruct)),
+        .name = "debug frustum indirect struct"
+    });
+    #pragma endregion
 
     tl.images.depth = tl.task_list.create_transient_image({
         .format = daxa::Format::D32_SFLOAT,
@@ -319,33 +330,62 @@ void Renderer::initialize_main_tasklist()
     /* ===============================================  TASKS  ==================================================== */
     /* ============================================================================================================ */
 
-    #pragma region upload_globals
-    /* =========================================== UPLOAD GLOBALS ================================================= */
+    #pragma region upload_data
     tl.task_list.add_task({
         .uses = { 
             daxa::BufferHostTransferWrite{context.buffers.globals},
+            daxa::BufferHostTransferWrite{tl.buffers.frustum_vertices},
+            daxa::BufferHostTransferWrite{tl.buffers.frustum_indirect},
+            daxa::BufferHostTransferWrite{tl.buffers.frustum_colors},
         },
-        .task = [=, this](daxa::TaskInterface ti)
+        .task = [&, this](daxa::TaskInterface ti)
         {
             auto cmd_list = ti.get_command_list();
             {
-                u32 size = sizeof(Globals);
-                auto staging_mem_result = ti.get_allocator().allocate(size);
-                DBG_ASSERT_TRUE_M(
-                    staging_mem_result.has_value(),
-                    "[Renderer::initialize_task_list()] Failed to create globals staging buffer"
+                auto upload_cpu_to_gpu = [&](BufferId gpu_buffer, void* cpu_buffer, size_t size)
+                {
+                    if(size == 0) { return; }
+                    auto staging_mem_result = ti.get_allocator().allocate(size);
+                    DBG_ASSERT_TRUE_M(
+                        staging_mem_result.has_value(),
+                        "[Renderer::initialize_task_list()] Failed to create staging buffer"
+                    );
+                    auto staging_mem = staging_mem_result.value();
+                    memcpy(staging_mem.host_address, cpu_buffer, size);
+                    cmd_list.copy_buffer_to_buffer({
+                        .src_buffer = ti.get_allocator().get_buffer(),
+                        .src_offset = staging_mem.buffer_offset,
+                        .dst_buffer = gpu_buffer,
+                        .size = size
+                    });
+                };
+                upload_cpu_to_gpu(ti.uses[context.buffers.globals].buffer(), globals, sizeof(Globals));
+                upload_cpu_to_gpu(
+                    ti.uses[tl.buffers.frustum_vertices].buffer(),
+                    context.frustum_vertices.data(),
+                    sizeof(FrustumVertex) * 8 * context.debug_frustum_cpu_count
                 );
-                auto staging_mem = staging_mem_result.value();
-                memcpy(staging_mem.host_address, globals, size);
-                cmd_list.copy_buffer_to_buffer({
-                    .src_buffer = ti.get_allocator().get_buffer(),
-                    .src_offset = staging_mem.buffer_offset,
-                    .dst_buffer = ti.uses[context.buffers.globals].buffer(),
-                    .size = size
-                });
+                upload_cpu_to_gpu(
+                    ti.uses[tl.buffers.frustum_colors].buffer(),
+                    context.frustum_colors.data(),
+                    sizeof(FrustumColor) * context.debug_frustum_cpu_count
+                );
+
+                DrawIndexedIndirectStruct indexed_indirect{
+                    .index_count = 18,
+                    .instance_count = context.debug_frustum_cpu_count,
+                    .first_index = 0,
+                    .vertex_offset = 0,
+                    .first_instance = 0
+                };
+                upload_cpu_to_gpu(
+                    ti.uses[tl.buffers.frustum_indirect].buffer(),
+                    &indexed_indirect,
+                    sizeof(DrawIndexedIndirectStruct)
+                );
             }
         },
-        .name = "upload globals",
+        .name = "upload data",
     });
     #pragma endregion
 
@@ -483,7 +523,9 @@ void Renderer::initialize_main_tasklist()
             ._globals = context.buffers.globals.view(),
             ._depth_limits = tl.buffers.depth_limits,
             ._shadowmap_matrices = tl.buffers.shadowmap_data,
-            ._frustum_vertices = tl.buffers.frustum_vertices
+            ._frustum_vertices = tl.buffers.frustum_vertices,
+            ._frustum_colors = tl.buffers.frustum_colors,
+            ._frustum_indirect = tl.buffers.frustum_indirect,
         }},
         &context
     });
@@ -494,8 +536,10 @@ void Renderer::initialize_main_tasklist()
     tl.task_list.add_task(DebugDrawFrustumTask{{
         .uses = {
             ._globals = context.buffers.globals.view(),
-            ._frustum_vertices = tl.buffers.frustum_vertices,
             ._frustum_indices = context.buffers.frustum_indices.view(),
+            ._frustum_vertices = tl.buffers.frustum_vertices,
+            ._frustum_colors = tl.buffers.frustum_colors,
+            ._frustum_indirect = tl.buffers.frustum_indirect,
             ._g_albedo = tl.images.g_albedo,
             ._g_normals = tl.images.g_normals,
             ._depth = tl.images.depth
@@ -684,6 +728,7 @@ void Renderer::upload_planet_geometry(PlanetGeometry const & geometry)
 
 void Renderer::draw(DrawInfo const & info) 
 {
+    context.debug_frustum_cpu_count = 0;
     auto extent = context.swapchain.get_surface_extent();
 
     GetShadowmapProjectionInfo shadow_info {
@@ -704,12 +749,6 @@ void Renderer::draw(DrawInfo const & info)
     globals->projection          = primary_camera->get_projection_matrix();
     globals->inv_view_projection = primary_camera->get_inv_view_proj_matrix(); 
 
-    // globals->camera_position     = info.main_camera.get_camera_position();
-    // globals->offset              = info.main_camera.offset;
-    // globals->view                = info.main_camera.get_view_matrix();
-    // globals->projection          = info.main_camera.get_projection_matrix();
-    // globals->inv_view_projection = info.main_camera.get_inv_view_proj_matrix(); 
-
     globals->secondary_camera_position     = secondary_camera->get_camera_position();
     globals->secondary_offset              = secondary_camera->offset;
     globals->secondary_view                = secondary_camera->get_view_matrix();
@@ -717,6 +756,14 @@ void Renderer::draw(DrawInfo const & info)
     globals->secondary_inv_view_projection = secondary_camera->get_inv_view_proj_matrix(); 
 
     context.main_task_list.conditionals.at(MainConditionals::USE_DEBUG_CAMERA) = globals->use_debug_camera;
+    if(globals->use_debug_camera) 
+    {
+        secondary_camera->write_frustum_vertices({
+            std::span<FrustumVertex, 8>{&context.frustum_vertices[8 * context.debug_frustum_cpu_count], 8 }
+        });
+        context.frustum_colors[context.debug_frustum_cpu_count].color = f32vec3{1.0, 1.0, 1.0};
+        context.debug_frustum_cpu_count += 1;
+    }
 
     // TEMPORARY - will soon be removed by cascaded shadow maps
     globals->shadowmap_view = info.main_camera.get_shadowmap_view_matrix(globals->sun_direction, globals->offset);
@@ -739,7 +786,6 @@ void Renderer::draw(DrawInfo const & info)
         context.main_task_list.conditionals.data(),
         context.main_task_list.conditionals.size()
     }});
-    // DEBUG_OUT(context.main_task_list.task_list.get_debug_string());
 
     auto result = context.pipeline_manager.reload_all();
     if(std::holds_alternative<daxa::PipelineReloadSuccess>(result)) 

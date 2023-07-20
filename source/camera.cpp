@@ -24,12 +24,13 @@ void Camera::set_position(f32vec3 new_position)
 {
     position = daxa_vec3_to_glm(new_position);
     offset = i32vec3{0, 0, 0};
-    move_camera(0.0f, Direction::UP);
+    move_camera(0.0f, Direction::UP, false);
     matrix_dirty = true;
 }
 
-void Camera::move_camera(f32 delta_time, Direction direction)
+void Camera::move_camera(f32 delta_time, Direction direction, bool sped_up)
 {
+    if(sped_up) { speed *= 10.0; }
     switch (direction)
     {
     case Direction::FORWARD:
@@ -61,6 +62,7 @@ void Camera::move_camera(f32 delta_time, Direction direction)
         DEBUG_OUT("[Camera::move_camera()] Unknown enum value");
         break;
     }
+    if(sped_up) { speed /= 10.0; }
     if(glm::abs(position.x) > 1.0f || glm::abs(position.y) > 1.0f || glm::abs(position.z) > 1.0f)
     {
         glm::vec3 fract = glm::fract(position);
@@ -150,6 +152,32 @@ auto Camera::get_frustum_info() -> CameraFrustumInfo
         .right_frustum_offset = glm_vec_to_daxa(right_aspect_fov_correct)
     };
 }
+
+void Camera::write_frustum_vertices(WriteVerticesInfo const & info)
+{
+    const std::array offsets = {
+        glm::ivec2(-1,  1), glm::ivec2(-1, -1), glm::ivec2( 1, -1), glm::ivec2( 1,  1),
+        glm::ivec2( 1,  1), glm::ivec2(-1,  1), glm::ivec2(-1, -1), glm::ivec2( 1, -1)
+    };
+
+    auto [front, top, right] = get_frustum_info();
+    const auto glm_front = glm::vec3(front.x, front.y, front.z);
+    const auto glm_right = glm::vec3(right.x, right.y, right.z);
+    const auto glm_top = glm::vec3(top.x, top.y, top.z);
+
+    const f32 max_dist = 20'000.0f;
+    const auto camera_pos_world = position - glm::vec3(offset.x, offset.y, offset.z);
+
+    auto glm_vec_to_daxa = [](glm::vec3 v) -> f32vec3 { return {v.x, v.y, v.z}; };
+
+    for(int i = 0; i < 8; i++)
+    {
+        glm::vec3 dir_vec = glm_front + f32(offsets[i].x) * (-glm_right) + f32(offsets[i].y) * glm_top;
+        f32 multiplier = i < 4 ? near_plane : max_dist;
+
+        info.vertices_dst[i].vertex = glm_vec_to_daxa(camera_pos_world + dir_vec * multiplier);
+    }
+};
 
 auto Camera::get_shadowmap_view_matrix(f32vec3 const & sun_direction, i32vec3 const & offset) -> f32mat4x4
 {

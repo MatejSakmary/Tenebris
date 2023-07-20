@@ -10,7 +10,7 @@ using namespace daxa::types;
 
 struct GuiManagerInfo
 {
-    Camera * camera;
+    Camera ** camera;
     Renderer * renderer;
 };
 

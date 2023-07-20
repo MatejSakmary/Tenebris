@@ -67,6 +67,8 @@ struct Context
             daxa::TaskBufferView depth_limits;
             daxa::TaskBufferView shadowmap_data;
             daxa::TaskBufferView frustum_vertices;
+            daxa::TaskBufferView frustum_colors;
+            daxa::TaskBufferView frustum_indirect;
         };
 
         struct TransientImages
@@ -109,6 +111,10 @@ struct Context
     daxa::ImGuiRenderer imgui_renderer;
 
     u32 terrain_index_size;
+
+    u32 debug_frustum_cpu_count;
+    std::array<FrustumVertex, 8 * max_frustum_count> frustum_vertices;
+    std::array<FrustumColor, max_frustum_count> frustum_colors;
 };
 
 using MainConditionals = Context::MainTaskList::Conditionals;

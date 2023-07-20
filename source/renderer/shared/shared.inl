@@ -4,6 +4,8 @@
 
 // An atmosphere layer density which can be calculated as:
 //   density = exp_term * exp(exp_scale * h) + linear_term * h + constant_term,
+
+#define max_frustum_count 8
 struct DensityProfileLayer
 {
     daxa_f32 layer_width;
@@ -41,7 +43,7 @@ struct Globals
     DensityProfileLayer absorption_density[2];
     
     // =============== Camera =========================
-    bool use_debug_camera;
+    daxa_b32 use_debug_camera;
 
     daxa_f32vec3 camera_position;
     daxa_i32vec3 offset;
@@ -110,3 +112,19 @@ struct FrustumVertex
     daxa_f32vec3 vertex;
 };
 DAXA_DECL_BUFFER_PTR(FrustumVertex)
+
+struct FrustumColor
+{
+    daxa_f32vec3 color;
+};
+DAXA_DECL_BUFFER_PTR(FrustumColor)
+
+struct DrawIndexedIndirectStruct
+{
+    daxa_u32 index_count;
+    daxa_u32 instance_count;
+    daxa_u32 first_index;
+    daxa_u32 vertex_offset;
+    daxa_u32 first_instance;
+};
+DAXA_DECL_BUFFER_PTR(DrawIndexedIndirectStruct)
