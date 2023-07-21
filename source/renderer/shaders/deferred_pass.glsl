@@ -31,10 +31,6 @@ f32vec3 get_far_sky_color(f32vec2 remap_uv)
     f32vec4 h_pos = deref(_globals).inv_view_projection * f32vec4(remap_uv, 1.0, 1.0);
 
     f32vec3 world_dir = normalize((h_pos.xyz / h_pos.w) - deref(_globals).camera_position);
-    // f32vec3 world_dir = normalize(
-    //     deref(_globals).camera_front +
-    //     remap_uv.x * deref(_globals).camera_frust_right_offset +
-    //     remap_uv.y * deref(_globals).camera_frust_top_offset);
 
     f32vec3 world_pos = camera;
 
@@ -114,10 +110,9 @@ void main()
             // texel gather component mapping - (00,w);(01,x);(11,y);(10,z) 
             f32 tmp0 = mix(shadow_gathered.w, shadow_gathered.z, blend_factor.x);
             f32 tmp1 = mix(shadow_gathered.x, shadow_gathered.y, blend_factor.x);
-            shadow = mix( tmp0, tmp1, blend_factor.y);
+            shadow = mix(tmp0, tmp1, blend_factor.y);
         }
         const f32 sun_norm_dot = dot(normal, deref(_globals).sun_direction);
-        // out_color = f32vec4(world_pos - world_pos_2, 1.0);
         out_color = albedo * (clamp(sun_norm_dot, 0.0, 1.0) * clamp(shadow, 0.0, 1.0) + 0.02);
     }
 }

@@ -7,6 +7,7 @@
 
 #define MAX_FRUSTUM_COUNT 8
 #define NUM_CASCADES 4
+#define SHADOWMAP_RESOLUTION 1024
 struct DensityProfileLayer
 {
     daxa_f32 layer_width;
@@ -101,7 +102,10 @@ DAXA_DECL_BUFFER_PTR(DepthLimits)
 
 struct ShadowmapMatrix
 {
-    daxa_f32mat4x4 cascade_matrix;
+    daxa_f32mat4x4 cascade_view_matrix;
+    daxa_f32mat4x4 cascade_proj_matrix;
+    daxa_f32 near_plane;
+    daxa_f32 far_plane;
 };
 DAXA_DECL_BUFFER_PTR(ShadowmapMatrix)
 

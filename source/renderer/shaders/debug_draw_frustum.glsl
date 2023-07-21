@@ -14,7 +14,8 @@ void main()
 
     f32mat4x4 m_proj_view_model = deref(_globals).projection * deref(_globals).view;
     gl_Position = m_proj_view_model * pre_trans_offset_pos;
-    color = deref(_frustum_colors[gl_InstanceIndex]).color;
+    f32 fact = gl_VertexIndex < 4 ? 1.0 : 0.0;
+    color = deref(_frustum_colors[gl_InstanceIndex]).color * fact;
 }
 #elif DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_FRAGMENT
 layout (location = 0) in f32vec3 color;

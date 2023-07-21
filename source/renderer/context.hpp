@@ -84,8 +84,8 @@ struct Context
             daxa::TaskImageView offscreen;
             daxa::TaskImageView depth;
 
-            daxa::TaskImageView shadowmap;
-            daxa::TaskImageView esm;
+            daxa::TaskImageView shadowmap_cascades;
+            daxa::TaskImageView esm_cascades;
         };
 
         std::array<bool, Conditionals::COUNT> conditionals;

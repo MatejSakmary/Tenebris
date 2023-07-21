@@ -249,6 +249,26 @@ void Renderer::initialize_main_tasklist()
         .name = "depth limits"
     });
 
+    DBG_ASSERT_TRUE_M(NUM_CASCADES <= 8, "[Renderer::initalize_main_tasklist()] More than 8 cascades are not supported");
+    const auto resolution_multiplier = TerrainShadowmapTask::resolution_table[NUM_CASCADES - 1];
+    tl.images.shadowmap_cascades = tl.task_list.create_transient_image({
+        .format = daxa::Format::D32_SFLOAT,
+        .size = {
+            SHADOWMAP_RESOLUTION * resolution_multiplier.x,
+            SHADOWMAP_RESOLUTION * resolution_multiplier.y, 
+            1u
+        },
+        .array_layer_count = 1,
+        .name = "transient shadowmap cascades"
+    });
+
+    tl.images.esm_cascades = tl.task_list.create_transient_image({
+        .format = daxa::Format::R32_SFLOAT,
+        .size = {SHADOWMAP_RESOLUTION, SHADOWMAP_RESOLUTION, 1u},
+        .array_layer_count = NUM_CASCADES,
+        .name = "transient esm cascades"
+    });
+
     tl.buffers.shadowmap_data = tl.task_list.create_transient_buffer({
         .size = static_cast<u32>(sizeof(ShadowmapMatrix) * NUM_CASCADES),
         .name = "shadowmap matrix data"
@@ -275,18 +295,6 @@ void Renderer::initialize_main_tasklist()
         .format = daxa::Format::D32_SFLOAT,
         .size = {extent.x, extent.y, 1},
         .name = "transient depth"
-    });
-    
-    tl.images.shadowmap = tl.task_list.create_transient_image({
-        .format = daxa::Format::D32_SFLOAT,
-        .size = {4096u, 4096u, 1u},
-        .name = "transient shadowmap"
-    });
-
-    tl.images.esm = tl.task_list.create_transient_image({
-        .format = daxa::Format::R32_SFLOAT,
-        .size = {4096u, 4096u, 1u},
-        .name = "transient esm"
     });
 
     tl.images.g_albedo = tl.task_list.create_transient_image({
@@ -548,13 +556,13 @@ void Renderer::initialize_main_tasklist()
     #pragma endregion
 
     #pragma region draw_shadowmap
-    /* =========================================== DRAW SHADOWMAP =================================================== */
     tl.task_list.add_task(TerrainShadowmapTask{{
         .uses = {
             ._vertices = context.buffers.terrain_vertices.view(),
             ._indices = context.buffers.terrain_indices.view(),
             ._globals = context.buffers.globals.view(),
-            ._shadowmap = tl.images.shadowmap,
+            ._shadowmap_matrices = tl.buffers.shadowmap_data,
+            ._shadowmap_cascades = tl.images.shadowmap_cascades,
             ._height_map = context.images.height_map.view(),
             ._depth = tl.images.depth,
         }},
@@ -563,11 +571,10 @@ void Renderer::initialize_main_tasklist()
     #pragma endregion
 
     #pragma region esm_pass
-    /* =========================================== ESM PASS ======================================================= */
     tl.task_list.add_task(ESMPassTask{{
         .uses = {
-            ._shadowmap = tl.images.shadowmap,
-            ._esm_map = tl.images.esm
+            ._shadowmap = tl.images.shadowmap_cascades,
+            ._esm_map = tl.images.esm_cascades
         }},
         &context,
     });
@@ -581,7 +588,7 @@ void Renderer::initialize_main_tasklist()
             ._offscreen = tl.images.offscreen,
             ._g_albedo = tl.images.g_albedo,
             ._g_normals = tl.images.g_normals,
-            ._esm = tl.images.esm,
+            ._esm = tl.images.esm_cascades,
             ._skyview = tl.images.skyview_lut,
             ._depth = tl.images.depth
         }},
