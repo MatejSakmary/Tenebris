@@ -11,22 +11,18 @@ DAXA_TASK_USE_BUFFER(_frustum_indices, daxa_BufferPtr(FrustumIndex), VERTEX_SHAD
 DAXA_TASK_USE_BUFFER(_frustum_vertices, daxa_BufferPtr(FrustumVertex), VERTEX_SHADER_READ)
 DAXA_TASK_USE_BUFFER(_frustum_colors, daxa_BufferPtr(FrustumColor), VERTEX_SHADER_READ)
 DAXA_TASK_USE_BUFFER(_frustum_indirect, daxa_BufferPtr(DrawIndexedIndirectStruct), DRAW_INDIRECT_INFO_READ)
-DAXA_TASK_USE_IMAGE(_g_albedo, REGULAR_2D, COLOR_ATTACHMENT)
-DAXA_TASK_USE_IMAGE(_g_normals, REGULAR_2D, COLOR_ATTACHMENT)
+DAXA_TASK_USE_IMAGE(_swapchain, REGULAR_2D, COLOR_ATTACHMENT)
 DAXA_TASK_USE_IMAGE(_depth, REGULAR_2D, DEPTH_ATTACHMENT)
 DAXA_DECL_TASK_USES_END()
 
 #if __cplusplus
 #include "../context.hpp"
 
-inline auto get_debug_draw_frustum_pipeline() -> daxa::RasterPipelineCompileInfo{
+inline auto get_debug_draw_frustum_pipeline(Context const & context) -> daxa::RasterPipelineCompileInfo{
     return {
         .vertex_shader_info = daxa::ShaderCompileInfo{ .source = daxa::ShaderFile{"debug_draw_frustum.glsl"}, },
         .fragment_shader_info = daxa::ShaderCompileInfo{ .source = daxa::ShaderFile{"debug_draw_frustum.glsl"}, },
-        .color_attachments = {
-            {.format = daxa::Format::R16G16B16A16_SFLOAT}, // g_albedo
-            {.format = daxa::Format::R16G16B16A16_SFLOAT}, // g_normals
-        },
+        .color_attachments = { {.format = context.swapchain.get_format()},},
         .depth_test = { 
             .depth_attachment_format = daxa::Format::D32_SFLOAT,
             .enable_depth_test = true,
@@ -58,11 +54,7 @@ struct DebugDrawFrustumTask : DebugDrawFrustumTaskBase
             .color_attachments = 
             {
                 {
-                    .image_view = {uses._g_albedo.view()},
-                    .load_op = daxa::AttachmentLoadOp::LOAD,
-                },
-                {
-                    .image_view = {uses._g_normals.view()},
+                    .image_view = {uses._swapchain.view()},
                     .load_op = daxa::AttachmentLoadOp::LOAD,
                 },
             },

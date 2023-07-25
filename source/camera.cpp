@@ -121,6 +121,13 @@ auto Camera::get_projection_matrix() -> f32mat4x4
     return mat_from_span<f32, 4, 4>(std::span<f32, 4 * 4>{ glm::value_ptr(projection), 4 * 4 });
 }
 
+auto Camera::get_inv_projection_matrix() -> f32mat4x4
+{
+    if(matrix_dirty) { recalculate_matrices(); }
+    auto inv_projection = glm::inverse(projection);
+    return mat_from_span<f32, 4, 4>(std::span<f32, 4 * 4>{ glm::value_ptr(inv_projection), 4 * 4 });
+}
+
 auto Camera::get_inv_view_proj_matrix() -> f32mat4x4
 {
     if(matrix_dirty) { recalculate_matrices(); }

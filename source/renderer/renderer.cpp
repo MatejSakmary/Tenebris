@@ -69,7 +69,7 @@ Renderer::Renderer(const AppWindow & window, Globals * globals) :
     init_compute_pipeline(get_prepare_shadow_matrices_pipeline(), context.pipelines.prepare_shadow_matrices);
     init_raster_pipeline(get_draw_terrain_pipeline(false), context.pipelines.draw_terrain_solid);
     init_raster_pipeline(get_draw_terrain_pipeline(true), context.pipelines.draw_terrain_wireframe);
-    init_raster_pipeline(get_debug_draw_frustum_pipeline(), context.pipelines.debug_draw_frustum);
+    init_raster_pipeline(get_debug_draw_frustum_pipeline(context), context.pipelines.debug_draw_frustum);
     init_raster_pipeline(get_terrain_shadowmap_pipeline(), context.pipelines.draw_terrain_shadowmap);
     init_raster_pipeline(get_deferred_pass_pipeline(), context.pipelines.deferred_pass);
     init_raster_pipeline(get_post_process_pipeline(context), context.pipelines.post_process);
@@ -278,7 +278,7 @@ void Renderer::initialize_main_tasklist()
 
     #pragma region debug_frustum_draw_resources
     tl.buffers.frustum_vertices = tl.task_list.create_transient_buffer({
-        .size = static_cast<u32>(sizeof(FrustumVertex) * 8 * MAX_FRUSTUM_COUNT),
+        .size = static_cast<u32>(sizeof(FrustumVertex) * FRUSTUM_VERTEX_COUNT * MAX_FRUSTUM_COUNT),
         .name = "debug frustum vertices"
     });
 
@@ -540,23 +540,6 @@ void Renderer::initialize_main_tasklist()
     });
     #pragma endregion
 
-    #pragma region draw_debug_frustum
-    /* =========================================== DRAW DEBUG FRUSTUM ============================================= */
-    tl.task_list.add_task(DebugDrawFrustumTask{{
-        .uses = {
-            ._globals = context.buffers.globals.view(),
-            ._frustum_indices = context.buffers.frustum_indices.view(),
-            ._frustum_vertices = tl.buffers.frustum_vertices,
-            ._frustum_colors = tl.buffers.frustum_colors,
-            ._frustum_indirect = tl.buffers.frustum_indirect,
-            ._g_albedo = tl.images.g_albedo,
-            ._g_normals = tl.images.g_normals,
-            ._depth = tl.images.depth
-        }},
-        &context,
-    });
-    #pragma endregion
-
     #pragma region draw_shadowmap
     tl.task_list.add_task(TerrainShadowmapTask{{
         .uses = {
@@ -600,7 +583,6 @@ void Renderer::initialize_main_tasklist()
     #pragma endregion
 
     #pragma region post_process
-    /* =========================================== POST PROCESS =================================================== */
     tl.task_list.add_task(PostProcessTask{{
         .uses = {
             ._swapchain = context.images.swapchain.view(),
@@ -610,8 +592,22 @@ void Renderer::initialize_main_tasklist()
     });
     #pragma endregion
 
+    #pragma region draw_debug_frustum
+    tl.task_list.add_task(DebugDrawFrustumTask{{
+        .uses = {
+            ._globals = context.buffers.globals.view(),
+            ._frustum_indices = context.buffers.frustum_indices.view(),
+            ._frustum_vertices = tl.buffers.frustum_vertices,
+            ._frustum_colors = tl.buffers.frustum_colors,
+            ._frustum_indirect = tl.buffers.frustum_indirect,
+            ._swapchain = context.images.swapchain.view(),
+            ._depth = tl.images.depth
+        }},
+        &context,
+    });
+    #pragma endregion
+
     #pragma region imgui
-    /* =========================================== IMGUI ========================================================== */
     tl.task_list.add_task(ImGuiTask{{
         .uses = {
             ._swapchain = context.images.swapchain.view(),
@@ -740,15 +736,6 @@ void Renderer::draw(DrawInfo const & info)
     context.debug_frustum_cpu_count = 0;
     auto extent = context.swapchain.get_surface_extent();
 
-    GetShadowmapProjectionInfo shadow_info {
-        .left = -2500.0f,
-        .right = 2500.0f,
-        .bottom = -2500.0f,
-        .top = 2500.0f,
-        .near_plane = 2000.0f,
-        .far_plane = 12000.0f
-    };
-
     Camera * primary_camera = globals->use_debug_camera ? &info.debug_camera : &info.main_camera;
     Camera * secondary_camera = globals->use_debug_camera ? &info.main_camera : &info.debug_camera;
 
@@ -756,6 +743,7 @@ void Renderer::draw(DrawInfo const & info)
     globals->offset              = primary_camera->offset;
     globals->view                = primary_camera->get_view_matrix();
     globals->projection          = primary_camera->get_projection_matrix();
+    globals->inv_projection      = primary_camera->get_inv_projection_matrix();
     globals->inv_view_projection = primary_camera->get_inv_view_proj_matrix(); 
 
     globals->secondary_camera_position     = secondary_camera->get_camera_position();
@@ -773,10 +761,6 @@ void Renderer::draw(DrawInfo const & info)
     //     context.frustum_colors[context.debug_frustum_cpu_count].color = f32vec3{1.0, 1.0, 1.0};
     //     context.debug_frustum_cpu_count += 1;
     // }
-
-    // TEMPORARY - will soon be removed by cascaded shadow maps
-    globals->shadowmap_view = info.main_camera.get_shadowmap_view_matrix(globals->sun_direction, globals->offset);
-    globals->shadowmap_projection = info.main_camera.get_shadowmap_projection_matrix(shadow_info);
 
     auto [front, top, right] = info.main_camera.get_frustum_info();
     globals->camera_front = front;

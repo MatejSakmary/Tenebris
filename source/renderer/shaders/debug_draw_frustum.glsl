@@ -7,24 +7,25 @@
 layout (location = 0) out f32vec3 color;
 void main()
 {
-    const u32 frustum_vertex_count = 8;
-    u32 offset = frustum_vertex_count * gl_InstanceIndex;
-    f32vec3 pos = deref(_frustum_vertices[gl_VertexIndex + offset]).vertex;
-    f32vec4 pre_trans_offset_pos = f32vec4(pos.xyz + deref(_globals).offset.xyz, 1.0);
+    const u32 instance = gl_InstanceIndex; 
+    const u32 offset = instance * FRUSTUM_VERTEX_COUNT;
+    const u32 vertex_index = gl_VertexIndex + offset;
 
-    f32mat4x4 m_proj_view_model = deref(_globals).projection * deref(_globals).view;
-    gl_Position = m_proj_view_model * pre_trans_offset_pos;
+    const f32vec3 position = deref(_frustum_vertices[vertex_index]).vertex;
+    const f32vec4 offset_position = f32vec4(position.xyz + deref(_globals).offset.xyz, 1.0);
 
-    color = deref(_frustum_colors[gl_InstanceIndex]).color;
+    const f32mat4x4 projection_view = deref(_globals).projection * deref(_globals).view;
+
+    color = deref(_frustum_colors[instance]).color;
+    gl_Position = projection_view * offset_position;
+
 }
 #elif DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_FRAGMENT
 layout (location = 0) in f32vec3 color;
-layout (location = 0) out f32vec4 albedo_out;
-layout (location = 1) out f32vec4 normal_out;
+layout (location = 0) out f32vec4 color_out;
 
 void main()
 {
-    albedo_out = f32vec4(color, 1.0);
-    normal_out = f32vec4(deref(_globals).sun_direction, 1.0);
+    color_out = f32vec4(color, 1.0);
 }
 #endif

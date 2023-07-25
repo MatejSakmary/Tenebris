@@ -81,6 +81,7 @@ struct Camera
     [[nodiscard]] auto get_camera_position() const -> f32vec3;
     [[nodiscard]] auto get_view_matrix() -> f32mat4x4;
     [[nodiscard]] auto get_projection_matrix() -> f32mat4x4;
+    [[nodiscard]] auto get_inv_projection_matrix() -> f32mat4x4;
     [[nodiscard]] auto get_inv_view_proj_matrix() -> f32mat4x4;
 
     [[nodiscard]] auto get_shadowmap_view_matrix(f32vec3 const & sun_direction, i32vec3 const & offset) -> f32mat4x4;

@@ -6,8 +6,10 @@
 //   density = exp_term * exp(exp_scale * h) + linear_term * h + constant_term,
 
 #define MAX_FRUSTUM_COUNT 8
+#define FRUSTUM_VERTEX_COUNT 8
 #define NUM_CASCADES 4
 #define SHADOWMAP_RESOLUTION 2048
+#define UNIT_SCALE 0.001
 struct DensityProfileLayer
 {
     daxa_f32 layer_width;
@@ -51,6 +53,7 @@ struct Globals
     daxa_i32vec3 offset;
     daxa_f32mat4x4 view;
     daxa_f32mat4x4 projection;
+    daxa_f32mat4x4 inv_projection;
     daxa_f32mat4x4 inv_view_projection;
 
     daxa_f32vec3 secondary_camera_position;
@@ -58,9 +61,6 @@ struct Globals
     daxa_f32mat4x4 secondary_view;
     daxa_f32mat4x4 secondary_projection;
     daxa_f32mat4x4 secondary_inv_view_projection;
-
-    daxa_f32mat4x4 shadowmap_view;
-    daxa_f32mat4x4 shadowmap_projection;
 
     daxa_f32vec3 camera_front;
     daxa_f32vec3 camera_frust_top_offset;
