@@ -131,8 +131,7 @@ void main()
         0.1, cascade_extends.z
     );
 
-    // f32mat4x4 shadow_proj_view = shadow_proj * shadow_view;
-    deref(_shadowmap_matrices[thread_idx]) = ShadowmapMatrix(shadow_view, shadow_proj, 0.0, cascade_extends.z);
+    deref(_cascade_data[thread_idx]) = ShadowmapCascadeData(shadow_view, shadow_proj, far_dist);
 
     // Debug draw tightened camera frustum split into cascades
     if(deref(_globals).use_debug_camera)

@@ -8,7 +8,7 @@
 DAXA_DECL_TASK_USES_BEGIN(PrepareShadowmapMatricesTaskBase, DAXA_UNIFORM_BUFFER_SLOT0)
 DAXA_TASK_USE_BUFFER(_globals, daxa_BufferPtr(Globals), COMPUTE_SHADER_READ)
 DAXA_TASK_USE_BUFFER(_depth_limits, daxa_BufferPtr(DepthLimits), COMPUTE_SHADER_READ)
-DAXA_TASK_USE_BUFFER(_shadowmap_matrices, daxa_BufferPtr(ShadowmapMatrix), COMPUTE_SHADER_WRITE)
+DAXA_TASK_USE_BUFFER(_cascade_data, daxa_BufferPtr(ShadowmapCascadeData), COMPUTE_SHADER_WRITE)
 DAXA_TASK_USE_BUFFER(_frustum_vertices, daxa_BufferPtr(FrustumVertex), COMPUTE_SHADER_WRITE)
 DAXA_TASK_USE_BUFFER(_frustum_colors, daxa_BufferPtr(FrustumColor), COMPUTE_SHADER_WRITE)
 DAXA_TASK_USE_BUFFER(_frustum_indirect, daxa_BufferPtr(DrawIndexedIndirectStruct), COMPUTE_SHADER_READ_WRITE)

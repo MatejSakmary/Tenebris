@@ -15,7 +15,7 @@ DAXA_DECL_TASK_USES_BEGIN(TerrainShadowmapTaskBase, DAXA_UNIFORM_BUFFER_SLOT0)
 DAXA_TASK_USE_BUFFER(_vertices, daxa_BufferPtr(TerrainVertex), VERTEX_SHADER_READ)
 DAXA_TASK_USE_BUFFER(_indices, daxa_BufferPtr(TerrainIndex), VERTEX_SHADER_READ)
 DAXA_TASK_USE_BUFFER(_globals, daxa_BufferPtr(Globals), SHADER_READ)
-DAXA_TASK_USE_BUFFER(_shadowmap_matrices, daxa_BufferPtr(ShadowmapMatrix), SHADER_READ)
+DAXA_TASK_USE_BUFFER(_cascade_data, daxa_BufferPtr(ShadowmapCascadeData), SHADER_READ)
 DAXA_TASK_USE_IMAGE(_shadowmap_cascades, REGULAR_2D, DEPTH_ATTACHMENT)
 DAXA_TASK_USE_IMAGE(_height_map, REGULAR_2D, SHADER_SAMPLED)
 // NOTE(msakmary) FAKE DEPENDENCY TO MAKE RENDERDOC NICE

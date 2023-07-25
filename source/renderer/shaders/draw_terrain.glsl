@@ -122,8 +122,8 @@ void main()
 #if defined(SHADOWMAP_DRAW)
     // offset the position by the camera
     // pre_trans_scaled_pos.xyz -= deref(_globals).offset;
-    f32mat4x4 cascade_view = deref(_shadowmap_matrices[pc.cascade_level]).cascade_view_matrix;
-    f32mat4x4 cascade_proj = deref(_shadowmap_matrices[pc.cascade_level]).cascade_proj_matrix;
+    f32mat4x4 cascade_view = deref(_cascade_data[pc.cascade_level]).cascade_view_matrix;
+    f32mat4x4 cascade_proj = deref(_cascade_data[pc.cascade_level]).cascade_proj_matrix;
     f32mat4x4 projection_view = cascade_proj * cascade_view;
     view_space_pos = f32vec4(cascade_view * pre_trans_scaled_pos).xyz;
 #else
@@ -146,8 +146,8 @@ layout (location = 2) in f32vec3 view_space_pos;
 
 void main()
 {
-    // const f32 near = deref(_shadowmap_matrices[pc.cascade_level]).near_plane;
-    // const f32 far = deref(_shadowmap_matrices[pc.cascade_level]).far_plane;
+    // const f32 near = deref(_cascade_data[pc.cascade_level]).near_plane;
+    // const f32 far = deref(_cascade_data[pc.cascade_level]).far_plane;
     // const f32 depth_factor = 1/(far - near);
     // gl_FragDepth = length(view_space_pos) * depth_factor;
     // debugPrintfEXT("depth %f, far %f, near %f\n", length(view_space_pos), far, near);

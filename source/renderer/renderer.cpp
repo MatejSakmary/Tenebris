@@ -271,7 +271,7 @@ void Renderer::initialize_main_tasklist()
     });
 
     tl.buffers.shadowmap_data = tl.task_list.create_transient_buffer({
-        .size = static_cast<u32>(sizeof(ShadowmapMatrix) * NUM_CASCADES),
+        .size = static_cast<u32>(sizeof(ShadowmapCascadeData) * NUM_CASCADES),
         .name = "shadowmap matrix data"
     });
     #pragma endregion
@@ -531,7 +531,7 @@ void Renderer::initialize_main_tasklist()
         .uses = {
             ._globals = context.buffers.globals.view(),
             ._depth_limits = tl.buffers.depth_limits,
-            ._shadowmap_matrices = tl.buffers.shadowmap_data,
+            ._cascade_data = tl.buffers.shadowmap_data,
             ._frustum_vertices = tl.buffers.frustum_vertices,
             ._frustum_colors = tl.buffers.frustum_colors,
             ._frustum_indirect = tl.buffers.frustum_indirect,
@@ -563,7 +563,7 @@ void Renderer::initialize_main_tasklist()
             ._vertices = context.buffers.terrain_vertices.view(),
             ._indices = context.buffers.terrain_indices.view(),
             ._globals = context.buffers.globals.view(),
-            ._shadowmap_matrices = tl.buffers.shadowmap_data,
+            ._cascade_data = tl.buffers.shadowmap_data,
             ._shadowmap_cascades = tl.images.shadowmap_cascades,
             ._height_map = context.images.height_map.view(),
             ._depth = tl.images.depth,
@@ -576,10 +576,7 @@ void Renderer::initialize_main_tasklist()
     tl.task_list.add_task(ESMPassTask{{
         .uses = {
             ._shadowmap = tl.images.shadowmap_cascades,
-            ._esm_map = tl.images.esm_cascades.view({
-                .base_array_layer = 0,
-                .layer_count = NUM_CASCADES
-            })
+            ._esm_map = tl.images.esm_cascades.view({ .base_array_layer = 0, .layer_count = NUM_CASCADES })
         }},
         &context,
     });
@@ -590,10 +587,11 @@ void Renderer::initialize_main_tasklist()
     tl.task_list.add_task(DeferredPassTask{{
         .uses = {
             ._globals = context.buffers.globals.view(),
+            ._cascade_data = tl.buffers.shadowmap_data,
             ._offscreen = tl.images.offscreen,
             ._g_albedo = tl.images.g_albedo,
             ._g_normals = tl.images.g_normals,
-            ._esm = tl.images.esm_cascades,
+            ._esm = tl.images.esm_cascades.view({.base_array_layer = 0, .layer_count = NUM_CASCADES}),
             ._skyview = tl.images.skyview_lut,
             ._depth = tl.images.depth
         }},
