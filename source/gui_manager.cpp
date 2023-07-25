@@ -18,6 +18,7 @@ GuiManager::GuiManager(GuiManagerInfo const & info) :
     file_browser.SetTypeFilters(std::vector<std::string>{".json"});
     file_browser.SetPwd("assets/gui_state");
     curr_path = "assets/gui_state/defaults.json";
+    globals.lambda = 1.0f;
     load(curr_path, true);
     globals.use_debug_camera = false;
 }

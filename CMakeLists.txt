@@ -45,7 +45,9 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     glfw
     CDT::CDT
 )
-
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    target_link_libraries(${PROJECT_NAME} PRIVATE Dwmapi)
+endif()
 # Debug mode defines
 target_compile_definitions(${PROJECT_NAME} PRIVATE "$<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:LOG_DEBUG>")
 target_compile_definitions(${PROJECT_NAME} PRIVATE "$<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:__DEBUG__>")

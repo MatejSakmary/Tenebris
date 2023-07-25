@@ -68,15 +68,6 @@ struct TerrainShadowmapTask : TerrainShadowmapTaskBase
         cmd_list.set_uniform_buffer(ti.uses.get_uniform_buffer_info());
         auto dimensions = context->device.info_image(uses._shadowmap_cascades.image()).size;
 
-        // auto manual_image_view = context->device.create_image_view({
-        //     .type = daxa::ImageViewType::REGULAR_2D,
-        //     .format = daxa::Format::D32_SFLOAT,
-        //     .image = uses._shadowmap_cascades.image(),
-        //     .slice = {.base_array_layer = i, .layer_count = 1},
-        //     .name = "manual view shadow cascade " + std::to_string(i)
-        // });
-        // cmd_list.destroy_image_view_deferred(manual_image_view);
-
         const auto resolution_multiplier = resolution_table[NUM_CASCADES - 1];
         cmd_list.begin_renderpass({
             .depth_attachment = 

@@ -3,9 +3,14 @@
 #include <functional>
 
 #if defined(_WIN32)
+#define GLFW_EXPOSE_NATIVE_WIN32
+#define GLFW_NATIVE_INCLUDE_NONE
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
-#define GLFW_EXPOSE_NATIVE_WIN32
+#include <dwmapi.h>
+#ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
+#define DWMWA_USE_IMMERSIVE_DARK_MODE 20
+#endif
 #elif defined(__linux__)
 #define GLFW_EXPOSE_NATIVE_X11
 #endif
@@ -68,6 +73,35 @@ struct AppWindow
                     vtable.window_resized_callback(x, y); 
                 }
             );
+
+#if defined(_WIN32)
+            {
+                auto hwnd = static_cast<HWND>(get_native_handle());
+                BOOL value = TRUE;
+                DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &value, sizeof(value));
+                auto is_windows11_or_greater = []() -> bool {
+                    using Fn_RtlGetVersion = void(WINAPI *)(OSVERSIONINFOEX *);
+                    Fn_RtlGetVersion fn_RtlGetVersion = nullptr;
+                    auto ntdll_dll = LoadLibrary(TEXT("ntdll.dll"));
+                    if (ntdll_dll)
+                        fn_RtlGetVersion = (Fn_RtlGetVersion)GetProcAddress(ntdll_dll, "RtlGetVersion");
+                    auto version_info = OSVERSIONINFOEX{};
+                    version_info.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
+                    fn_RtlGetVersion(&version_info);
+                    FreeLibrary(ntdll_dll);
+                    return version_info.dwMajorVersion >= 10 && version_info.dwMinorVersion >= 0 && version_info.dwBuildNumber >= 22000;
+                };
+                if (!is_windows11_or_greater()) {
+                    PostMessage(hwnd, WM_NCACTIVATE, FALSE, 0);
+                    PostMessage(hwnd, WM_NCACTIVATE, TRUE, 0);
+                    MSG msg;
+                    while (PeekMessage(&msg, hwnd, 0, 0, PM_REMOVE)) {
+                        TranslateMessage(&msg);
+                        DispatchMessage(&msg);
+                    }
+                }
+            }
+#endif
         }
         void set_input_mode(i32 mode, i32 value) { glfwSetInputMode(window, mode, value); }
 

@@ -249,6 +249,7 @@ void Renderer::initialize_main_tasklist()
         .name = "depth limits"
     });
 
+    #pragma region shadowmap_resources
     DBG_ASSERT_TRUE_M(NUM_CASCADES <= 8, "[Renderer::initalize_main_tasklist()] More than 8 cascades are not supported");
     const auto resolution_multiplier = TerrainShadowmapTask::resolution_table[NUM_CASCADES - 1];
     tl.images.shadowmap_cascades = tl.task_list.create_transient_image({
@@ -273,6 +274,7 @@ void Renderer::initialize_main_tasklist()
         .size = static_cast<u32>(sizeof(ShadowmapMatrix) * NUM_CASCADES),
         .name = "shadowmap matrix data"
     });
+    #pragma endregion
 
     #pragma region debug_frustum_draw_resources
     tl.buffers.frustum_vertices = tl.task_list.create_transient_buffer({
@@ -574,7 +576,10 @@ void Renderer::initialize_main_tasklist()
     tl.task_list.add_task(ESMPassTask{{
         .uses = {
             ._shadowmap = tl.images.shadowmap_cascades,
-            ._esm_map = tl.images.esm_cascades
+            ._esm_map = tl.images.esm_cascades.view({
+                .base_array_layer = 0,
+                .layer_count = NUM_CASCADES
+            })
         }},
         &context,
     });
