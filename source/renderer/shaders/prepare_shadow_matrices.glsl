@@ -95,11 +95,13 @@ void main()
 
     f32mat3x3 light_camera_rotation;
     f32vec3 camera_right = normalize(deref(_globals).camera_frust_right_offset);
+    f32vec3 world_up = f32vec3(0.0, 0.0, 1.0);
 
     f32vec3 sun_direction = deref(_globals).sun_direction;
-    light_camera_rotation[2] = -sun_direction;
-    light_camera_rotation[0] = normalize(cross(camera_right, light_camera_rotation[2]));
-    light_camera_rotation[1] = cross(light_camera_rotation[2], light_camera_rotation[0]);
+    f32vec3 front = -sun_direction;
+    f32vec3 right = normalize(cross(front, world_up));
+    f32vec3 up = normalize(cross(front, right));
+    light_camera_rotation = f32mat3x3(right, up, front);
 
     f32mat4x4 light_view = inverse_rotation_translation(light_camera_rotation, average_vertex);
 
