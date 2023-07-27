@@ -86,9 +86,9 @@ void main()
     const f32 viewspace_distance = -unprojected_position.z / unprojected_position.w;
 
     // Position of the processed fragment in world space
-    f32vec4 h_pos = deref(_globals).inv_view_projection * f32vec4(remap_uv, depth, 1.0);
-    f32vec3 world_pos = h_pos.xyz / h_pos.w;
-    world_pos -= deref(_globals).offset;
+    const f32vec4 unprojected_world_pos = deref(_globals).inv_view_projection * f32vec4(remap_uv, depth, 1.0);
+    const f32vec3 offset_world_position = unprojected_world_pos.xyz / unprojected_world_pos.w;
+    const f32vec3 world_position = offset_world_position - deref(_globals).offset;
 
     // Get the cascade index of the current fragment
     u32 cascade_idx = 0;
@@ -100,49 +100,75 @@ void main()
         }
     }
 
-    f32mat4x4 shadow_proj_view = deref(_cascade_data[cascade_idx]).cascade_proj_matrix * deref(_cascade_data[cascade_idx]).cascade_view_matrix;
+    f32mat4x4 shadow_proj_view = 
+        deref(_cascade_data[cascade_idx]).cascade_proj_matrix *
+        deref(_cascade_data[cascade_idx]).cascade_view_matrix;
 
-    const f32vec4 shadow_proj_world_pos = shadow_proj_view * f32vec4(world_pos, 1.0);
+    // Project the world position by the shadowmap camera
+    const f32vec4 shadow_projected_world = shadow_proj_view * f32vec4(world_position, 1.0);
+    const f32vec3 shadow_ndc_pos = shadow_projected_world.xyz / shadow_projected_world.w;
+    const f32vec3 shadow_map_uv = f32vec3((shadow_ndc_pos.xy + f32vec2(1.0)) / f32vec2(2.0), f32(cascade_idx));
+    const f32 distance_in_shadowmap = texture(daxa_sampler2DArray(_esm, pc.linear_sampler_id), shadow_map_uv).r;
 
-    const f32vec3 ndc_pos = shadow_proj_world_pos.xyz / shadow_proj_world_pos.w;
-    const f32vec3 shadow_map_uv = f32vec3((ndc_pos.xy + f32vec2(1.0)) / f32vec2(2.0), f32(cascade_idx));
-    const f32 shadowmap_dist = texture(daxa_sampler2DArray(_esm, pc.linear_sampler_id), shadow_map_uv).r;
+    const f32 shadow_reprojected_distance = shadow_ndc_pos.z;
 
-    const f32 real_dist = ndc_pos.z;
-
+    // Equation 3 in ESM paper
     const f32 c = 80.0;
-    f32 shadow = exp(-c * real_dist) * shadowmap_dist;
+    f32 shadow = exp(-c * shadow_reprojected_distance) * distance_in_shadowmap;
 
     const f32 threshold = 0.02;
 
+    // For the cases where we break the shadowmap assumption (see figure 3 in ESM paper)
+    // we do manual filtering where we clamp the individual samples before blending them
     if(shadow > 1.0 + threshold)
     {
-        f32vec4 gather = textureGather(daxa_sampler2DArray(_esm, pc.linear_sampler_id), shadow_map_uv, 0);
-        f32vec4 shadow_gathered = clamp(exp(-c * real_dist) * gather, f32vec4(0.0, 0.0, 0.0, 0.0), f32vec4(1.0, 1.0, 1.0, 1.0));
+        const f32vec4 gather = textureGather(daxa_sampler2DArray(_esm, pc.linear_sampler_id), shadow_map_uv, 0);
+        // clamp each sample we take individually before blending them together
+        const f32vec4 shadow_gathered = clamp(
+            exp(-c * shadow_reprojected_distance) * gather,
+            f32vec4(0.0, 0.0, 0.0, 0.0),
+            f32vec4(1.0, 1.0, 1.0, 1.0)
+        );
 
-        // This is needed because textureGather and fract are slightly imprecise so 
+        // This is needed because textureGather uses a sampler which only has 8bits of precision in
+        // the fractional part - this causes a slight imprecision where texture gather already 
+        // collects next texel while the fract part is still on the inital texel
+        //    - fract will be 0.998 while texture gather will already return the texel coresponding to 1.0
+        //      (see https://www.reedbeta.com/blog/texture-gathers-and-coordinate-precision/)
         const f32 offset = 1.0/512.0;
-        f32vec2 shadow_pix_coord = shadow_map_uv.xy * pc.esm_resolution + (-0.5 + offset);
-        f32vec2 blend_factor = fract(shadow_pix_coord);
+        const f32vec2 shadow_pix_coord = shadow_map_uv.xy * pc.esm_resolution + (-0.5 + offset);
+        const f32vec2 blend_factor = fract(shadow_pix_coord);
 
         // texel gather component mapping - (00,w);(01,x);(11,y);(10,z) 
-        f32 tmp0 = mix(shadow_gathered.w, shadow_gathered.z, blend_factor.x);
-        f32 tmp1 = mix(shadow_gathered.x, shadow_gathered.y, blend_factor.x);
+        const f32 tmp0 = mix(shadow_gathered.w, shadow_gathered.z, blend_factor.x);
+        const f32 tmp1 = mix(shadow_gathered.x, shadow_gathered.y, blend_factor.x);
         shadow = mix(tmp0, tmp1, blend_factor.y);
     }
 
     const f32vec4 albedo = texture(daxa_sampler2D(_g_albedo, pc.nearest_sampler_id), uv);
     const f32vec3 normal = texture(daxa_sampler2D(_g_normals, pc.nearest_sampler_id), uv).xyz;
 
-    const f32 sun_norm_dot = dot(normal, deref(_globals).sun_direction);
-    out_color = albedo * (clamp(sun_norm_dot, 0.0, 1.0) * clamp(shadow, 0.0, 1.0) + 0.02);
-    // out_color = albedo * (clamp(pow(shadow, 5), 0.0, 1.0) + 0.02);
-    const f32vec4 cascade_colors[] = f32vec4[4](
-        f32vec4(0.2, 0.0, 0.0, 0.0),
-        f32vec4(0.0, 0.2, 0.0, 0.0),
-        f32vec4(0.0, 0.0, 0.2, 0.0),
-        f32vec4(0.2, 0.2, 0.0, 0.0)
+    // Color the terrain based on the transmittance - this makes the terrain be red during sunset
+    TransmittanceParams transmittance_params;
+    f32vec3 atmosphere_position = world_position * UNIT_SCALE;
+    atmosphere_position.z = deref(_globals).atmosphere_bottom;
+
+    transmittance_params.height = length(atmosphere_position);
+    transmittance_params.zenith_cos_angle = dot(
+        deref(_globals).sun_direction,
+        atmosphere_position / transmittance_params.height
     );
-        // out_color = f32vec4(shadow, shadow, shadow, 1.0);
-        // out_color += cascade_colors[cascade_idx];
+
+    f32vec2 transmittance_uv = transmittance_lut_to_uv(
+        transmittance_params,
+        deref(_globals).atmosphere_bottom,
+        deref(_globals).atmosphere_top
+    );
+
+    f32vec3 transmittance_to_sun = texture(daxa_sampler2D(_transmittance, pc.linear_sampler_id), transmittance_uv).rgb;
+
+    const f32 sun_norm_dot = dot(normal, deref(_globals).sun_direction);
+    out_color = albedo;
+    out_color *= f32vec4(transmittance_to_sun, 1.0);
+    out_color *= clamp(sun_norm_dot, 0.0, 1.0) * clamp(shadow, 0.0, 1.0) + 0.02;
 }

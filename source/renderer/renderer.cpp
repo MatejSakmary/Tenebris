@@ -574,6 +574,7 @@ void Renderer::initialize_main_tasklist()
             ._offscreen = tl.images.offscreen,
             ._g_albedo = tl.images.g_albedo,
             ._g_normals = tl.images.g_normals,
+            ._transmittance = tl.images.transmittance_lut,
             ._esm = tl.images.esm_cascades.view({.base_array_layer = 0, .layer_count = NUM_CASCADES}),
             ._skyview = tl.images.skyview_lut,
             ._depth = tl.images.depth
