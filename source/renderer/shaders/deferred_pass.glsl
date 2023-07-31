@@ -139,9 +139,8 @@ void main()
         }
     }
 
-    f32mat4x4 shadow_proj_view = 
-        deref(_cascade_data[cascade_idx]).cascade_proj_matrix *
-        deref(_cascade_data[cascade_idx]).cascade_view_matrix;
+    const f32mat4x4 shadow_view = deref(_cascade_data[cascade_idx]).cascade_view_matrix;
+    const f32mat4x4 shadow_proj_view = deref(_cascade_data[cascade_idx]).cascade_proj_matrix * shadow_view;
 
     // Project the world position by the shadowmap camera
     const f32vec4 shadow_projected_world = shadow_proj_view * f32vec4(world_position, 1.0);
@@ -149,7 +148,8 @@ void main()
     const f32vec3 shadow_map_uv = f32vec3((shadow_ndc_pos.xy + f32vec2(1.0)) / f32vec2(2.0), f32(cascade_idx));
     const f32 distance_in_shadowmap = texture(daxa_sampler2DArray(_esm, pc.linear_sampler_id), shadow_map_uv).r;
 
-    const f32 shadow_reprojected_distance = shadow_ndc_pos.z;
+    const f32vec4 shadow_view_world_pos = shadow_view * f32vec4(world_position, 1.0);
+    const f32 shadow_reprojected_distance = shadow_view_world_pos.z / deref(_cascade_data[cascade_idx]).far_plane;
 
     // Equation 3 in ESM paper
     const f32 c = 80.0;
@@ -177,6 +177,7 @@ void main()
         const f32 offset = 1.0/512.0;
         const f32vec2 shadow_pix_coord = shadow_map_uv.xy * pc.esm_resolution + (-0.5 + offset);
         const f32vec2 blend_factor = fract(shadow_pix_coord);
+        //asdg
 
         // texel gather component mapping - (00,w);(01,x);(11,y);(10,z) 
         const f32 tmp0 = mix(shadow_gathered.w, shadow_gathered.z, blend_factor.x);

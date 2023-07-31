@@ -112,6 +112,7 @@ struct ShadowmapCascadeData
     daxa_f32mat4x4 cascade_view_matrix;
     daxa_f32mat4x4 cascade_proj_matrix;
     daxa_f32 cascade_far_depth;
+    daxa_f32 far_plane;
 };
 DAXA_DECL_BUFFER_PTR(ShadowmapCascadeData)
 

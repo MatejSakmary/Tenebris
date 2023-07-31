@@ -128,10 +128,10 @@ void main()
     f32mat4x4 shadow_proj = orthographic_projection(
         min_extends.x, min_extends.y,
         max_extends.x, max_extends.y,
-        0.1, cascade_extends.z
+        0.0, cascade_extends.z
     );
 
-    deref(_cascade_data[thread_idx]) = ShadowmapCascadeData(shadow_view, shadow_proj, far_dist);
+    deref(_cascade_data[thread_idx]) = ShadowmapCascadeData(shadow_view, shadow_proj, far_dist, cascade_extends.z);
 
     // Debug draw tightened camera frustum split into cascades
     if(deref(_globals).use_debug_camera)

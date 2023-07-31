@@ -146,11 +146,7 @@ layout (location = 2) in f32vec3 view_space_pos;
 
 void main()
 {
-    // const f32 near = deref(_cascade_data[pc.cascade_level]).near_plane;
-    // const f32 far = deref(_cascade_data[pc.cascade_level]).far_plane;
-    // const f32 depth_factor = 1/(far - near);
-    // gl_FragDepth = length(view_space_pos) * depth_factor;
-    // debugPrintfEXT("depth %f, far %f, near %f\n", length(view_space_pos), far, near);
+    gl_FragDepth = view_space_pos.z / deref(_cascade_data[pc.cascade_level]).far_plane;
 }
 #else
 layout (location = 0) in f32vec2 uv;
