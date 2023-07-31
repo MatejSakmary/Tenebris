@@ -8,7 +8,7 @@
 #define MAX_FRUSTUM_COUNT 8
 #define FRUSTUM_VERTEX_COUNT 8
 #define NUM_CASCADES 4
-#define SHADOWMAP_RESOLUTION 2048
+#define SHADOWMAP_RESOLUTION 1024
 #define UNIT_SCALE 0.001
 struct DensityProfileLayer
 {

@@ -39,7 +39,7 @@ struct AppWindow
             glfwInit();
             /* Tell GLFW to not create OpenGL context */
             glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-            window = glfwCreateWindow(dimensions.x, dimensions.y, "Atmosphere-daxa", nullptr, nullptr);
+            window = glfwCreateWindow(dimensions.x, dimensions.y, "Tenebris", nullptr, nullptr);
             glfwSetWindowUserPointer(window, &(this->vtable));
             glfwSetCursorPosCallback( 
                 window,
