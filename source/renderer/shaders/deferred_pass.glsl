@@ -116,7 +116,7 @@ void main()
     //      -> there is nothing obscuring the sky so we sample the far sky texture there
     if(depth == 0.0)
     {
-        out_color = f32vec4(get_far_sky_color(remap_uv), 1.0);
+        out_color = f32vec4(get_far_sky_color(remap_uv), 1.0) * deref(_globals).sun_brightness;
         return;
     } 
 
@@ -187,31 +187,17 @@ void main()
     const f32vec4 albedo = texture(daxa_sampler2D(_g_albedo, pc.nearest_sampler_id), uv);
     const f32vec3 normal = texture(daxa_sampler2D(_g_normals, pc.nearest_sampler_id), uv).xyz;
 
-    // Color the terrain based on the transmittance - this makes the terrain be red during sunset
-    TransmittanceParams transmittance_params;
-    f32vec3 atmosphere_position = world_position * UNIT_SCALE;
-    atmosphere_position.z = deref(_globals).atmosphere_bottom;
-
-    transmittance_params.height = length(atmosphere_position);
-    transmittance_params.zenith_cos_angle = dot(
-        deref(_globals).sun_direction,
-        atmosphere_position / transmittance_params.height
-    );
-
-    f32vec2 transmittance_uv = transmittance_lut_to_uv(
-        transmittance_params,
-        deref(_globals).atmosphere_bottom,
-        deref(_globals).atmosphere_top
-    );
-
-    // f32vec3 transmittance_to_sun = texture(daxa_sampler2D(_transmittance, pc.linear_sampler_id), transmittance_uv).rgb;
-
     const f32vec3 sun_direction = deref(_globals).sun_direction;
     f32vec3 transmittance_to_sun = get_far_sky_color(sun_direction);
 
     const f32 sun_norm_dot = dot(normal, deref(_globals).sun_direction);
-    out_color = pow(albedo, f32vec4(2.2, 2.2, 2.2, 1.0));
+    out_color = pow(albedo, f32vec4(f32vec3(1.8), 1.0));
+    // albedo * (dot_normal * shadow * sun_color * sun_intensity + ambient) + (1 - shadow) * sky_color_along_norm 
+    // 
+    f32vec4 ambient = f32vec4(f32vec3(500.0) * get_far_sky_color(normal), 1.0); 
+
     out_color *= clamp(sun_norm_dot, 0.0, 1.0) *
                  clamp(shadow, 0.0, 1.0) *
-                 f32vec4(transmittance_to_sun, 1.0) + 0.002;
+                 f32vec4(transmittance_to_sun, 1.0) *
+                 deref(_globals).sun_brightness + ambient;
 }

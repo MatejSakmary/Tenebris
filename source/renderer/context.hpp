@@ -22,6 +22,7 @@ struct Context
         daxa::TaskBuffer terrain_vertices;
         daxa::TaskBuffer terrain_indices;
         daxa::TaskBuffer frustum_indices;
+        daxa::TaskBuffer average_luminance;
     };
 
     struct Images
@@ -44,6 +45,8 @@ struct Context
         std::shared_ptr<daxa::ComputePipeline> analyze_depthbuffer_first_pass;
         std::shared_ptr<daxa::ComputePipeline> analyze_depthbuffer_subsequent_pass;
         std::shared_ptr<daxa::ComputePipeline> prepare_shadow_matrices;
+        std::shared_ptr<daxa::ComputePipeline> luminance_histogram;
+        std::shared_ptr<daxa::ComputePipeline> adapt_average_luminance;
 
         std::shared_ptr<daxa::RasterPipeline> post_process;
         std::shared_ptr<daxa::RasterPipeline> deferred_pass;
@@ -69,6 +72,7 @@ struct Context
             daxa::TaskBufferView frustum_vertices;
             daxa::TaskBufferView frustum_colors;
             daxa::TaskBufferView frustum_indirect;
+            daxa::TaskBufferView luminance_histogram;
         };
 
         struct TransientImages

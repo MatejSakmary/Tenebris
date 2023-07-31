@@ -10,6 +10,7 @@
 #define NUM_CASCADES 4
 #define SHADOWMAP_RESOLUTION 1024
 #define UNIT_SCALE 0.001
+#define HISTOGRAM_BIN_COUNT 256
 struct DensityProfileLayer
 {
     daxa_f32 layer_width;
@@ -28,6 +29,7 @@ struct Globals
     daxa_u32vec2 sky_lut_dim;
 
     // =============== Atmosphere =====================
+    daxa_f32 sun_brightness;
     daxa_f32vec3 sun_direction;
 
     daxa_f32 atmosphere_bottom;
@@ -78,6 +80,11 @@ struct Globals
 
     // ================ Shadows ======================
     daxa_f32 lambda;
+
+    // ================ Post process =================
+    daxa_f32 min_luminance_log2;
+    daxa_f32 max_luminance_log2;
+    daxa_f32 inv_luminance_range_log2;
 };
 
 DAXA_DECL_BUFFER_PTR(Globals)
@@ -108,6 +115,7 @@ struct ShadowmapCascadeData
 };
 DAXA_DECL_BUFFER_PTR(ShadowmapCascadeData)
 
+// ============== DEBUG FRUSTUM DRAW ==================
 struct FrustumIndex
 {
     daxa_u32 index;
@@ -135,3 +143,16 @@ struct DrawIndexedIndirectStruct
     daxa_u32 first_instance;
 };
 DAXA_DECL_BUFFER_PTR(DrawIndexedIndirectStruct)
+
+// ============== POST PROCESS ======================
+struct Histogram
+{
+    daxa_u32 bin_count;
+};
+DAXA_DECL_BUFFER_PTR(Histogram)
+
+struct AverageLuminance
+{
+    daxa_f32 luminance;
+};
+DAXA_DECL_BUFFER_PTR(AverageLuminance)

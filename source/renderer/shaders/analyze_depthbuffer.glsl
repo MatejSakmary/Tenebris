@@ -22,7 +22,7 @@ void workgroup_min_max_depth(f32vec2 thread_min_max_depth)
     f32 max_depth = subgroupMax(thread_min_max_depth.y);
 
     if(subgroupElect()) { min_max_depth[gl_SubgroupID] = f32vec2(min_depth, max_depth); }
-    // Implies memoryBarrierShared()
+    memoryBarrierShared();
     barrier();
 
     // only the first subgroup will now read the values from shared memory and again do subgroup min

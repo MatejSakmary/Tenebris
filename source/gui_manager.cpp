@@ -21,6 +21,7 @@ GuiManager::GuiManager(GuiManagerInfo const & info) :
     globals.lambda = 1.0f;
     load(curr_path, true);
     globals.use_debug_camera = false;
+    globals.sun_brightness = 1000.0f;
 }
 
 void GuiManager::on_update()
@@ -57,8 +58,16 @@ void GuiManager::on_update()
     if(ImGui::Button("Set Camera Params", {150, 20})) { camera->set_position(new_camera_position);}
     bool use_debug = globals.use_debug_camera == 1;
     ImGui::Checkbox("Use debug camera", &use_debug);
-    ImGui::SliderFloat("Lambda", &globals.lambda, 0.0, 1.0);
     globals.use_debug_camera = use_debug ? 1u : 0u;
+
+    ImGui::SliderFloat("Lambda", &globals.lambda, 0.0, 1.0);
+    ImGui::SliderFloat("Min luminance", &min_luminance, 0.0, 10.0);
+    ImGui::SliderFloat("Max luminance", &max_luminance, 0.0, 10.0);
+    max_luminance = max_luminance < min_luminance ? min_luminance + 0.1 : max_luminance;
+    globals.min_luminance_log2 = std::log2(min_luminance);
+    globals.max_luminance_log2 = std::log2(max_luminance);
+    globals.inv_luminance_range_log2 = 1.0f / (globals.max_luminance_log2 - globals.min_luminance_log2);
+
 
     if(ImGui::Button("Save", {150, 20})) { save(curr_path); }
     ImGui::SameLine();

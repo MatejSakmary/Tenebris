@@ -25,6 +25,8 @@
 #include "tasks/prepare_shadow_matrices.inl"
 #include "tasks/debug_draw_frustum.inl"
 #include "tasks/deferred_pass.inl"
+#include "tasks/luminance_histogram.inl"
+#include "tasks/adapt_average_luminance.inl"
 #include "tasks/post_process.inl"
 #include "tasks/imgui_task.inl"
 #include "tasks/shadowmap.inl"

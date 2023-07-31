@@ -38,4 +38,6 @@ struct GuiManager
         u32vec2 mult_lut_dim;
         u32vec2 sky_lut_dim;
         f32vec3 new_camera_position{0.0f, 0.0f, 0.0f};
+        f32 min_luminance;
+        f32 max_luminance;
 };

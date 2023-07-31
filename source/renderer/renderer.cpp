@@ -67,6 +67,8 @@ Renderer::Renderer(const AppWindow & window, Globals * globals) :
     init_compute_pipeline(get_analyze_depthbuffer_pipeline(true), context.pipelines.analyze_depthbuffer_first_pass);
     init_compute_pipeline(get_analyze_depthbuffer_pipeline(false), context.pipelines.analyze_depthbuffer_subsequent_pass);
     init_compute_pipeline(get_prepare_shadow_matrices_pipeline(), context.pipelines.prepare_shadow_matrices);
+    init_compute_pipeline(get_luminance_histogram_pipeline(), context.pipelines.luminance_histogram);
+    init_compute_pipeline(get_adapt_average_luminance_pipeline(), context.pipelines.adapt_average_luminance);
     init_raster_pipeline(get_draw_terrain_pipeline(false), context.pipelines.draw_terrain_solid);
     init_raster_pipeline(get_draw_terrain_pipeline(true), context.pipelines.draw_terrain_wireframe);
     init_raster_pipeline(get_debug_draw_frustum_pipeline(context), context.pipelines.debug_draw_frustum);
@@ -142,6 +144,19 @@ void Renderer::create_persistent_resources()
         .name = "frustum indices task buffer"
     });
 
+    context.buffers.average_luminance = daxa::TaskBuffer({
+        .initial_buffers = {
+            .buffers = std::array{
+                context.device.create_buffer(daxa::BufferInfo{
+                    .size = sizeof(AverageLuminance),
+                    .allocate_info = daxa::AutoAllocInfo(daxa::MemoryFlagBits::DEDICATED_MEMORY),
+                    .name = "average luminance buffer"
+                })
+            },
+        },
+        .name = "average luminance task buffer"
+    });
+
     auto upload_task_list = daxa::TaskGraph({
         .device = context.device,
         .swapchain = context.swapchain,
@@ -154,32 +169,53 @@ void Renderer::create_persistent_resources()
     });
     
     upload_task_list.use_persistent_buffer(context.buffers.frustum_indices);
+    upload_task_list.use_persistent_buffer(context.buffers.average_luminance);
     upload_task_list.add_task({
         .uses = { 
             daxa::BufferHostTransferWrite{context.buffers.frustum_indices},
+            daxa::BufferHostTransferWrite{context.buffers.average_luminance},
         },
-        .task = [=, this](daxa::TaskInterface ti)
+        .task = [&, this](daxa::TaskInterface ti)
         {
             auto cmd_list = ti.get_command_list();
             {
-                u32 size = sizeof(FrustumIndex) * DebugDrawFrustumTask::index_count;
-                auto staging_mem_result = ti.get_allocator().allocate(size);
-                DBG_ASSERT_TRUE_M(
-                    staging_mem_result.has_value(),
-                    "[Renderer::create_presistent_resources()] Failed to create frustum indices staging buffer"
-                );
-                auto staging_mem = staging_mem_result.value();
-                std::vector<u32> indices = { 
-                    0, 1, 2, 3, 4, 5, 0, 3, 0xFFFFFFFF,
-                    6, 5, 4, 7, 2, 1, 6, 7, 0xFFFFFFFF
-                }; 
-                memcpy(staging_mem.host_address, indices.data(), size);
-                cmd_list.copy_buffer_to_buffer({
-                    .src_buffer = ti.get_allocator().get_buffer(),
-                    .src_offset = staging_mem.buffer_offset,
-                    .dst_buffer = ti.uses[context.buffers.frustum_indices].buffer(),
-                    .size = size
-                });
+                {
+                    u32 size = sizeof(FrustumIndex) * DebugDrawFrustumTask::index_count;
+                    auto staging_mem_result = ti.get_allocator().allocate(size);
+                    DBG_ASSERT_TRUE_M(
+                        staging_mem_result.has_value(),
+                        "[Renderer::create_presistent_resources()] Failed to create frustum indices staging buffer"
+                    );
+                    auto staging_mem = staging_mem_result.value();
+                    std::vector<u32> indices = { 
+                        0, 1, 2, 3, 4, 5, 0, 3, 0xFFFFFFFF,
+                        6, 5, 4, 7, 2, 1, 6, 7, 0xFFFFFFFF
+                    }; 
+                    memcpy(staging_mem.host_address, indices.data(), size);
+                    cmd_list.copy_buffer_to_buffer({
+                        .src_buffer = ti.get_allocator().get_buffer(),
+                        .src_offset = staging_mem.buffer_offset,
+                        .dst_buffer = ti.uses[context.buffers.frustum_indices].buffer(),
+                        .size = size
+                    });
+                }
+                {
+                    u32 size = sizeof(AverageLuminance);
+                    auto staging_mem_result = ti.get_allocator().allocate(size);
+                    DBG_ASSERT_TRUE_M(
+                        staging_mem_result.has_value(),
+                        "[Renderer::create_presistent_resources()] Failed to create average luminance staging buffer"
+                    );
+                    auto staging_mem = staging_mem_result.value();
+                    f32 inital_value = -1000.0;
+                    memcpy(staging_mem.host_address, &inital_value, size);
+                    cmd_list.copy_buffer_to_buffer({
+                        .src_buffer = ti.get_allocator().get_buffer(),
+                        .src_offset = staging_mem.buffer_offset,
+                        .dst_buffer = ti.uses[context.buffers.average_luminance].buffer(),
+                        .size = size
+                    });
+                }
             }
         },
         .name = "upload indices",
@@ -230,12 +266,12 @@ void Renderer::initialize_main_tasklist()
     context.main_task_list.task_list.use_persistent_buffer(context.buffers.terrain_indices);
     context.main_task_list.task_list.use_persistent_buffer(context.buffers.terrain_vertices);
     context.main_task_list.task_list.use_persistent_buffer(context.buffers.frustum_indices);
+    context.main_task_list.task_list.use_persistent_buffer(context.buffers.average_luminance);
     context.main_task_list.task_list.use_persistent_image(context.images.swapchain);
     context.main_task_list.task_list.use_persistent_image(context.images.height_map);
     context.main_task_list.task_list.use_persistent_image(context.images.diffuse_map);
     context.main_task_list.task_list.use_persistent_image(context.images.normal_map);
 
-    /* ========================================= PERSISTENT RESOURCES =============================================*/
     auto extent = context.swapchain.get_surface_extent();
 
     auto & tl = context.main_task_list;
@@ -293,6 +329,11 @@ void Renderer::initialize_main_tasklist()
     });
     #pragma endregion
 
+    tl.buffers.luminance_histogram = tl.task_list.create_transient_buffer({
+        .size = sizeof(Histogram) * HISTOGRAM_BIN_COUNT,
+        .name = "histogram"
+    });
+
     tl.images.depth = tl.task_list.create_transient_image({
         .format = daxa::Format::D32_SFLOAT,
         .size = {extent.x, extent.y, 1},
@@ -346,6 +387,7 @@ void Renderer::initialize_main_tasklist()
             daxa::BufferHostTransferWrite{tl.buffers.frustum_vertices},
             daxa::BufferHostTransferWrite{tl.buffers.frustum_indirect},
             daxa::BufferHostTransferWrite{tl.buffers.frustum_colors},
+            daxa::BufferHostTransferWrite{tl.buffers.luminance_histogram},
         },
         .task = [&, this](daxa::TaskInterface ti)
         {
@@ -391,6 +433,13 @@ void Renderer::initialize_main_tasklist()
                     ti.uses[tl.buffers.frustum_indirect].buffer(),
                     &indexed_indirect,
                     sizeof(DrawIndexedIndirectStruct)
+                );
+
+                std::array<u32, HISTOGRAM_BIN_COUNT> reset_bin_values {};
+                upload_cpu_to_gpu(
+                    ti.uses[tl.buffers.luminance_histogram].buffer(),
+                    reset_bin_values.data(),
+                    sizeof(Histogram) * HISTOGRAM_BIN_COUNT
                 );
             }
         },
@@ -566,7 +615,6 @@ void Renderer::initialize_main_tasklist()
     #pragma endregion
 
     #pragma region deferred_pass
-    /* =========================================== DEFERRED PASS ================================================== */
     tl.task_list.add_task(DeferredPassTask{{
         .uses = {
             ._globals = context.buffers.globals.view(),
@@ -583,9 +631,32 @@ void Renderer::initialize_main_tasklist()
     });
     #pragma endregion
 
+    #pragma region luminance_histogram
+    tl.task_list.add_task(LuminanceHistogramTask{{
+        .uses = {
+            ._globals = context.buffers.globals.view(),
+            ._histogram = tl.buffers.luminance_histogram,
+            ._offscreen = tl.images.offscreen
+        }},
+        &context
+    });
+    #pragma endregion
+
+    #pragma region adapt_average_luminance
+    tl.task_list.add_task(AdaptAverageLuminanceTask{{
+        .uses = {
+            ._globals = context.buffers.globals.view(),
+            ._histogram = tl.buffers.luminance_histogram,
+            ._average_luminance = context.buffers.average_luminance.view()
+        }},
+        &context
+    });
+    #pragma endregion
+
     #pragma region post_process
     tl.task_list.add_task(PostProcessTask{{
         .uses = {
+            ._average_luminance = context.buffers.average_luminance.view(),
             ._swapchain = context.images.swapchain.view(),
             ._offscreen = tl.images.offscreen,
         }},
@@ -815,6 +886,7 @@ Renderer::~Renderer()
     destroy_buffer_if_valid(context.buffers.frustum_indices);
     destroy_buffer_if_valid(context.buffers.terrain_vertices);
     destroy_buffer_if_valid(context.buffers.globals);
+    destroy_buffer_if_valid(context.buffers.average_luminance);
     destroy_image_if_valid(context.images.diffuse_map);
     destroy_image_if_valid(context.images.height_map);
     destroy_image_if_valid(context.images.normal_map);

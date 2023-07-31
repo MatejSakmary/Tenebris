@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(atmosphere)
-
+project(tenebris)
 
 add_executable( ${PROJECT_NAME} 
     "source/main.cpp"
