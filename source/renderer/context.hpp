@@ -41,7 +41,8 @@ struct Context
         std::shared_ptr<daxa::ComputePipeline> transmittance;
         std::shared_ptr<daxa::ComputePipeline> multiscattering;
         std::shared_ptr<daxa::ComputePipeline> skyview;
-        std::shared_ptr<daxa::ComputePipeline> esm_pass;
+        std::shared_ptr<daxa::ComputePipeline> first_esm_pass;
+        std::shared_ptr<daxa::ComputePipeline> second_esm_pass;
         std::shared_ptr<daxa::ComputePipeline> analyze_depthbuffer_first_pass;
         std::shared_ptr<daxa::ComputePipeline> analyze_depthbuffer_subsequent_pass;
         std::shared_ptr<daxa::ComputePipeline> prepare_shadow_matrices;
@@ -89,6 +90,7 @@ struct Context
             daxa::TaskImageView depth;
 
             daxa::TaskImageView shadowmap_cascades;
+            daxa::TaskImageView esm_tmp_cascades;
             daxa::TaskImageView esm_cascades;
         };
 

@@ -63,7 +63,8 @@ Renderer::Renderer(const AppWindow & window, Globals * globals) :
     init_compute_pipeline(get_transmittance_LUT_pipeline(), context.pipelines.transmittance);
     init_compute_pipeline(get_multiscattering_LUT_pipeline(), context.pipelines.multiscattering);
     init_compute_pipeline(get_skyview_LUT_pipeline(), context.pipelines.skyview);
-    init_compute_pipeline(get_esm_pass_pipeline(), context.pipelines.esm_pass);
+    init_compute_pipeline(get_esm_pass_pipeline(true), context.pipelines.first_esm_pass);
+    init_compute_pipeline(get_esm_pass_pipeline(false), context.pipelines.second_esm_pass);
     init_compute_pipeline(get_analyze_depthbuffer_pipeline(true), context.pipelines.analyze_depthbuffer_first_pass);
     init_compute_pipeline(get_analyze_depthbuffer_pipeline(false), context.pipelines.analyze_depthbuffer_subsequent_pass);
     init_compute_pipeline(get_prepare_shadow_matrices_pipeline(), context.pipelines.prepare_shadow_matrices);
@@ -304,6 +305,13 @@ void Renderer::initialize_main_tasklist()
         .size = {SHADOWMAP_RESOLUTION, SHADOWMAP_RESOLUTION, 1u},
         .array_layer_count = NUM_CASCADES,
         .name = "transient esm cascades"
+    });
+
+    tl.images.esm_tmp_cascades = tl.task_list.create_transient_image({
+        .format = daxa::Format::R32_SFLOAT,
+        .size = {SHADOWMAP_RESOLUTION, SHADOWMAP_RESOLUTION, 1u},
+        .array_layer_count = NUM_CASCADES,
+        .name = "transient esm temporary cascades"
     });
 
     tl.buffers.shadowmap_data = tl.task_list.create_transient_buffer({
@@ -605,12 +613,20 @@ void Renderer::initialize_main_tasklist()
     #pragma endregion
 
     #pragma region esm_pass
-    tl.task_list.add_task(ESMPassTask{{
+    tl.task_list.add_task(ESMFirstPassTask{{
         .uses = {
             ._shadowmap = tl.images.shadowmap_cascades,
-            ._esm_map = tl.images.esm_cascades.view({ .base_array_layer = 0, .layer_count = NUM_CASCADES })
+            ._esm_map = tl.images.esm_tmp_cascades.view({ .base_array_layer = 0, .layer_count = NUM_CASCADES })
         }},
-        &context,
+        &context
+    });
+
+    tl.task_list.add_task(ESMSecondPassTask{{
+        .uses = {
+            ._esm_tmp_map = tl.images.esm_tmp_cascades.view({ .base_array_layer = 0, .layer_count = NUM_CASCADES }),
+            ._esm_target_map = tl.images.esm_cascades.view({ .base_array_layer = 0, .layer_count = NUM_CASCADES })
+        }},
+        &context
     });
     #pragma endregion
 
