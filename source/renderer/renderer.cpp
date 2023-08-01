@@ -301,14 +301,14 @@ void Renderer::initialize_main_tasklist()
     });
 
     tl.images.esm_cascades = tl.task_list.create_transient_image({
-        .format = daxa::Format::R32_SFLOAT,
+        .format = daxa::Format::R16_UNORM,
         .size = {SHADOWMAP_RESOLUTION, SHADOWMAP_RESOLUTION, 1u},
         .array_layer_count = NUM_CASCADES,
         .name = "transient esm cascades"
     });
 
     tl.images.esm_tmp_cascades = tl.task_list.create_transient_image({
-        .format = daxa::Format::R32_SFLOAT,
+        .format = daxa::Format::R16_UNORM,
         .size = {SHADOWMAP_RESOLUTION, SHADOWMAP_RESOLUTION, 1u},
         .array_layer_count = NUM_CASCADES,
         .name = "transient esm temporary cascades"

@@ -108,6 +108,7 @@ f32vec3 get_far_sky_color(f32vec2 uv)
 void main() 
 {
     const f32 depth = texture(daxa_sampler2D(_depth, pc.nearest_sampler_id), uv).r;
+    const f32vec4 sun_color = f32vec4(255.0, 204.0, 153.0, 255.0)/255.0;
 
     // scale uvs to be in the range [-1, 1]
     const f32vec2 remap_uv = (uv * 2.0) - 1.0;
@@ -116,7 +117,7 @@ void main()
     //      -> there is nothing obscuring the sky so we sample the far sky texture there
     if(depth == 0.0)
     {
-        out_color = f32vec4(get_far_sky_color(remap_uv), 1.0) * deref(_globals).sun_brightness;
+        out_color = f32vec4(get_far_sky_color(remap_uv), 1.0) * deref(_globals).sun_brightness * sun_color;
         return;
     } 
 
@@ -155,12 +156,12 @@ void main()
     const f32 c = 80.0;
     f32 shadow = exp(-c * (shadow_reprojected_distance - distance_in_shadowmap));
 
-    const f32 threshold = 0.002;
+    const f32 threshold = 0.2;
 
     // For the cases where we break the shadowmap assumption (see figure 3 in ESM paper)
     // we do manual filtering where we clamp the individual samples before blending them
-    // if(shadow > 1.0 + threshold)
-    if(false)
+    if(shadow > 1.0 + threshold)
+    // if(false)
     {
         const f32vec4 gather = textureGather(daxa_sampler2DArray(_esm, pc.linear_sampler_id), shadow_map_uv, 0);
         // clamp each sample we take individually before blending them together
@@ -184,7 +185,6 @@ void main()
         const f32 tmp0 = mix(shadow_gathered.w, shadow_gathered.z, blend_factor.x);
         const f32 tmp1 = mix(shadow_gathered.x, shadow_gathered.y, blend_factor.x);
         shadow = mix(tmp0, tmp1, blend_factor.y);
-        shadow = 1.0;
     }
 
     const f32vec4 albedo = texture(daxa_sampler2D(_g_albedo, pc.nearest_sampler_id), uv);
@@ -196,12 +196,11 @@ void main()
     const f32 sun_norm_dot = dot(normal, deref(_globals).sun_direction);
     out_color = pow(albedo, f32vec4(f32vec3(1.8), 1.0));
     // albedo * (dot_normal * shadow * sun_color * sun_intensity + ambient) + (1 - shadow) * sky_color_along_norm 
-    // 
     f32vec4 ambient = f32vec4(f32vec3(500.0) * get_far_sky_color(normal), 1.0); 
 
     out_color *= clamp(sun_norm_dot, 0.0, 1.0) *
                  clamp(pow(shadow, 2), 0.0, 1.0) *
                 //  clamp(shadow, 0.0, 1.0) *
                  f32vec4(transmittance_to_sun, 1.0) *
-                 deref(_globals).sun_brightness + ambient;
+                 deref(_globals).sun_brightness * sun_color + ambient;
 }

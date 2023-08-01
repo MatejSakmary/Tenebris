@@ -116,13 +116,9 @@ void main()
         min_extends = min(min_extends, proj_corner);
         max_extends = max(max_extends, proj_corner);
     }
-    // debugPrintfEXT("min extends %f, %f, %f %d\n", min_extends.x, min_extends.y, min_extends.z, thread_idx);
-    // debugPrintfEXT("max extends %f, %f, %f %d\n", max_extends.x, max_extends.y, max_extends.z, thread_idx);
-
 
     f32vec3 cascade_extends = max_extends - min_extends;
     f32vec3 shadow_camera_pos = average_vertex + sun_direction * -min_extends.z;
-    // debugPrintfEXT("pos %f, %f, %f %d\n", shadow_camera_pos.x, shadow_camera_pos.y, shadow_camera_pos.z, thread_idx);
 
     f32mat4x4 shadow_view = inverse_rotation_translation(light_camera_rotation, shadow_camera_pos);
     f32mat4x4 shadow_proj = orthographic_projection(

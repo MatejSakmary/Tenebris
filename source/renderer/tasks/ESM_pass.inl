@@ -11,6 +11,8 @@ struct ESMShadowPC
     u32 cascade_index;
 };
 
+#define WORKGROUP_SIZE 64
+
 DAXA_DECL_TASK_USES_BEGIN(ESMFirstPassTaskBase, DAXA_UNIFORM_BUFFER_SLOT0)
 DAXA_TASK_USE_IMAGE(_shadowmap, REGULAR_2D, COMPUTE_SHADER_SAMPLED)
 DAXA_TASK_USE_IMAGE(_esm_map, REGULAR_2D_ARRAY, COMPUTE_SHADER_STORAGE_WRITE_ONLY)
@@ -39,12 +41,11 @@ inline auto get_esm_pass_pipeline(bool first_pass) -> daxa::ComputePipelineCompi
 
 struct ESMFirstPassTask : ESMFirstPassTaskBase
 {
-    static constexpr u32 threadsX = 8;
-    static constexpr u32 threadsY = 4;
-
     Context * context = {};
     void callback(daxa::TaskInterface ti)
     {
+        DBG_ASSERT_TRUE_M(SHADOWMAP_RESOLUTION % WORKGROUP_SIZE == 0,
+            "[Renderer::ESMSecondPassTask()] SHADOWMAP_RESOLUTION must be a multiple of WORKGROUP_SIZE");
         auto cmd_list = ti.get_command_list();
 
         cmd_list.set_uniform_buffer(ti.uses.get_uniform_buffer_info());
@@ -64,19 +65,18 @@ struct ESMFirstPassTask : ESMFirstPassTaskBase
                 },
                 .cascade_index = i
             });
-            cmd_list.dispatch((SHADOWMAP_RESOLUTION + threadsX - 1) / threadsX, (SHADOWMAP_RESOLUTION + threadsY - 1) / threadsY);
+            cmd_list.dispatch(SHADOWMAP_RESOLUTION / WORKGROUP_SIZE, SHADOWMAP_RESOLUTION);
         }
     }
 };
 
 struct ESMSecondPassTask : ESMSecondPassTaskBase
 {
-    static constexpr u32 threadsX = 8;
-    static constexpr u32 threadsY = 4;
-
     Context * context = {};
     void callback(daxa::TaskInterface ti)
     {
+        DBG_ASSERT_TRUE_M(SHADOWMAP_RESOLUTION % WORKGROUP_SIZE == 0,
+            "[Renderer::ESMSecondPassTask()] SHADOWMAP_RESOLUTION must be a multiple of WORKGROUP_SIZE");
         auto cmd_list = ti.get_command_list();
 
         cmd_list.set_uniform_buffer(ti.uses.get_uniform_buffer_info());
@@ -85,7 +85,7 @@ struct ESMSecondPassTask : ESMSecondPassTaskBase
         for(u32 i = 0; i < NUM_CASCADES; i++ )
         {
             cmd_list.push_constant(ESMShadowPC{ .offset = {}, .cascade_index = i });
-            cmd_list.dispatch((SHADOWMAP_RESOLUTION + threadsX - 1) / threadsX, (SHADOWMAP_RESOLUTION + threadsY - 1) / threadsY);
+            cmd_list.dispatch(SHADOWMAP_RESOLUTION, SHADOWMAP_RESOLUTION / WORKGROUP_SIZE);
         }
     }
 };
