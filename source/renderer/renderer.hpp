@@ -31,8 +31,11 @@
 #include "tasks/imgui_task.inl"
 #include "tasks/shadowmap.inl"
 #include "tasks/ESM_pass.inl"
+#include "tasks/vsm_debug_paging_table.inl"
 
 using namespace daxa::types;
+
+struct GuiManager;
 
 struct DrawInfo
 {
@@ -42,6 +45,8 @@ struct DrawInfo
 
 struct Renderer
 {
+    friend struct GuiManager;
+
     bool wireframe_terrain = {};
     Globals *globals;
     explicit Renderer(const AppWindow & window, Globals * globals);

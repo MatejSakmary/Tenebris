@@ -10,9 +10,7 @@ Camera::Camera(const CameraInfo & info) :
     position{daxa_vec3_to_glm(info.position)},
     front{daxa_vec3_to_glm(info.front)},
     up{daxa_vec3_to_glm(info.up)},
-    aspect_ratio{info.aspect_ratio},
-    fov{info.fov},
-    near_plane{info.near_plane},
+    proj_info{info.projection_info},
     speed{100.0f},
     pitch{0.0f},
     sensitivity{0.08f},
@@ -25,6 +23,12 @@ void Camera::set_position(f32vec3 new_position)
     position = daxa_vec3_to_glm(new_position);
     offset = i32vec3{0, 0, 0};
     move_camera(0.0f, Direction::UP, false);
+    matrix_dirty = true;
+}
+
+void Camera::set_front(f32vec3 new_front)
+{
+    front = daxa_vec3_to_glm(new_front);
     matrix_dirty = true;
 }
 
@@ -93,16 +97,32 @@ void Camera::update_front_vector(f32 x_offset, f32 y_offset)
 
 void Camera::recalculate_matrices()
 {
-    // Infinite far plane
-    f32 const tan_half_fovy = 1.0f / glm::tan(fov * 0.5f);
+    if(std::holds_alternative<OrthographicInfo>(proj_info))
+    {
+        const auto & ortho_info = std::get<OrthographicInfo>(proj_info);
+        projection = glm::ortho(
+            ortho_info.left, 
+            ortho_info.right,
+            ortho_info.bottom,
+            ortho_info.top,
+            ortho_info.near,
+            ortho_info.far
+        );
+    } 
+    else 
+    {
+        const auto & persp_info = std::get<PerspectiveInfo>(proj_info);
+        // Infinite far plane
+        f32 const tan_half_fovy = 1.0f / glm::tan(persp_info.fov * 0.5f);
 
-    projection = glm::mat4x4(0.0f);
-    projection[0][0] =  tan_half_fovy / aspect_ratio;
-    /* GLM is using OpenGL standard where Y coordinate of the clip coordinates is inverted */
-    projection[1][1] = -tan_half_fovy;
-    projection[2][2] =  0.0f;
-    projection[2][3] = -1.0f;
-    projection[3][2] =  near_plane;
+        projection = glm::mat4x4(0.0f);
+        projection[0][0] =  tan_half_fovy / persp_info.aspect_ratio;
+        /* GLM is using OpenGL standard where Y coordinate of the clip coordinates is inverted */
+        projection[1][1] = -tan_half_fovy;
+        projection[2][2] =  0.0f;
+        projection[2][3] = -1.0f;
+        projection[3][2] =  persp_info.near_plane;
+    }
 
     view = glm::lookAt(position, position + front, up);
 
@@ -119,6 +139,13 @@ auto Camera::get_projection_matrix() -> f32mat4x4
 {
     if(matrix_dirty) { recalculate_matrices(); }
     return mat_from_span<f32, 4, 4>(std::span<f32, 4 * 4>{ glm::value_ptr(projection), 4 * 4 });
+}
+
+auto Camera::get_projection_view_matrix() -> f32mat4x4
+{
+    if(matrix_dirty) { recalculate_matrices(); }
+    glm::mat4x4 tmp_result = projection * view;
+    return mat_from_span<f32, 4, 4>(std::span<f32, 4 * 4>{ glm::value_ptr(tmp_result), 4 * 4 });
 }
 
 auto Camera::get_inv_projection_matrix() -> f32mat4x4
@@ -138,6 +165,16 @@ auto Camera::get_inv_view_proj_matrix() -> f32mat4x4
 
 auto Camera::get_frustum_info() -> CameraFrustumInfo
 {
+    if(std::holds_alternative<OrthographicInfo>(proj_info))
+    {
+        throw std::runtime_error(
+            "[Camera::get_frustum_info()] Unable to get frustum info for orthographic camera"
+        );
+        return {};
+    }
+
+    const auto & persp_info = std::get<PerspectiveInfo>(proj_info);
+
     glm::vec3 right;
     if(front.x != 0 && front.y != 0)      { right = glm::vec3(front.y, -front.x, 0.0f); }
     else if(front.x != 0 && front.z != 0) { right = glm::vec3(-front.z, 0.0f, front.x); }
@@ -146,9 +183,9 @@ auto Camera::get_frustum_info() -> CameraFrustumInfo
     glm::vec3 up_ = glm::normalize(glm::cross(right, front));
     glm::vec3 right_ = glm::normalize(glm::cross(front, up));
 
-    f32 fov_tan = glm::tan(fov / 2.0f);
+    f32 fov_tan = glm::tan(persp_info.fov / 2.0f);
 
-    auto right_aspect_fov_correct = right_ * aspect_ratio * fov_tan;
+    auto right_aspect_fov_correct = right_ * persp_info.aspect_ratio * fov_tan;
     auto up_fov_correct = glm::normalize(up_) * fov_tan;
 
     auto glm_vec_to_daxa = [](glm::vec3 v) -> f32vec3 { return {v.x, v.y, v.z}; };
@@ -162,50 +199,53 @@ auto Camera::get_frustum_info() -> CameraFrustumInfo
 
 void Camera::write_frustum_vertices(WriteVerticesInfo const & info)
 {
-    const std::array offsets = {
+
+    auto glm_vec_to_daxa = [](glm::vec3 v) -> f32vec3 { return {v.x, v.y, v.z}; };
+    static constexpr std::array offsets = {
         glm::ivec2(-1,  1), glm::ivec2(-1, -1), glm::ivec2( 1, -1), glm::ivec2( 1,  1),
         glm::ivec2( 1,  1), glm::ivec2(-1,  1), glm::ivec2(-1, -1), glm::ivec2( 1, -1)
     };
 
-    auto [front, top, right] = get_frustum_info();
-    const auto glm_front = glm::vec3(front.x, front.y, front.z);
-    const auto glm_right = glm::vec3(right.x, right.y, right.z);
-    const auto glm_top = glm::vec3(top.x, top.y, top.z);
+    if(matrix_dirty) { recalculate_matrices(); }
 
-    const f32 max_dist = 20'000.0f;
-    const auto camera_pos_world = position - glm::vec3(offset.x, offset.y, offset.z);
-
-    auto glm_vec_to_daxa = [](glm::vec3 v) -> f32vec3 { return {v.x, v.y, v.z}; };
-
-    for(int i = 0; i < 8; i++)
+    // Orthographic camera
+    if(std::holds_alternative<OrthographicInfo>(proj_info))
     {
-        glm::vec3 dir_vec = glm_front + f32(offsets[i].x) * (-glm_right) + f32(offsets[i].y) * glm_top;
-        f32 multiplier = i < 4 ? near_plane : max_dist;
+        const auto & ortho_info = std::get<OrthographicInfo>(proj_info);
 
-        info.vertices_dst[i].vertex = glm_vec_to_daxa(camera_pos_world + dir_vec * multiplier);
+        for(int i = 0; i < 8; i++)
+        {
+            const auto ndc_pos = glm::vec4(offsets[i], i < 4 ? 0.0f : 1.0f, 1.0);
+            const glm::vec4 unproj_world_space =  glm::inverse(projection * view) * ndc_pos;
+            const glm::vec3 world_space = glm::vec3(
+                unproj_world_space.x / unproj_world_space.w,
+                unproj_world_space.y / unproj_world_space.w,
+                unproj_world_space.z / unproj_world_space.w
+            );
+            info.vertices_dst[i].vertex = glm_vec_to_daxa(world_space - glm::vec3(offset.x, offset.y, offset.z));
+        }
+    }
+    // Perspective camera
+    else 
+    {
+        const auto & persp_info = std::get<PerspectiveInfo>(proj_info);
+
+        auto [front, top, right] = get_frustum_info();
+        const auto glm_front = glm::vec3(front.x, front.y, front.z);
+        const auto glm_right = glm::vec3(right.x, right.y, right.z);
+        const auto glm_top = glm::vec3(top.x, top.y, top.z);
+
+        const f32 max_dist = 20'000.0f;
+        const auto camera_pos_world = position - glm::vec3(offset.x, offset.y, offset.z);
+
+        for(int i = 0; i < 8; i++)
+        {
+            glm::vec3 dir_vec = glm_front + f32(offsets[i].x) * (-glm_right) + f32(offsets[i].y) * glm_top;
+            f32 multiplier = i < 4 ? persp_info.near_plane : max_dist;
+            info.vertices_dst[i].vertex = glm_vec_to_daxa(camera_pos_world + dir_vec * multiplier);
+        }
     }
 };
-
-auto Camera::get_shadowmap_view_matrix(f32vec3 const & sun_direction, i32vec3 const & offset) -> f32mat4x4
-{
-    const f32 shadowmap_distance = 7000.0f;
-    glm::vec3 glm_sun_dir = glm::normalize(glm::vec3(sun_direction.x, sun_direction.y, sun_direction.z));
-    // glm::vec3 sun_shadowmap_position = position + glm_sun_dir * shadowmap_distance;
-    glm::vec3 sun_shadowmap_position = glm::vec3(5000, 5000, 0.0) + glm::vec3(offset.x, offset.y, offset.z) + glm_sun_dir * shadowmap_distance;
-    glm::vec3 front = -glm_sun_dir;
-    auto view_mat = glm::lookAt( sun_shadowmap_position, sun_shadowmap_position + front, up);
-
-    return mat_from_span<f32, 4, 4>(std::span<f32, 4 * 4>{ glm::value_ptr(view_mat), 4 * 4});
-}
-
-auto Camera::get_shadowmap_projection_matrix(const GetShadowmapProjectionInfo & info) -> f32mat4x4
-{
-    auto proj_mat = glm::ortho(info.left, info.right , info.bottom, info.top, info.near_plane, info.far_plane);
-    /* GLM is using OpenGL standard where Y coordinate of the clip coordinates is inverted */
-    proj_mat[1][1] *= -1;
-
-    return mat_from_span<f32, 4, 4>(std::span<f32, 4 * 4>{ glm::value_ptr(proj_mat), 4 * 4 });
-}
 
 auto Camera::get_camera_position() const -> f32vec3
 {

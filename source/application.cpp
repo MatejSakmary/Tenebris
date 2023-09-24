@@ -34,7 +34,11 @@ void Application::window_resize_callback(i32 width, i32 height)
     if(!state.minimized)
     {
         renderer.resize(); 
-        active_camera->aspect_ratio = f32(width) / f32(height);
+        if(std::holds_alternative<PerspectiveInfo>(active_camera->proj_info))
+        {
+            auto & projection_info = std::get<PerspectiveInfo>(active_camera->proj_info);
+            projection_info.aspect_ratio = f32(width) / f32(height);
+        }
     }
 }
 
@@ -97,17 +101,21 @@ Application::Application() :
     main_camera{{
         .front = {0.0, 1.0, 0.0},
         .up = {0.0, 0.0, 1.0}, 
-        .aspect_ratio = f32(INIT_WINDOW_DIMENSIONS.x)/f32(INIT_WINDOW_DIMENSIONS.y),
-        .fov = glm::radians(70.0f),
-        .near_plane = 10.0f,
+        .projection_info = PerspectiveInfo{
+            .aspect_ratio = f32(INIT_WINDOW_DIMENSIONS.x)/f32(INIT_WINDOW_DIMENSIONS.y),
+            .fov = glm::radians(70.0f),
+            .near_plane = 10.0f,
+        }
     }},
     debug_camera{{
         .position = {5000.0, 5000.0, 200.0},
         .front = {0.0, 1.0, 0.0},
         .up = {0.0, 0.0, 1.0}, 
-        .aspect_ratio = f32(INIT_WINDOW_DIMENSIONS.x)/f32(INIT_WINDOW_DIMENSIONS.y),
-        .fov = glm::radians(70.0f),
-        .near_plane = 10.0f,
+        .projection_info = PerspectiveInfo{
+            .aspect_ratio = f32(INIT_WINDOW_DIMENSIONS.x)/f32(INIT_WINDOW_DIMENSIONS.y),
+            .fov = glm::radians(70.0f),
+            .near_plane = 10.0f,
+        }
     }},
     active_camera{&main_camera},
     gui{{ &active_camera, &renderer }},

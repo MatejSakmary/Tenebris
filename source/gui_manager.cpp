@@ -150,6 +150,16 @@ void GuiManager::on_update()
     globals.rayleigh_density[1].exp_scale = -1.0f / globals.rayleigh_scale_height;
     ImGui::End();
 
+    ImGui::Begin("VSM Paging Texture");
+    ImGui::Image(
+        daxa::ImGuiRenderer::create_image_context({
+            .image_view_id = info.renderer->context.images.vsm_debug_paging_table.get_state().images[0].default_view(),
+            .sampler_id = info.renderer->context.nearest_sampler
+        }),
+        ImVec2(128.0f * 4.0f, 128.0f * 4.0f) 
+    );
+    ImGui::End();
+
     ImGui::Render();
 }
 

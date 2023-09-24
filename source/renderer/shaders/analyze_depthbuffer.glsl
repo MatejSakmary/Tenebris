@@ -1,10 +1,13 @@
 #define DAXA_ENABLE_SHADER_NO_NAMESPACE 1
 #define DAXA_ENABLE_IMAGE_OVERLOADS_BASIC 1
 #include <shared/shared.inl>
+#include "vsm_common.glsl"
 #include "tasks/analyze_depthbuffer.inl"
 
 #extension GL_KHR_shader_subgroup_arithmetic : enable
 #extension GL_EXT_debug_printf : enable
+
+DAXA_DECL_IMAGE_ACCESSOR_WITH_FORMAT(uimage2D, r32ui, , r32uiImage)
 
 #define _tile_size 32
 
@@ -47,6 +50,52 @@ void workgroup_min_max_depth(f32vec2 thread_min_max_depth)
     }
 }
 
+// For each fragment check if the page that will be needed during the shadowmap test is allocated
+// if not mark page as needing allocation
+void request_vsm_pages(f32vec4 depths, u32vec2 scaled_pixel_coords)
+{
+    // texel gather component mapping - (00,w);(01,x);(11,y);(10,z) 
+    // where the 00 is top left
+    const i32vec2 offsets[4] = i32vec2[](
+        i32vec2(0.5, 1.5),
+        i32vec2(1.5, 1.5),
+        i32vec2(1.5, 0.5),
+        i32vec2(0.5, 0.5)
+    );
+
+    for(i32 idx = 0; idx < 4; idx++)
+    {
+        // Skip fragments into which no objects were rendered
+        if(depths[idx] == 0.0) { continue; }
+
+        const f32vec2 screen_space_uv = (scaled_pixel_coords + offsets[idx]) / f32vec2(pc.depth_dimensions);
+        const f32vec2 remap_uv = (screen_space_uv * 2.0) - 1.0;
+        const f32vec4 ndc_position = f32vec4(remap_uv, depths[idx], 1.0);
+        const f32vec4 unprojected_ndc_position = deref(_globals).inv_view_projection * ndc_position;
+        const f32vec3 offset_world_position = unprojected_ndc_position.xyz / unprojected_ndc_position.w;
+        const f32vec3 world_position = offset_world_position - deref(_globals).offset;
+
+        const f32vec3 sun_offset_world_position = world_position + deref(_globals).sun_offset;
+        const f32vec4 sun_projected_world_position = deref(_globals).sun_projection_view * f32vec4(sun_offset_world_position, 1.0);
+        const f32vec3 sun_ndc_position = sun_projected_world_position.xyz / sun_projected_world_position.w;
+        const f32vec2 sun_depth_uv = (sun_ndc_position.xy + f32vec2(1.0)) / f32vec2(2.0);
+
+        // imageStore(daxa_image2D(_offscreen), i32vec2(scaled_pixel_coords + offsets[idx]), f32vec4(sun_depth_uv, 0.0, 1.0));
+        imageStore(daxa_image2D(_offscreen), i32vec2(scaled_pixel_coords + offsets[idx]), f32vec4(sun_offset_world_position, 1.0));
+
+        const u32 page_entry = imageLoad(daxa_uimage2D(_vsm_page_table), i32vec2(sun_depth_uv * VSM_PAGE_TABLE_RESOLUTION)).r;
+
+        if(!is_allocated(page_entry))
+        {
+            imageAtomicOr(
+                daxa_access(r32uiImage, _vsm_page_table),
+                i32vec2(sun_depth_uv * VSM_PAGE_TABLE_RESOLUTION),
+                get_needs_allocation_mask()
+            );
+        }
+    }
+}
+
 #if defined(FIRST_PASS)
 
 // min/max depth values for the local thread
@@ -84,14 +133,16 @@ void main()
     in_subgroup_offset.x = gl_SubgroupInvocationID % _tile_size;
     in_subgroup_offset.y = gl_SubgroupInvocationID / _tile_size;
 
-    u32vec2 pixel_coords = _tile_size * gl_WorkGroupID.xy + subgroup_offset + in_subgroup_offset;
+    const u32vec2 pixel_coords = _tile_size * gl_WorkGroupID.xy + subgroup_offset + in_subgroup_offset;
     // Each thread reads 2x2 block
-    pixel_coords *= 2;
+    const u32vec2 scaled_pixel_coords = pixel_coords * 2;
     // Offset into the middle of the 2x2 block so gather gets us the correct texels
-    pixel_coords += u32vec2(1, 1);
+    const u32vec2 scaled_offset_pixel_coords = scaled_pixel_coords + u32vec2(1, 1);
 
-    f32vec2 depth_uv = f32vec2(pixel_coords) / f32vec2(pc.depth_dimensions);
+    f32vec2 depth_uv = f32vec2(scaled_offset_pixel_coords) / f32vec2(pc.depth_dimensions);
     f32vec4 read_depth_values = textureGather(daxa_sampler2D(_depth, pc.linear_sampler), depth_uv, 0);
+
+    request_vsm_pages(read_depth_values, scaled_pixel_coords);
 
     f32vec2 local_min_max_depth = thread_min_max_depth(read_depth_values);
     workgroup_min_max_depth(local_min_max_depth);

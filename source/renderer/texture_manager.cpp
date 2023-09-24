@@ -32,9 +32,6 @@ TextureManager::TextureManager(TextureManagerInfo const & c_info) : info{c_info}
     });
     setGlobalThreadCount(8);
 
-
-
-
     // ================= UPLOAD TEXTURE TASK GRAPH ====================================================
     load_dst_hdr_texture = daxa::TaskImage({.name = "texture manager load dst task image"});
     upload_texture_task_graph = daxa::TaskGraph({

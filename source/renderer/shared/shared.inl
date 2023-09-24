@@ -11,6 +11,16 @@
 #define SHADOWMAP_RESOLUTION 1024
 #define UNIT_SCALE 0.001
 #define HISTOGRAM_BIN_COUNT 256
+
+#define VSM_TEXTURE_RESOLUTION 8192
+#define VSM_MEMORY_RESOLUTION 4096
+#define VSM_PAGE_SIZE 128
+#define VSM_PAGE_TABLE_RESOLUTION (VSM_TEXTURE_RESOLUTION / VSM_PAGE_SIZE)
+// How many pixels in debug texture does a single page table entry span
+// for example a value of 4 means a single page entry will span 4x4 pixels in the debug texture
+#define VSM_DEBUG_PAGING_TABLE_SCALE 4
+#define VSM_DEBUG_PAGING_TABLE_RESOLUTION (VSM_DEBUG_PAGING_TABLE_SCALE * VSM_PAGE_TABLE_RESOLUTION)
+
 struct DensityProfileLayer
 {
     daxa_f32 layer_width;
@@ -68,6 +78,9 @@ struct Globals
     daxa_f32vec3 camera_frust_top_offset;
     daxa_f32vec3 camera_frust_right_offset;
 
+    daxa_f32mat4x4 sun_projection_view;
+    daxa_i32vec3 sun_offset;
+
     // =============== Terrrain ======================
     daxa_f32vec2 terrain_scale;
     daxa_f32 terrain_midpoint;
@@ -80,6 +93,7 @@ struct Globals
 
     // ================ Shadows ======================
     daxa_f32 lambda;
+    daxa_f32mat4x4 sun_view_projection;
 
     // ================ Post process =================
     daxa_f32 min_luminance_log2;

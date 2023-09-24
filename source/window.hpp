@@ -10,6 +10,9 @@
 #include <dwmapi.h>
 #ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
 #define DWMWA_USE_IMMERSIVE_DARK_MODE 20
+// I WILL KILL MICROSOFT
+#undef near
+#undef far
 #endif
 #elif defined(__linux__)
 #define GLFW_EXPOSE_NATIVE_X11

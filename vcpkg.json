@@ -5,7 +5,7 @@
     "daxa",
     "glfw3",
     "glm",
-    "nlohmann-json",    
+    "nlohmann-json",
     "openexr",
     {
       "name": "imgui",
@@ -15,10 +15,10 @@
       ]
     }
   ],
-  "builtin-baseline": "a325228200d7f229f3337e612e0077f2a5307090",
+  "builtin-baseline": "78ba9711d30c64a6b40462c72f356c681e2255f3",
   "vcpkg-configuration": {
     "overlay-ports": [
-      "../Daxa/cmake/vcpkg-port"
+      "C:\\Developement\\Tenebris\\../Daxa/cmake/vcpkg-port"
     ]
   }
 }

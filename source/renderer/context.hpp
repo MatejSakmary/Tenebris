@@ -8,6 +8,8 @@
 #include <daxa/utils/imgui.hpp>
 #include <daxa/utils/pipeline_manager.hpp>
 
+#include "../camera.hpp"
+
 #include "shared/shared.inl"
 
 using namespace std::literals;
@@ -32,6 +34,10 @@ struct Context
         daxa::TaskImage diffuse_map;
         daxa::TaskImage height_map;
         daxa::TaskImage normal_map;
+
+        daxa::TaskImage vsm_paging_table;
+        daxa::TaskImage vsm_debug_paging_table;
+        daxa::TaskImage vsm_memory;
     };
 
     struct Pipelines
@@ -48,6 +54,7 @@ struct Context
         std::shared_ptr<daxa::ComputePipeline> prepare_shadow_matrices;
         std::shared_ptr<daxa::ComputePipeline> luminance_histogram;
         std::shared_ptr<daxa::ComputePipeline> adapt_average_luminance;
+        std::shared_ptr<daxa::ComputePipeline> vsm_debug_paging_table;
 
         std::shared_ptr<daxa::RasterPipeline> post_process;
         std::shared_ptr<daxa::RasterPipeline> deferred_pass;
@@ -100,6 +107,8 @@ struct Context
         TransientImages images;
         TransientBuffers buffers;
     };
+
+    Camera sun_camera;
 
     daxa::Instance daxa_instance;
     daxa::Device device;

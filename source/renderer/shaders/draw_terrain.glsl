@@ -120,8 +120,6 @@ void main()
 
     f32vec4 pre_trans_scaled_pos = f32vec4(gl_Position.xyz, 1.0);
 #if defined(SHADOWMAP_DRAW)
-    // offset the position by the camera
-    // pre_trans_scaled_pos.xyz -= deref(_globals).offset;
     f32mat4x4 cascade_view = deref(_cascade_data[pc.cascade_level]).cascade_view_matrix;
     f32mat4x4 cascade_proj = deref(_cascade_data[pc.cascade_level]).cascade_proj_matrix;
     f32mat4x4 projection_view = cascade_proj * cascade_view;

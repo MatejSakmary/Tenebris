@@ -139,7 +139,7 @@ void main()
             f32vec3(1.0, 1.0, 0.0)
         );
 
-        if(thread_idx == 0 || thread_idx == 1)// || thread_idx == 2 || thread_idx == 3) 
+        if(false)//thread_idx == 0 || thread_idx == 1)// || thread_idx == 2 || thread_idx == 3) 
         {
             // Visualize frustum cascade splits
             u32 idx = atomicAdd(deref(_frustum_indirect).instance_count, 1);

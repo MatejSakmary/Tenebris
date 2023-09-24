@@ -214,11 +214,11 @@ f32vec3 sample_medium_extinction(daxa_BufferPtr(Globals) params, f32vec3 positio
 
     const f32 density_mie = exp(deref(params).mie_density[1].exp_scale * height);
     const f32 density_ray = exp(deref(params).rayleigh_density[1].exp_scale * height);
-    const f32 density_ozo = clamp(height < deref(params).absorption_density[0].layer_width ?
-        deref(params).absorption_density[0].lin_term * height + deref(params).absorption_density[0].const_term :
-        deref(params).absorption_density[1].lin_term * height + deref(params).absorption_density[1].const_term,
-        0.0, 1.0);
-
+    // const f32 density_ozo = clamp(height < deref(params).absorption_density[0].layer_width ?
+    //     deref(params).absorption_density[0].lin_term * height + deref(params).absorption_density[0].const_term :
+    //     deref(params).absorption_density[1].lin_term * height + deref(params).absorption_density[1].const_term,
+    //     0.0, 1.0);
+    const f32 density_ozo = exp(-max(0.0, 35.0 - height) * (1.0/5.0)) * exp(-max(0.0, height - 35.0) * (1.0/15.0)) * 2;
     f32vec3 mie_extinction = deref(params).mie_extinction * density_mie;
     f32vec3 ray_extinction = deref(params).rayleigh_scattering * density_ray;
     f32vec3 ozo_extinction = deref(params).absorption_extinction * density_ozo; 
@@ -235,10 +235,6 @@ f32vec3 sample_medium_scattering(daxa_BufferPtr(Globals) params, f32vec3 positio
 
     const f32 density_mie = exp(deref(params).mie_density[1].exp_scale * height);
     const f32 density_ray = exp(deref(params).rayleigh_density[1].exp_scale * height);
-    const f32 density_ozo = clamp(height < deref(params).absorption_density[0].layer_width ?
-        deref(params).absorption_density[0].lin_term * height + deref(params).absorption_density[0].const_term :
-        deref(params).absorption_density[1].lin_term * height + deref(params).absorption_density[1].const_term,
-        0.0, 1.0);
 
     f32vec3 mie_scattering = deref(params).mie_scattering * density_mie;
     f32vec3 ray_scattering = deref(params).rayleigh_scattering * density_ray;

@@ -6,7 +6,7 @@
 #include <daxa/utils/imgui.hpp>
 
 Renderer::Renderer(const AppWindow & window, Globals * globals) :
-    context { .daxa_instance{daxa::create_instance({.enable_validation = false})} },
+    context { .daxa_instance{daxa::create_instance({})} },
     globals{globals}
 {
     context.device = context.daxa_instance.create_device({ .name = "Daxa device" });
@@ -70,6 +70,7 @@ Renderer::Renderer(const AppWindow & window, Globals * globals) :
     init_compute_pipeline(get_prepare_shadow_matrices_pipeline(), context.pipelines.prepare_shadow_matrices);
     init_compute_pipeline(get_luminance_histogram_pipeline(), context.pipelines.luminance_histogram);
     init_compute_pipeline(get_adapt_average_luminance_pipeline(), context.pipelines.adapt_average_luminance);
+    init_compute_pipeline(get_vsm_debug_paging_table_pipeline(), context.pipelines.vsm_debug_paging_table);
     init_raster_pipeline(get_draw_terrain_pipeline(false), context.pipelines.draw_terrain_solid);
     init_raster_pipeline(get_draw_terrain_pipeline(true), context.pipelines.draw_terrain_wireframe);
     init_raster_pipeline(get_debug_draw_frustum_pipeline(context), context.pipelines.debug_draw_frustum);
@@ -110,6 +111,20 @@ Renderer::Renderer(const AppWindow & window, Globals * globals) :
         .device = context.device,
         .compress_pipeline = context.pipelines.BC6H_compress,
         .height_to_normal_pipeline = context.pipelines.height_to_normal,
+    });
+
+    context.sun_camera = Camera({
+        .position = {0.0f, 0.0f, 0.0f},
+        .front    = {0.0f, 1.0f, 0.0f},
+        .up       = {0.0f, 0.0f, 1.0f},
+        .projection_info = OrthographicInfo{
+            .left   = -5000.0f,
+            .right  =  5000.0f,
+            .top    =  5000.0f,
+            .bottom = -5000.0f,
+            .near   =  10.0f,
+            .far    =  10'000.0f
+        }
     });
 
     load_textures();
@@ -158,6 +173,50 @@ void Renderer::create_persistent_resources()
         .name = "average luminance task buffer"
     });
 
+    context.images.vsm_memory = daxa::TaskImage({
+        .initial_images = {
+            .images = std::array{
+                context.device.create_image(daxa::ImageInfo{
+                    .format = daxa::Format::R32_SFLOAT,
+                    .size = {VSM_MEMORY_RESOLUTION, VSM_MEMORY_RESOLUTION, 1},
+                    .usage = daxa::ImageUsageFlagBits::SHADER_SAMPLED | daxa::ImageUsageFlagBits::SHADER_STORAGE
+                })
+            },
+        },
+        .name = "vsm memory"
+    });
+
+    context.images.vsm_paging_table = daxa::TaskImage({
+        .initial_images = {
+            .images = std::array{
+                context.device.create_image(daxa::ImageInfo{
+                    .format = daxa::Format::R32_UINT,
+                    .size = { VSM_PAGE_TABLE_RESOLUTION, VSM_PAGE_TABLE_RESOLUTION, 1 },
+                    .usage = 
+                        daxa::ImageUsageFlagBits::SHADER_SAMPLED |
+                        daxa::ImageUsageFlagBits::SHADER_STORAGE |
+                        daxa::ImageUsageFlagBits::TRANSFER_DST
+                })
+            },
+        },
+        .name = "vsm paging table"
+    });
+
+    context.images.vsm_debug_paging_table = daxa::TaskImage({
+        .initial_images = {
+            .images = std::array{
+                context.device.create_image(daxa::ImageInfo{
+                    .format = daxa::Format::R8G8B8A8_UNORM,
+                    .size = { VSM_DEBUG_PAGING_TABLE_RESOLUTION, VSM_DEBUG_PAGING_TABLE_RESOLUTION, 1 },
+                    .usage = 
+                        daxa::ImageUsageFlagBits::SHADER_SAMPLED |
+                        daxa::ImageUsageFlagBits::SHADER_STORAGE 
+                })
+            },
+        },
+        .name = "vsm debug paging table"
+    });
+
     auto upload_task_list = daxa::TaskGraph({
         .device = context.device,
         .swapchain = context.swapchain,
@@ -171,10 +230,12 @@ void Renderer::create_persistent_resources()
     
     upload_task_list.use_persistent_buffer(context.buffers.frustum_indices);
     upload_task_list.use_persistent_buffer(context.buffers.average_luminance);
+    upload_task_list.use_persistent_image(context.images.vsm_paging_table);
     upload_task_list.add_task({
         .uses = { 
             daxa::BufferHostTransferWrite{context.buffers.frustum_indices},
             daxa::BufferHostTransferWrite{context.buffers.average_luminance},
+            daxa::ImageTransferWrite<>{context.images.vsm_paging_table}
         },
         .task = [&, this](daxa::TaskInterface ti)
         {
@@ -217,6 +278,12 @@ void Renderer::create_persistent_resources()
                         .size = size
                     });
                 }
+                {
+                    cmd_list.clear_image({
+                        .clear_value = std::array<u32, 4>{0u, 0u, 0u, 0u},
+                        .dst_image = ti.uses[context.images.vsm_paging_table].image(),
+                    });
+                }
             }
         },
         .name = "upload indices",
@@ -240,6 +307,7 @@ void Renderer::load_textures()
 
     manager->load_texture({
         .path = "assets/terrain/rugged_terrain_diffuse.exr",
+        // .path = "assets/terrain/8k/mountain_range_diffuse.exr",
         .dest_image = tmp_raw_loaded_image
     });
 
@@ -252,6 +320,7 @@ void Renderer::load_textures()
 
     manager->load_texture({
         .path = "assets/terrain/rugged_terrain_height.exr",
+        // .path = "assets/terrain/8k/mountain_range_height.exr",
         .dest_image = context.images.height_map,
     });
 
@@ -272,6 +341,10 @@ void Renderer::initialize_main_tasklist()
     context.main_task_list.task_list.use_persistent_image(context.images.height_map);
     context.main_task_list.task_list.use_persistent_image(context.images.diffuse_map);
     context.main_task_list.task_list.use_persistent_image(context.images.normal_map);
+
+    context.main_task_list.task_list.use_persistent_image(context.images.vsm_memory);
+    context.main_task_list.task_list.use_persistent_image(context.images.vsm_paging_table);
+    context.main_task_list.task_list.use_persistent_image(context.images.vsm_debug_paging_table);
 
     auto extent = context.swapchain.get_surface_extent();
 
@@ -544,8 +617,12 @@ void Renderer::initialize_main_tasklist()
             #pragma region analyze_deptbuffer
             tl.task_list.add_task(AnalyzeDepthbufferTask{{
                 .uses = {
+                    ._globals = context.buffers.globals.view(),
                     ._depth_limits = tl.buffers.depth_limits,
+                    // TODO(msakmary) this is only for debug purposes - REMOVE!
+                    ._offscreen = tl.images.offscreen,
                     ._depth = secondary_camera_depth,
+                    ._vsm_page_table = context.images.vsm_paging_table.view(),
                 }},
                 &context
             });
@@ -574,8 +651,12 @@ void Renderer::initialize_main_tasklist()
             #pragma region analyze_deptbuffer
             tl.task_list.add_task(AnalyzeDepthbufferTask{{
                 .uses = {
+                    ._globals = context.buffers.globals.view(),
                     ._depth_limits = tl.buffers.depth_limits,
+                    // TODO(msakmary) this is only for debug purposes - REMOVE!
+                    ._offscreen = tl.images.offscreen,
                     ._depth = tl.images.depth,
+                    ._vsm_page_table = context.images.vsm_paging_table.view(),
                 }},
                 &context
             });
@@ -695,10 +776,21 @@ void Renderer::initialize_main_tasklist()
     });
     #pragma endregion
 
+    #pragma region vsm_debug_paging_table
+    tl.task_list.add_task(VSMDebugPageTableTask{{
+        .uses = {
+            ._vsm_page_table = context.images.vsm_paging_table.view(),
+            ._vsm_debug_paging_table = context.images.vsm_debug_paging_table.view()
+        }},
+        &context
+    });
+    #pragma endregion
+
     #pragma region imgui
     tl.task_list.add_task(ImGuiTask{{
         .uses = {
             ._swapchain = context.images.swapchain.view(),
+            ._vsm_debug_paging_table = context.images.vsm_debug_paging_table.view(),
         }},
         &context
     });
@@ -824,6 +916,9 @@ void Renderer::draw(DrawInfo const & info)
     context.debug_frustum_cpu_count = 0;
     auto extent = context.swapchain.get_surface_extent();
 
+    context.sun_camera.set_position((globals->sun_direction * -1000.0f) + f32vec3{5000.0f, 5000.0f, 0.0f});
+    context.sun_camera.set_front(globals->sun_direction);
+
     Camera * primary_camera = globals->use_debug_camera ? &info.debug_camera : &info.main_camera;
     Camera * secondary_camera = globals->use_debug_camera ? &info.main_camera : &info.debug_camera;
 
@@ -840,15 +935,18 @@ void Renderer::draw(DrawInfo const & info)
     globals->secondary_projection          = secondary_camera->get_projection_matrix();
     globals->secondary_inv_view_projection = secondary_camera->get_inv_view_proj_matrix(); 
 
+    globals->sun_projection_view = context.sun_camera.get_projection_view_matrix();
+    globals->sun_offset = context.sun_camera.offset;
+
     context.main_task_list.conditionals.at(MainConditionals::USE_DEBUG_CAMERA) = globals->use_debug_camera;
-    // if(globals->use_debug_camera) 
-    // {
-    //     secondary_camera->write_frustum_vertices({
-    //         std::span<FrustumVertex, 8>{&context.frustum_vertices[8 * context.debug_frustum_cpu_count], 8 }
-    //     });
-    //     context.frustum_colors[context.debug_frustum_cpu_count].color = f32vec3{1.0, 1.0, 1.0};
-    //     context.debug_frustum_cpu_count += 1;
-    // }
+    if(globals->use_debug_camera) 
+    {
+        context.sun_camera.write_frustum_vertices({
+            std::span<FrustumVertex, 8>{&context.frustum_vertices[8 * context.debug_frustum_cpu_count], 8 }
+        });
+        context.frustum_colors[context.debug_frustum_cpu_count].color = f32vec3{1.0, 1.0, 0.2};
+        context.debug_frustum_cpu_count += 1;
+    }
 
     auto [front, top, right] = info.main_camera.get_frustum_info();
     globals->camera_front = front;
@@ -906,6 +1004,9 @@ Renderer::~Renderer()
     destroy_image_if_valid(context.images.diffuse_map);
     destroy_image_if_valid(context.images.height_map);
     destroy_image_if_valid(context.images.normal_map);
+    destroy_image_if_valid(context.images.vsm_debug_paging_table);
+    destroy_image_if_valid(context.images.vsm_paging_table);
+    destroy_image_if_valid(context.images.vsm_memory);
     context.device.destroy_sampler(context.linear_sampler);
     context.device.collect_garbage();
 }
