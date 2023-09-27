@@ -16,10 +16,18 @@
 #define VSM_MEMORY_RESOLUTION 4096
 #define VSM_PAGE_SIZE 128
 #define VSM_PAGE_TABLE_RESOLUTION (VSM_TEXTURE_RESOLUTION / VSM_PAGE_SIZE)
+#define VSM_META_MEMORY_RESOLUTION (VSM_MEMORY_RESOLUTION / VSM_PAGE_SIZE)
 // How many pixels in debug texture does a single page table entry span
 // for example a value of 4 means a single page entry will span 4x4 pixels in the debug texture
 #define VSM_DEBUG_PAGING_TABLE_SCALE 4
-#define VSM_DEBUG_PAGING_TABLE_RESOLUTION (VSM_DEBUG_PAGING_TABLE_SCALE * VSM_PAGE_TABLE_RESOLUTION)
+#define VSM_DEBUG_PAGING_TABLE_RESOLUTION (VSM_PAGE_TABLE_RESOLUTION * VSM_DEBUG_PAGING_TABLE_SCALE)
+
+// How many pixels in debug texture does a single page table entry span
+// for example a value of 4 means a single page entry will span 4x4 pixels in the debug texture
+#define VSM_DEBUG_META_MEMORY_SCALE 4
+#define VSM_DEBUG_META_MEMORY_RESOLUTION (VSM_META_MEMORY_RESOLUTION * VSM_DEBUG_META_MEMORY_SCALE)
+
+#define MAX_NUM_VSM_ALLOC_REQUEST 30
 
 struct DensityProfileLayer
 {
@@ -99,6 +107,9 @@ struct Globals
     daxa_f32 min_luminance_log2;
     daxa_f32 max_luminance_log2;
     daxa_f32 inv_luminance_range_log2;
+
+    // ================ AgX ==========================
+    
 };
 
 DAXA_DECL_BUFFER_PTR(Globals)
@@ -159,6 +170,14 @@ struct DrawIndexedIndirectStruct
 };
 DAXA_DECL_BUFFER_PTR(DrawIndexedIndirectStruct)
 
+struct DispatchIndirectStruct
+{
+    daxa_u32 x;
+    daxa_u32 y;
+    daxa_u32 z;
+};
+DAXA_DECL_BUFFER_PTR(DispatchIndirectStruct)
+
 // ============== POST PROCESS ======================
 struct Histogram
 {
@@ -171,3 +190,10 @@ struct AverageLuminance
     daxa_f32 luminance;
 };
 DAXA_DECL_BUFFER_PTR(AverageLuminance)
+
+// =============== VSM ===============================
+struct AllocationRequest
+{
+    daxa_i32vec2 coords;
+};
+DAXA_DECL_BUFFER_PTR(AllocationRequest)

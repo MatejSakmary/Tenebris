@@ -11,7 +11,8 @@ DAXA_DECL_PUSH_CONSTANT(DeferredPassPC, pc)
 layout (location = 0) in f32vec2 uv;
 layout (location = 0) out f32vec4 out_color;
 
-const f32vec4 sun_color = f32vec4(255.0, 204.0, 153.0, 255.0)/255.0;
+// const f32vec4 sun_color = f32vec4(255.0, 204.0, 153.0, 255.0)/255.0;
+const f32vec4 sun_color = f32vec4(255.0, 255.0, 255.0, 255.0)/255.0;
 
 f32vec3 add_sun_circle(f32vec3 world_dir, f32vec3 sun_dir)
 {
@@ -152,7 +153,7 @@ void main()
     const f32vec4 shadow_projected_world = shadow_proj_view * f32vec4(world_position, 1.0);
     const f32vec3 shadow_ndc_pos = shadow_projected_world.xyz / shadow_projected_world.w;
     const f32vec3 shadow_map_uv = f32vec3((shadow_ndc_pos.xy + f32vec2(1.0)) / f32vec2(2.0), f32(cascade_idx));
-    const f32 distance_in_shadowmap = texture(daxa_sampler2DArray(_esm, pc.nearest_sampler_id), shadow_map_uv).r;
+    const f32 distance_in_shadowmap = texture(daxa_sampler2DArray(_esm, pc.linear_sampler_id), shadow_map_uv).r;
 
     const f32vec4 shadow_view_world_pos = shadow_view * f32vec4(world_position, 1.0);
     const f32 shadow_reprojected_distance = shadow_view_world_pos.z / deref(_cascade_data[cascade_idx]).far_plane;

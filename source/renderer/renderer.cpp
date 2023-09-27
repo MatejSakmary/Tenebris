@@ -70,7 +70,8 @@ Renderer::Renderer(const AppWindow & window, Globals * globals) :
     init_compute_pipeline(get_prepare_shadow_matrices_pipeline(), context.pipelines.prepare_shadow_matrices);
     init_compute_pipeline(get_luminance_histogram_pipeline(), context.pipelines.luminance_histogram);
     init_compute_pipeline(get_adapt_average_luminance_pipeline(), context.pipelines.adapt_average_luminance);
-    init_compute_pipeline(get_vsm_debug_paging_table_pipeline(), context.pipelines.vsm_debug_paging_table);
+    init_compute_pipeline(get_vsm_debug_page_table_pipeline(), context.pipelines.vsm_debug_page_table);
+    init_compute_pipeline(get_vsm_allocate_pages_pipeline(), context.pipelines.vsm_allocate_pages);
     init_raster_pipeline(get_draw_terrain_pipeline(false), context.pipelines.draw_terrain_solid);
     init_raster_pipeline(get_draw_terrain_pipeline(true), context.pipelines.draw_terrain_wireframe);
     init_raster_pipeline(get_debug_draw_frustum_pipeline(context), context.pipelines.debug_draw_frustum);
@@ -83,6 +84,11 @@ Renderer::Renderer(const AppWindow & window, Globals * globals) :
         .address_mode_v = daxa::SamplerAddressMode::CLAMP_TO_BORDER,
         .address_mode_w = daxa::SamplerAddressMode::CLAMP_TO_BORDER,
         .border_color = daxa::BorderColor::FLOAT_OPAQUE_BLACK,
+    });
+
+    context.nearest_sampler = context.device.create_sampler({
+        .magnification_filter = daxa::Filter::NEAREST,
+        .minification_filter = daxa::Filter::NEAREST
     });
 
     ImGui::CreateContext();
@@ -186,7 +192,7 @@ void Renderer::create_persistent_resources()
         .name = "vsm memory"
     });
 
-    context.images.vsm_paging_table = daxa::TaskImage({
+    context.images.vsm_page_table = daxa::TaskImage({
         .initial_images = {
             .images = std::array{
                 context.device.create_image(daxa::ImageInfo{
@@ -202,7 +208,7 @@ void Renderer::create_persistent_resources()
         .name = "vsm paging table"
     });
 
-    context.images.vsm_debug_paging_table = daxa::TaskImage({
+    context.images.vsm_debug_page_table = daxa::TaskImage({
         .initial_images = {
             .images = std::array{
                 context.device.create_image(daxa::ImageInfo{
@@ -230,12 +236,12 @@ void Renderer::create_persistent_resources()
     
     upload_task_list.use_persistent_buffer(context.buffers.frustum_indices);
     upload_task_list.use_persistent_buffer(context.buffers.average_luminance);
-    upload_task_list.use_persistent_image(context.images.vsm_paging_table);
+    upload_task_list.use_persistent_image(context.images.vsm_page_table);
     upload_task_list.add_task({
         .uses = { 
             daxa::BufferHostTransferWrite{context.buffers.frustum_indices},
             daxa::BufferHostTransferWrite{context.buffers.average_luminance},
-            daxa::ImageTransferWrite<>{context.images.vsm_paging_table}
+            daxa::ImageTransferWrite<>{context.images.vsm_page_table}
         },
         .task = [&, this](daxa::TaskInterface ti)
         {
@@ -281,7 +287,7 @@ void Renderer::create_persistent_resources()
                 {
                     cmd_list.clear_image({
                         .clear_value = std::array<u32, 4>{0u, 0u, 0u, 0u},
-                        .dst_image = ti.uses[context.images.vsm_paging_table].image(),
+                        .dst_image = ti.uses[context.images.vsm_page_table].image(),
                     });
                 }
             }
@@ -343,8 +349,8 @@ void Renderer::initialize_main_tasklist()
     context.main_task_list.task_list.use_persistent_image(context.images.normal_map);
 
     context.main_task_list.task_list.use_persistent_image(context.images.vsm_memory);
-    context.main_task_list.task_list.use_persistent_image(context.images.vsm_paging_table);
-    context.main_task_list.task_list.use_persistent_image(context.images.vsm_debug_paging_table);
+    context.main_task_list.task_list.use_persistent_image(context.images.vsm_page_table);
+    context.main_task_list.task_list.use_persistent_image(context.images.vsm_debug_page_table);
 
     auto extent = context.swapchain.get_surface_extent();
 
@@ -410,6 +416,18 @@ void Renderer::initialize_main_tasklist()
     });
     #pragma endregion
 
+    #pragma region vsm_resources
+    tl.buffers.vsm_allocation_requests = tl.task_list.create_transient_buffer({
+        .size = static_cast<u32>(sizeof(AllocationRequest) * 200),
+        .name = "vsm_allocation_buffer"
+    });
+
+    tl.buffers.vsm_allocate_indirect = tl.task_list.create_transient_buffer({
+        .size = static_cast<u32>(sizeof(DispatchIndirectStruct)),
+        .name = "vsm_allocate_indirect"
+    });
+    #pragma endregion
+
     tl.buffers.luminance_histogram = tl.task_list.create_transient_buffer({
         .size = sizeof(Histogram) * HISTOGRAM_BIN_COUNT,
         .name = "histogram"
@@ -469,6 +487,7 @@ void Renderer::initialize_main_tasklist()
             daxa::BufferHostTransferWrite{tl.buffers.frustum_indirect},
             daxa::BufferHostTransferWrite{tl.buffers.frustum_colors},
             daxa::BufferHostTransferWrite{tl.buffers.luminance_histogram},
+            daxa::BufferHostTransferWrite{tl.buffers.vsm_allocate_indirect},
         },
         .task = [&, this](daxa::TaskInterface ti)
         {
@@ -521,6 +540,17 @@ void Renderer::initialize_main_tasklist()
                     ti.uses[tl.buffers.luminance_histogram].buffer(),
                     reset_bin_values.data(),
                     sizeof(Histogram) * HISTOGRAM_BIN_COUNT
+                );
+
+                DispatchIndirectStruct dispatch_indirect{
+                    .x = 0,
+                    .y = 1,
+                    .z = 1
+                };
+                upload_cpu_to_gpu(
+                    ti.uses[tl.buffers.vsm_allocate_indirect].buffer(),
+                    &dispatch_indirect,
+                    sizeof(DispatchIndirectStruct)
                 );
             }
         },
@@ -619,10 +649,10 @@ void Renderer::initialize_main_tasklist()
                 .uses = {
                     ._globals = context.buffers.globals.view(),
                     ._depth_limits = tl.buffers.depth_limits,
-                    // TODO(msakmary) this is only for debug purposes - REMOVE!
-                    ._offscreen = tl.images.offscreen,
+                    ._vsm_allocation_buffer = tl.buffers.vsm_allocation_requests,
+                    ._vsm_allocate_indirect = tl.buffers.vsm_allocate_indirect,
                     ._depth = secondary_camera_depth,
-                    ._vsm_page_table = context.images.vsm_paging_table.view(),
+                    ._vsm_page_table = context.images.vsm_page_table.view(),
                 }},
                 &context
             });
@@ -653,16 +683,26 @@ void Renderer::initialize_main_tasklist()
                 .uses = {
                     ._globals = context.buffers.globals.view(),
                     ._depth_limits = tl.buffers.depth_limits,
-                    // TODO(msakmary) this is only for debug purposes - REMOVE!
-                    ._offscreen = tl.images.offscreen,
+                    ._vsm_allocation_buffer = tl.buffers.vsm_allocation_requests,
+                    ._vsm_allocate_indirect = tl.buffers.vsm_allocate_indirect,
                     ._depth = tl.images.depth,
-                    ._vsm_page_table = context.images.vsm_paging_table.view(),
+                    ._vsm_page_table = context.images.vsm_page_table.view(),
                 }},
                 &context
             });
             #pragma endregion
         }
     });
+    #pragma region vsm_allocate_pages
+    tl.task_list.add_task(VSMAllocatePagesTask{{
+        .uses = {
+            ._vsm_allocation_buffer = tl.buffers.vsm_allocation_requests,
+            ._vsm_allocate_indirect = tl.buffers.vsm_allocate_indirect,
+            ._vsm_page_table = context.images.vsm_page_table.view(),
+        }},
+        &context
+    });
+    #pragma endregion
 
     #pragma region prepare_shadowmap_matrices
     tl.task_list.add_task(PrepareShadowmapMatricesTask{{
@@ -776,11 +816,11 @@ void Renderer::initialize_main_tasklist()
     });
     #pragma endregion
 
-    #pragma region vsm_debug_paging_table
+    #pragma region vsm_debug_page_table
     tl.task_list.add_task(VSMDebugPageTableTask{{
         .uses = {
-            ._vsm_page_table = context.images.vsm_paging_table.view(),
-            ._vsm_debug_paging_table = context.images.vsm_debug_paging_table.view()
+            ._vsm_page_table = context.images.vsm_page_table.view(),
+            ._vsm_debug_page_table = context.images.vsm_debug_page_table.view()
         }},
         &context
     });
@@ -790,7 +830,7 @@ void Renderer::initialize_main_tasklist()
     tl.task_list.add_task(ImGuiTask{{
         .uses = {
             ._swapchain = context.images.swapchain.view(),
-            ._vsm_debug_paging_table = context.images.vsm_debug_paging_table.view(),
+            ._vsm_debug_page_table = context.images.vsm_debug_page_table.view(),
         }},
         &context
     });
@@ -1004,8 +1044,8 @@ Renderer::~Renderer()
     destroy_image_if_valid(context.images.diffuse_map);
     destroy_image_if_valid(context.images.height_map);
     destroy_image_if_valid(context.images.normal_map);
-    destroy_image_if_valid(context.images.vsm_debug_paging_table);
-    destroy_image_if_valid(context.images.vsm_paging_table);
+    destroy_image_if_valid(context.images.vsm_debug_page_table);
+    destroy_image_if_valid(context.images.vsm_page_table);
     destroy_image_if_valid(context.images.vsm_memory);
     context.device.destroy_sampler(context.linear_sampler);
     context.device.collect_garbage();

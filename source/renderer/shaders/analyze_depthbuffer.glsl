@@ -80,18 +80,56 @@ void request_vsm_pages(f32vec4 depths, u32vec2 scaled_pixel_coords)
         const f32vec3 sun_ndc_position = sun_projected_world_position.xyz / sun_projected_world_position.w;
         const f32vec2 sun_depth_uv = (sun_ndc_position.xy + f32vec2(1.0)) / f32vec2(2.0);
 
-        // imageStore(daxa_image2D(_offscreen), i32vec2(scaled_pixel_coords + offsets[idx]), f32vec4(sun_depth_uv, 0.0, 1.0));
-        imageStore(daxa_image2D(_offscreen), i32vec2(scaled_pixel_coords + offsets[idx]), f32vec4(sun_offset_world_position, 1.0));
+        const i32vec2 vsm_page_pix_coords = i32vec2(sun_depth_uv * VSM_PAGE_TABLE_RESOLUTION);
+        const u32 page_entry = imageLoad(daxa_uimage2D(_vsm_page_table), vsm_page_pix_coords).r;
 
-        const u32 page_entry = imageLoad(daxa_uimage2D(_vsm_page_table), i32vec2(sun_depth_uv * VSM_PAGE_TABLE_RESOLUTION)).r;
+        const bool is_not_allocated = !get_is_allocated(page_entry);
+        const bool allocation_available = atomicAdd(deref(_vsm_allocate_indirect).x, 0) < MAX_NUM_VSM_ALLOC_REQUEST;
 
-        if(!is_allocated(page_entry))
+        if(is_not_allocated && allocation_available)
         {
-            imageAtomicOr(
+            const u32 prev_state = imageAtomicOr(
                 daxa_access(r32uiImage, _vsm_page_table),
-                i32vec2(sun_depth_uv * VSM_PAGE_TABLE_RESOLUTION),
-                get_needs_allocation_mask()
+                vsm_page_pix_coords,
+                // TODO(msakmary) allocation failed is later reset when actually allocating the page
+                // This is not very intuitive - perhaps rename
+                requests_allocation_mask() | allocation_failed_mask()
             );
+
+            if(!get_requests_allocation(prev_state))
+            {
+                // If this is the thread to mark this page as REQUESTS_ALLOCATION
+                //    -> create a new allocation request in the allocation buffer
+                u32 idx = atomicAdd(deref(_vsm_allocate_indirect).x, 1);
+                if(idx < MAX_NUM_VSM_ALLOC_REQUEST)
+                {
+                    deref(_vsm_allocation_buffer[idx]) = AllocationRequest(vsm_page_pix_coords);
+                } 
+                else 
+                {
+                    // debugPrintfEXT("Allocation attempted and failed\n");
+                    atomicAdd(deref(_vsm_allocate_indirect).x, -1);
+                    imageAtomicAnd(
+                        daxa_access(r32uiImage, _vsm_page_table),
+                        vsm_page_pix_coords,
+                        ~requests_allocation_mask()
+                    );
+                }
+            } 
+        } 
+        else if (!get_is_visited_marked(page_entry))
+        {
+            const u32 prev_state = imageAtomicOr(
+                daxa_access(r32uiImage, _vsm_page_table),
+                vsm_page_pix_coords,
+                visited_marked_mask()
+            );
+            // If this is the first thread to mark this page as VISITED_MARKED 
+            //   -> mark the physical page as VISITED
+            if(!get_is_visited_marked(prev_state))
+            {
+                // TODO(msakmary) mark physical page as VISITED
+            }
         }
     }
 }

@@ -153,7 +153,7 @@ void GuiManager::on_update()
     ImGui::Begin("VSM Paging Texture");
     ImGui::Image(
         daxa::ImGuiRenderer::create_image_context({
-            .image_view_id = info.renderer->context.images.vsm_debug_paging_table.get_state().images[0].default_view(),
+            .image_view_id = info.renderer->context.images.vsm_debug_page_table.get_state().images[0].default_view(),
             .sampler_id = info.renderer->context.nearest_sampler
         }),
         ImVec2(128.0f * 4.0f, 128.0f * 4.0f) 
