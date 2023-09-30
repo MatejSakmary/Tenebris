@@ -31,8 +31,9 @@
 #include "tasks/imgui_task.inl"
 #include "tasks/shadowmap.inl"
 #include "tasks/ESM_pass.inl"
-#include "tasks/vsm_debug_page_table.inl"
+#include "tasks/vsm_find_free_pages.inl"
 #include "tasks/vsm_allocate_pages.inl"
+#include "tasks/vsm_debug_pass.inl"
 
 using namespace daxa::types;
 

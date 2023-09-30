@@ -19,6 +19,7 @@ DAXA_TASK_USE_BUFFER(_vsm_allocation_buffer, daxa_BufferPtr(AllocationRequest), 
 DAXA_TASK_USE_BUFFER(_vsm_allocate_indirect, daxa_BufferPtr(DispatchIndirectStruct), COMPUTE_SHADER_READ_WRITE)
 DAXA_TASK_USE_IMAGE(_depth, REGULAR_2D, COMPUTE_SHADER_SAMPLED)
 DAXA_TASK_USE_IMAGE(_vsm_page_table, REGULAR_2D, COMPUTE_SHADER_STORAGE_READ_WRITE)
+DAXA_TASK_USE_IMAGE(_vsm_meta_memory_table, REGULAR_2D, COMPUTE_SHADER_STORAGE_READ_WRITE)
 DAXA_DECL_TASK_USES_END()
 
 #if __cplusplus

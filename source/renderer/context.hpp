@@ -39,6 +39,7 @@ struct Context
         daxa::TaskImage vsm_debug_page_table;
         daxa::TaskImage vsm_memory;
         daxa::TaskImage vsm_meta_memory_table;
+        daxa::TaskImage vsm_debug_meta_memory_table;
     };
 
     struct Pipelines
@@ -55,8 +56,10 @@ struct Context
         std::shared_ptr<daxa::ComputePipeline> prepare_shadow_matrices;
         std::shared_ptr<daxa::ComputePipeline> luminance_histogram;
         std::shared_ptr<daxa::ComputePipeline> adapt_average_luminance;
-        std::shared_ptr<daxa::ComputePipeline> vsm_debug_page_table;
+        std::shared_ptr<daxa::ComputePipeline> vsm_find_free_pages;
         std::shared_ptr<daxa::ComputePipeline> vsm_allocate_pages;
+        std::shared_ptr<daxa::ComputePipeline> vsm_debug_page_table;
+        std::shared_ptr<daxa::ComputePipeline> vsm_debug_meta_memory_table;
 
         std::shared_ptr<daxa::RasterPipeline> post_process;
         std::shared_ptr<daxa::RasterPipeline> deferred_pass;
@@ -86,6 +89,10 @@ struct Context
 
             daxa::TaskBufferView vsm_allocation_requests;
             daxa::TaskBufferView vsm_allocate_indirect;
+
+            daxa::TaskBufferView vsm_free_page_buffer;
+            daxa::TaskBufferView vsm_not_visited_page_buffer;
+            daxa::TaskBufferView vsm_find_free_pages_header;
         };
 
         struct TransientImages

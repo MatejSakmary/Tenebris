@@ -75,6 +75,8 @@ f32 Tonemap_ACES(f32 x) {
     return (x * (a * x + b)) / (x * (c * x + d) + e);
 }
 // AGX =====================================
+// Source - https://github.com/BelmuTM/Noble/blob/master/shaders/programs/post/pre_final.glsl
+//        - https://github.com/BelmuTM/Noble/blob/master/shaders/include/post/grading.glsl
 const f32mat3x3 SRGB_2_XYZ_MAT = f32mat3x3
 (
 	0.4124564, 0.3575761, 0.1804375,
@@ -130,9 +132,9 @@ void agxEotf(inout f32vec3 color) {
 void agxLook(inout f32vec3 color) {
     // #if AGX_LOOK == 0
     //     // Default
-    //     const f32vec3  slope      = f32vec3(1.0);
-    //     const f32vec3  power      = f32vec3(1.0);
-    //     const f32 saturation = 1.0;
+        // const f32vec3  slope      = f32vec3(1.0);
+        // const f32vec3  power      = f32vec3(1.0);
+        // const f32 saturation = 1.0;
     // #elif AGX_LOOK == 1
         // Golden
         // const f32vec3  slope      = f32vec3(1.0, 0.9, 0.5);
@@ -151,7 +153,7 @@ void agxLook(inout f32vec3 color) {
     color = luma + saturation * (color - luma);
 }
 
-const f32 exposureBias = 1.0;
+const f32 exposureBias      = 1.5;
 const f32 calibration       = 12.5;  // Light meter calibration
 const f32 sensorSensitivity = 100.0; // Sensor sensitivity
 
@@ -177,7 +179,6 @@ void main()
     const f32 lp = xyY.z / (9.6 * deref(_average_luminance).luminance + 0.0001);
     xyY.z = Tonemap_ACES(lp);
 
-    // out_color = f32vec4(xyY_to_rgb(xyY), 1.0);
     f32 exposure = computeExposure(deref(_average_luminance).luminance);
     f32vec3 color = hdr_color * exposure;
     agx(color);

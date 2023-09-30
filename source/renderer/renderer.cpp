@@ -70,8 +70,12 @@ Renderer::Renderer(const AppWindow & window, Globals * globals) :
     init_compute_pipeline(get_prepare_shadow_matrices_pipeline(), context.pipelines.prepare_shadow_matrices);
     init_compute_pipeline(get_luminance_histogram_pipeline(), context.pipelines.luminance_histogram);
     init_compute_pipeline(get_adapt_average_luminance_pipeline(), context.pipelines.adapt_average_luminance);
-    init_compute_pipeline(get_vsm_debug_page_table_pipeline(), context.pipelines.vsm_debug_page_table);
+
+    init_compute_pipeline(get_vsm_find_free_pages_pipeline(), context.pipelines.vsm_find_free_pages);
     init_compute_pipeline(get_vsm_allocate_pages_pipeline(), context.pipelines.vsm_allocate_pages);
+    init_compute_pipeline(get_vsm_debug_page_table_pipeline(), context.pipelines.vsm_debug_page_table);
+    init_compute_pipeline(get_vsm_debug_meta_memory_table_pipeline(), context.pipelines.vsm_debug_meta_memory_table);
+
     init_raster_pipeline(get_draw_terrain_pipeline(false), context.pipelines.draw_terrain_solid);
     init_raster_pipeline(get_draw_terrain_pipeline(true), context.pipelines.draw_terrain_wireframe);
     init_raster_pipeline(get_debug_draw_frustum_pipeline(context), context.pipelines.debug_draw_frustum);
@@ -179,17 +183,53 @@ void Renderer::create_persistent_resources()
         .name = "average luminance task buffer"
     });
 
+    #pragma region vsm
     context.images.vsm_memory = daxa::TaskImage({
         .initial_images = {
             .images = std::array{
                 context.device.create_image(daxa::ImageInfo{
                     .format = daxa::Format::R32_SFLOAT,
                     .size = {VSM_MEMORY_RESOLUTION, VSM_MEMORY_RESOLUTION, 1},
-                    .usage = daxa::ImageUsageFlagBits::SHADER_SAMPLED | daxa::ImageUsageFlagBits::SHADER_STORAGE
+                    .usage = daxa::ImageUsageFlagBits::SHADER_SAMPLED | daxa::ImageUsageFlagBits::SHADER_STORAGE,
+                    .name = "vsm memory physical image"
                 })
             },
         },
         .name = "vsm memory"
+    });
+
+    context.images.vsm_meta_memory_table = daxa::TaskImage({
+        .initial_images = {
+            .images = std::array{
+                context.device.create_image(daxa::ImageInfo{
+                    .format = daxa::Format::R32_UINT,
+                    .size = { VSM_META_MEMORY_RESOLUTION, VSM_META_MEMORY_RESOLUTION, 1 },
+                    .usage = 
+                        daxa::ImageUsageFlagBits::SHADER_SAMPLED |
+                        daxa::ImageUsageFlagBits::SHADER_STORAGE |
+                        daxa::ImageUsageFlagBits::TRANSFER_DST,
+                    .name = "vsm meta memory physical image"
+                })
+            },
+        },
+        .name = "vsm meta memory table"
+    });
+
+    context.images.vsm_debug_meta_memory_table = daxa::TaskImage({
+        .initial_images = {
+            .images = std::array{
+                context.device.create_image(daxa::ImageInfo{
+                    .format = daxa::Format::R8G8B8A8_UNORM,
+                    .size = { VSM_DEBUG_META_MEMORY_RESOLUTION, VSM_DEBUG_META_MEMORY_RESOLUTION, 1 },
+                    .usage = 
+                        daxa::ImageUsageFlagBits::SHADER_SAMPLED |
+                        daxa::ImageUsageFlagBits::SHADER_STORAGE |
+                        daxa::ImageUsageFlagBits::TRANSFER_DST,
+                    .name = "vsm debug meta memory physical image"
+                })
+            },
+        },
+        .name = "vsm debug meta memory table"
     });
 
     context.images.vsm_page_table = daxa::TaskImage({
@@ -201,11 +241,12 @@ void Renderer::create_persistent_resources()
                     .usage = 
                         daxa::ImageUsageFlagBits::SHADER_SAMPLED |
                         daxa::ImageUsageFlagBits::SHADER_STORAGE |
-                        daxa::ImageUsageFlagBits::TRANSFER_DST
+                        daxa::ImageUsageFlagBits::TRANSFER_DST,
+                    .name = "vsm page table physical image"
                 })
             },
         },
-        .name = "vsm paging table"
+        .name = "vsm page table"
     });
 
     context.images.vsm_debug_page_table = daxa::TaskImage({
@@ -216,12 +257,15 @@ void Renderer::create_persistent_resources()
                     .size = { VSM_DEBUG_PAGING_TABLE_RESOLUTION, VSM_DEBUG_PAGING_TABLE_RESOLUTION, 1 },
                     .usage = 
                         daxa::ImageUsageFlagBits::SHADER_SAMPLED |
-                        daxa::ImageUsageFlagBits::SHADER_STORAGE 
+                        daxa::ImageUsageFlagBits::SHADER_STORAGE,
+                    .name = "vsm debug page table physical image"
                 })
             },
         },
-        .name = "vsm debug paging table"
+        .name = "vsm debug page table"
     });
+
+    #pragma endregion
 
     auto upload_task_list = daxa::TaskGraph({
         .device = context.device,
@@ -349,6 +393,8 @@ void Renderer::initialize_main_tasklist()
     context.main_task_list.task_list.use_persistent_image(context.images.normal_map);
 
     context.main_task_list.task_list.use_persistent_image(context.images.vsm_memory);
+    context.main_task_list.task_list.use_persistent_image(context.images.vsm_meta_memory_table);
+    context.main_task_list.task_list.use_persistent_image(context.images.vsm_debug_meta_memory_table);
     context.main_task_list.task_list.use_persistent_image(context.images.vsm_page_table);
     context.main_task_list.task_list.use_persistent_image(context.images.vsm_debug_page_table);
 
@@ -419,12 +465,27 @@ void Renderer::initialize_main_tasklist()
     #pragma region vsm_resources
     tl.buffers.vsm_allocation_requests = tl.task_list.create_transient_buffer({
         .size = static_cast<u32>(sizeof(AllocationRequest) * 200),
-        .name = "vsm_allocation_buffer"
+        .name = "vsm allocation buffer"
     });
 
     tl.buffers.vsm_allocate_indirect = tl.task_list.create_transient_buffer({
         .size = static_cast<u32>(sizeof(DispatchIndirectStruct)),
-        .name = "vsm_allocate_indirect"
+        .name = "vsm allocate indirect"
+    });
+
+    tl.buffers.vsm_free_page_buffer = tl.task_list.create_transient_buffer({
+        .size = static_cast<u32>(sizeof(PageCoordBuffer) * (MAX_NUM_VSM_ALLOC_REQUEST)),
+        .name = "vsm free page buffer"
+    });
+
+    tl.buffers.vsm_not_visited_page_buffer = tl.task_list.create_transient_buffer({
+        .size = static_cast<u32>(sizeof(PageCoordBuffer) * (MAX_NUM_VSM_ALLOC_REQUEST)),
+        .name = "vsm not visited buffer"
+    });
+
+    tl.buffers.vsm_find_free_pages_header = tl.task_list.create_transient_buffer({
+        .size = static_cast<u32>(sizeof(FindFreePagesHeader)),
+        .name = "find free pages header"
     });
     #pragma endregion
 
@@ -488,6 +549,7 @@ void Renderer::initialize_main_tasklist()
             daxa::BufferHostTransferWrite{tl.buffers.frustum_colors},
             daxa::BufferHostTransferWrite{tl.buffers.luminance_histogram},
             daxa::BufferHostTransferWrite{tl.buffers.vsm_allocate_indirect},
+            daxa::BufferHostTransferWrite{tl.buffers.vsm_find_free_pages_header},
         },
         .task = [&, this](daxa::TaskInterface ti)
         {
@@ -510,18 +572,21 @@ void Renderer::initialize_main_tasklist()
                         .size = size
                     });
                 };
+                // Globals
                 upload_cpu_to_gpu(ti.uses[context.buffers.globals].buffer(), globals, sizeof(Globals));
+                // Frustum vertices
                 upload_cpu_to_gpu(
                     ti.uses[tl.buffers.frustum_vertices].buffer(),
                     context.frustum_vertices.data(),
                     sizeof(FrustumVertex) * 8 * context.debug_frustum_cpu_count
                 );
+                // Frustum colors
                 upload_cpu_to_gpu(
                     ti.uses[tl.buffers.frustum_colors].buffer(),
                     context.frustum_colors.data(),
                     sizeof(FrustumColor) * context.debug_frustum_cpu_count
                 );
-
+                // Frustum indirect draw buffer
                 DrawIndexedIndirectStruct indexed_indirect{
                     .index_count = 18,
                     .instance_count = context.debug_frustum_cpu_count,
@@ -534,14 +599,14 @@ void Renderer::initialize_main_tasklist()
                     &indexed_indirect,
                     sizeof(DrawIndexedIndirectStruct)
                 );
-
+                // Histogram
                 std::array<u32, HISTOGRAM_BIN_COUNT> reset_bin_values {};
                 upload_cpu_to_gpu(
                     ti.uses[tl.buffers.luminance_histogram].buffer(),
                     reset_bin_values.data(),
                     sizeof(Histogram) * HISTOGRAM_BIN_COUNT
                 );
-
+                // Allocate indirect
                 DispatchIndirectStruct dispatch_indirect{
                     .x = 0,
                     .y = 1,
@@ -551,6 +616,16 @@ void Renderer::initialize_main_tasklist()
                     ti.uses[tl.buffers.vsm_allocate_indirect].buffer(),
                     &dispatch_indirect,
                     sizeof(DispatchIndirectStruct)
+                );
+                // Vsm find free pages header
+                FindFreePagesHeader header = FindFreePagesHeader{
+                    .free_buffer_counter = 0,
+                    .not_visited_buffer_counter = 0
+                };
+                upload_cpu_to_gpu(
+                    ti.uses[tl.buffers.vsm_find_free_pages_header].buffer(),
+                    &header,
+                    sizeof(FindFreePagesHeader)
                 );
             }
         },
@@ -653,6 +728,7 @@ void Renderer::initialize_main_tasklist()
                     ._vsm_allocate_indirect = tl.buffers.vsm_allocate_indirect,
                     ._depth = secondary_camera_depth,
                     ._vsm_page_table = context.images.vsm_page_table.view(),
+                    ._vsm_meta_memory_table = context.images.vsm_meta_memory_table.view(),
                 }},
                 &context
             });
@@ -687,18 +763,38 @@ void Renderer::initialize_main_tasklist()
                     ._vsm_allocate_indirect = tl.buffers.vsm_allocate_indirect,
                     ._depth = tl.images.depth,
                     ._vsm_page_table = context.images.vsm_page_table.view(),
+                    ._vsm_meta_memory_table = context.images.vsm_meta_memory_table.view(),
                 }},
                 &context
             });
             #pragma endregion
         }
     });
-    #pragma region vsm_allocate_pages
+    #pragma region vsm_find_free_pages
+    tl.task_list.add_task(VSMFindFreePagesTask{{
+        .uses = {
+            ._vsm_allocation_buffer = tl.buffers.vsm_allocation_requests,
+            ._vsm_allocate_indirect = tl.buffers.vsm_allocate_indirect,
+            ._vsm_free_pages_buffer = tl.buffers.vsm_free_page_buffer,
+            ._vsm_not_visited_pages_buffer = tl.buffers.vsm_not_visited_page_buffer,
+            ._vsm_find_free_pages_header = tl.buffers.vsm_find_free_pages_header,
+            ._vsm_page_table = context.images.vsm_page_table.view(),
+            ._vsm_meta_memory_table = context.images.vsm_meta_memory_table.view(),
+        }},
+        &context
+    });
+    #pragma endregion
+
+    #pragma region allocate_vsm_pages
     tl.task_list.add_task(VSMAllocatePagesTask{{
         .uses = {
             ._vsm_allocation_buffer = tl.buffers.vsm_allocation_requests,
             ._vsm_allocate_indirect = tl.buffers.vsm_allocate_indirect,
+            ._vsm_free_pages_buffer = tl.buffers.vsm_free_page_buffer,
+            ._vsm_not_visited_pages_buffer = tl.buffers.vsm_not_visited_page_buffer,
+            ._vsm_find_free_pages_header = tl.buffers.vsm_find_free_pages_header,
             ._vsm_page_table = context.images.vsm_page_table.view(),
+            ._vsm_meta_memory_table = context.images.vsm_meta_memory_table.view(),
         }},
         &context
     });
@@ -816,15 +912,24 @@ void Renderer::initialize_main_tasklist()
     });
     #pragma endregion
 
+#if VSM_DEBUG_VIZ_PASS == 1
     #pragma region vsm_debug_page_table
-    tl.task_list.add_task(VSMDebugPageTableTask{{
+    tl.task_list.add_task(VSMDebugVirtualPageTableTask{{
         .uses = {
             ._vsm_page_table = context.images.vsm_page_table.view(),
             ._vsm_debug_page_table = context.images.vsm_debug_page_table.view()
         }},
         &context
     });
+    tl.task_list.add_task(VSMDebugMetaTableTask{{
+        .uses = {
+            ._vsm_meta_memory_table = context.images.vsm_meta_memory_table.view(),
+            ._vsm_debug_meta_memory_table = context.images.vsm_debug_meta_memory_table.view()
+        }},
+        &context
+    });
     #pragma endregion
+#endif
 
     #pragma region imgui
     tl.task_list.add_task(ImGuiTask{{
@@ -1047,6 +1152,9 @@ Renderer::~Renderer()
     destroy_image_if_valid(context.images.vsm_debug_page_table);
     destroy_image_if_valid(context.images.vsm_page_table);
     destroy_image_if_valid(context.images.vsm_memory);
+    destroy_image_if_valid(context.images.vsm_meta_memory_table);
+    destroy_image_if_valid(context.images.vsm_debug_meta_memory_table);
     context.device.destroy_sampler(context.linear_sampler);
+    context.device.destroy_sampler(context.nearest_sampler);
     context.device.collect_garbage();
 }

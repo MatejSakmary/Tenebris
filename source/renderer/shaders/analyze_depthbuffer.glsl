@@ -91,9 +91,7 @@ void request_vsm_pages(f32vec4 depths, u32vec2 scaled_pixel_coords)
             const u32 prev_state = imageAtomicOr(
                 daxa_access(r32uiImage, _vsm_page_table),
                 vsm_page_pix_coords,
-                // TODO(msakmary) allocation failed is later reset when actually allocating the page
-                // This is not very intuitive - perhaps rename
-                requests_allocation_mask() | allocation_failed_mask()
+                requests_allocation_mask()
             );
 
             if(!get_requests_allocation(prev_state))
@@ -117,7 +115,7 @@ void request_vsm_pages(f32vec4 depths, u32vec2 scaled_pixel_coords)
                 }
             } 
         } 
-        else if (!get_is_visited_marked(page_entry))
+        else if (!get_is_visited_marked(page_entry) && !is_not_allocated)
         {
             const u32 prev_state = imageAtomicOr(
                 daxa_access(r32uiImage, _vsm_page_table),
@@ -127,8 +125,12 @@ void request_vsm_pages(f32vec4 depths, u32vec2 scaled_pixel_coords)
             // If this is the first thread to mark this page as VISITED_MARKED 
             //   -> mark the physical page as VISITED
             if(!get_is_visited_marked(prev_state))
-            {
-                // TODO(msakmary) mark physical page as VISITED
+            { 
+                imageAtomicOr(
+                    daxa_access(r32uiImage, _vsm_meta_memory_table),
+                    get_meta_coords_from_vsm_entry(page_entry),
+                    meta_memory_visited_mask()
+                );
             }
         }
     }

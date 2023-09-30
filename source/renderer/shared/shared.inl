@@ -21,6 +21,7 @@
 // for example a value of 4 means a single page entry will span 4x4 pixels in the debug texture
 #define VSM_DEBUG_PAGING_TABLE_SCALE 4
 #define VSM_DEBUG_PAGING_TABLE_RESOLUTION (VSM_PAGE_TABLE_RESOLUTION * VSM_DEBUG_PAGING_TABLE_SCALE)
+#define VSM_DEBUG_VIZ_PASS 1
 
 // How many pixels in debug texture does a single page table entry span
 // for example a value of 4 means a single page entry will span 4x4 pixels in the debug texture
@@ -28,6 +29,8 @@
 #define VSM_DEBUG_META_MEMORY_RESOLUTION (VSM_META_MEMORY_RESOLUTION * VSM_DEBUG_META_MEMORY_SCALE)
 
 #define MAX_NUM_VSM_ALLOC_REQUEST 30
+
+#define VSM_FIND_FREE_PAGES_LOCAL_SIZE_X 32
 
 struct DensityProfileLayer
 {
@@ -197,3 +200,16 @@ struct AllocationRequest
     daxa_i32vec2 coords;
 };
 DAXA_DECL_BUFFER_PTR(AllocationRequest)
+
+struct PageCoordBuffer
+{
+    daxa_i32vec2 coords;
+};
+DAXA_DECL_BUFFER_PTR(PageCoordBuffer)
+
+struct FindFreePagesHeader
+{
+    daxa_u32 free_buffer_counter;
+    daxa_u32 not_visited_buffer_counter;
+};
+DAXA_DECL_BUFFER_PTR(FindFreePagesHeader)

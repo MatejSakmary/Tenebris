@@ -6,7 +6,6 @@
 #include <fstream>
 #include <format>
 
-
 GuiManager::GuiManager(GuiManagerInfo const & info) : 
     info{info},
     file_browser{
@@ -156,7 +155,17 @@ void GuiManager::on_update()
             .image_view_id = info.renderer->context.images.vsm_debug_page_table.get_state().images[0].default_view(),
             .sampler_id = info.renderer->context.nearest_sampler
         }),
-        ImVec2(128.0f * 4.0f, 128.0f * 4.0f) 
+        ImVec2(VSM_DEBUG_PAGING_TABLE_RESOLUTION * 2, VSM_DEBUG_PAGING_TABLE_RESOLUTION * 2) 
+    );
+    ImGui::End();
+
+    ImGui::Begin("VSM Meta Memory Texture");
+    ImGui::Image(
+        daxa::ImGuiRenderer::create_image_context({
+            .image_view_id = info.renderer->context.images.vsm_debug_meta_memory_table.get_state().images[0].default_view(),
+            .sampler_id = info.renderer->context.nearest_sampler
+        }),
+        ImVec2(VSM_DEBUG_META_MEMORY_RESOLUTION * 4, VSM_DEBUG_META_MEMORY_RESOLUTION * 4) 
     );
     ImGui::End();
 
