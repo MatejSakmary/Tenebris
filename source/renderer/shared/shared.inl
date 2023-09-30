@@ -48,6 +48,7 @@ struct Globals
     daxa_u32vec2 trans_lut_dim;
     daxa_u32vec2 mult_lut_dim;
     daxa_u32vec2 sky_lut_dim;
+    daxa_u32 frame_index;
 
     // =============== Atmosphere =====================
     daxa_f32 sun_brightness;

@@ -50,6 +50,7 @@ void GuiManager::on_update()
     ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
     ImGui::End();    
 
+    // ImGui::ShowDemoWindow();
     ImGui::Begin("General settings");
     auto camera_position = camera->get_camera_position();
 
@@ -67,6 +68,17 @@ void GuiManager::on_update()
     globals.max_luminance_log2 = std::log2(max_luminance);
     globals.inv_luminance_range_log2 = 1.0f / (globals.max_luminance_log2 - globals.min_luminance_log2);
 
+    ImGui::PlotHistogram(
+        "##Luminance histogram",
+        [](void * data, int idx) -> float {
+            auto typed_data = reinterpret_cast<Histogram*>(data);
+            return static_cast<float>(typed_data[idx].bin_count);
+        },
+        reinterpret_cast<void *>(info.renderer->context.histogram.data()),
+        HISTOGRAM_BIN_COUNT, 
+        globals.frame_index % 2 ? 0 : HISTOGRAM_BIN_COUNT,
+        NULL, 0.0f, 40000.0f, ImVec2(0, 80.0)
+    );
 
     if(ImGui::Button("Save", {150, 20})) { save(curr_path); }
     ImGui::SameLine();
@@ -149,6 +161,7 @@ void GuiManager::on_update()
     globals.rayleigh_density[1].exp_scale = -1.0f / globals.rayleigh_scale_height;
     ImGui::End();
 
+#if VSM_DEBUG_VIZ_PASS == 1 
     ImGui::Begin("VSM Paging Texture");
     ImGui::Image(
         daxa::ImGuiRenderer::create_image_context({
@@ -168,6 +181,7 @@ void GuiManager::on_update()
         ImVec2(VSM_DEBUG_META_MEMORY_RESOLUTION * 4, VSM_DEBUG_META_MEMORY_RESOLUTION * 4) 
     );
     ImGui::End();
+#endif //VSM_DEBUG_VIZ_PASS
 
     ImGui::Render();
 }
@@ -198,6 +212,7 @@ void GuiManager::load(std::string path, bool constructor_load)
         val.const_term = json[name][layer]["const_term"];
     };
     
+    globals.frame_index = 0u;
     read_vec("trans_lut_dim", globals.trans_lut_dim);
     read_vec("mult_lut_dim", globals.mult_lut_dim);
     read_vec("sky_lut_dim", globals.sky_lut_dim);

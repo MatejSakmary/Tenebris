@@ -155,7 +155,7 @@ void agxLook(inout f32vec3 color) {
 
 const f32 exposureBias      = 1.5;
 const f32 calibration       = 12.5;  // Light meter calibration
-const f32 sensorSensitivity = 100.0; // Sensor sensitivity
+const f32 sensorSensitivity = 200.0; // Sensor sensitivity
 
 f32 computeEV100fromLuminance(f32 luminance) {
     return log2(luminance * sensorSensitivity * exposureBias / calibration);
@@ -175,9 +175,9 @@ f32 computeExposure(f32 averageLuminance) {
 void main()
 {
     f32vec3 hdr_color = texture(daxa_sampler2D(_offscreen, pc.sampler_id), in_uv).rgb;
-    f32vec3 xyY = rgb_to_xyY(hdr_color);
-    const f32 lp = xyY.z / (9.6 * deref(_average_luminance).luminance + 0.0001);
-    xyY.z = Tonemap_ACES(lp);
+    // f32vec3 xyY = rgb_to_xyY(hdr_color);
+    // const f32 lp = xyY.z / (9.6 * deref(_average_luminance).luminance + 0.0001);
+    // xyY.z = Tonemap_ACES(lp);
 
     f32 exposure = computeExposure(deref(_average_luminance).luminance);
     f32vec3 color = hdr_color * exposure;

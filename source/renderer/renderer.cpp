@@ -20,6 +20,7 @@ Renderer::Renderer(const AppWindow & window, Globals * globals) :
 #endif
         .present_mode = daxa::PresentMode::MAILBOX,
         .image_usage = daxa::ImageUsageFlagBits::TRANSFER_DST | daxa::ImageUsageFlagBits::COLOR_ATTACHMENT,
+        .max_allowed_frames_in_flight = 1,
         .name = "Swapchain",
     });
 
@@ -875,6 +876,34 @@ void Renderer::initialize_main_tasklist()
     });
     #pragma endregion
 
+    #pragma region readback_histogram
+    tl.task_list.add_task({
+        .uses = { daxa::BufferTransferRead{tl.buffers.luminance_histogram}},
+        .task = [&, this](daxa::TaskInterface ti)
+        {
+            auto cmd_list = ti.get_command_list();
+            const u32 size = static_cast<u32>(sizeof(Histogram)) * HISTOGRAM_BIN_COUNT;
+            auto staging_mem_result = ti.get_allocator().allocate(size);
+            DBG_ASSERT_TRUE_M(
+                staging_mem_result.has_value(),
+                "[Renderer::readback_histogram()] Failed to create staging buffer"
+            );
+            auto staging_mem = staging_mem_result.value();
+            cmd_list.copy_buffer_to_buffer({
+                .src_buffer = ti.uses[tl.buffers.luminance_histogram].buffer(),
+                .src_offset = 0,
+                .dst_buffer = ti.get_allocator().get_buffer(),
+                .dst_offset = staging_mem.buffer_offset,
+                .size = size
+            });
+            const bool is_frame_even = globals->frame_index % 2 == 0;
+            void * cpu_dst = context.histogram.data() + (is_frame_even ? 0 : HISTOGRAM_BIN_COUNT);
+            memcpy(cpu_dst, staging_mem.host_address, size);
+        },
+        .name = "readback histogram"
+    });
+    #pragma endregion
+
     #pragma region adapt_average_luminance
     tl.task_list.add_task(AdaptAverageLuminanceTask{{
         .uses = {
@@ -921,6 +950,9 @@ void Renderer::initialize_main_tasklist()
         }},
         &context
     });
+    #pragma endregion
+
+    #pragma region vsm_debug_meta_table
     tl.task_list.add_task(VSMDebugMetaTableTask{{
         .uses = {
             ._vsm_meta_memory_table = context.images.vsm_meta_memory_table.view(),
@@ -1110,6 +1142,8 @@ void Renderer::draw(DrawInfo const & info)
         context.main_task_list.conditionals.data(),
         context.main_task_list.conditionals.size()
     }});
+
+    globals->frame_index++;
 
     auto result = context.pipeline_manager.reload_all();
     if(std::holds_alternative<daxa::PipelineReloadSuccess>(result)) 
