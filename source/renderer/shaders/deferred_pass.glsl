@@ -37,7 +37,10 @@ f32vec3 get_far_sky_color(f32vec3 world_direction)
 
     const f32vec3 sun_direction = deref(_globals).sun_direction;
     const f32 view_zenith_angle = acos(dot(world_direction, world_up));
-    const f32 light_view_angle = acos(dot(world_direction, sun_direction));
+    const f32 light_view_angle = acos(dot(
+        normalize(f32vec3(sun_direction.xy, 0.0)),
+        normalize(f32vec3(world_direction.xy, 0.0))
+    ));
 
     const f32 atmosphere_intersection_distance = ray_sphere_intersect_nearest(
         world_camera_position,
@@ -81,7 +84,10 @@ f32vec3 get_far_sky_color(f32vec2 uv)
 
     const f32vec3 sun_direction = deref(_globals).sun_direction;
     const f32 view_zenith_angle = acos(dot(world_direction, world_up));
-    const f32 light_view_angle = acos(dot(world_direction, sun_direction));
+    const f32 light_view_angle = acos(dot(
+        normalize(f32vec3(sun_direction.xy, 0.0)),
+        normalize(f32vec3(world_direction.xy, 0.0))
+    ));
 
     const f32 atmosphere_intersection_distance = ray_sphere_intersect_nearest(
         world_camera_position,
@@ -200,13 +206,11 @@ void main()
     f32vec3 transmittance_to_sun = get_far_sky_color(sun_direction);
 
     const f32 sun_norm_dot = dot(normal, deref(_globals).sun_direction);
-    out_color = pow(albedo, f32vec4(f32vec3(1.8), 1.0));
-    // albedo * (dot_normal * shadow * sun_color * sun_intensity + ambient) + (1 - shadow) * sky_color_along_norm 
-    f32vec4 ambient = f32vec4(f32vec3(500.0) * get_far_sky_color(normal), 1.0); 
+    out_color = pow(albedo, f32vec4(f32vec3(2.4), 1.0));
+    f32vec4 ambient = f32vec4(deref(_globals).sun_brightness * sun_color.xyz * get_far_sky_color(normal), 1.0); 
 
     out_color *= clamp(sun_norm_dot, 0.0, 1.0) *
                  clamp(pow(shadow, 2), 0.0, 1.0) *
-                //  clamp(shadow, 0.0, 1.0) *
                  f32vec4(transmittance_to_sun, 1.0) *
                  deref(_globals).sun_brightness * sun_color + ambient;
 }
