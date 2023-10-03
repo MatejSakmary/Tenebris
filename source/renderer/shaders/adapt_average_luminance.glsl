@@ -8,16 +8,47 @@
 
 DAXA_DECL_PUSH_CONSTANT(AdaptAverageLuminancePC, pc)
 
+// #define DEBUG
+#if defined(DEBUG)
+layout (local_size_x = 1) in;
+#else
 layout (local_size_x = 256) in;
+#endif //DEBUG
 
 shared u32 shared_histogram[HISTOGRAM_BIN_COUNT];
 
 void main()
 {
+#if defined(DEBUG)
+    u32 bin_sum = 0;
+    u32 weighed_sum = 0;
+    for(i32 i = 0; i < 256; i++)
+    {
+        bin_sum += deref(_histogram[i]).bin_count;
+        // weighed_sum += clamp(deref(_histogram[i]).bin_count, 0, 10000) * i;
+        weighed_sum += deref(_histogram[i]).bin_count * i;
+    }
+    shared_histogram[0] = weighed_sum;
+    const u32 bin_count = deref(_histogram[0]).bin_count;
+    if(pc.resolution.x * pc.resolution.y != bin_sum)
+    {
+        debugPrintfEXT("bin_sum should be %d but is %d\n", pc.resolution.x * pc.resolution.y, bin_sum);
+    }
+#else
     const u32 bin_count = deref(_histogram[gl_LocalInvocationIndex]).bin_count;
     // store weighed luminance
     shared_histogram[gl_LocalInvocationIndex] = bin_count * gl_LocalInvocationIndex;
-
+    memoryBarrierShared();
+    barrier();
+    // 8 - 128 -> 128
+    // 7 - 64 -> 64
+    // 6 - 32 -> 32
+    // 5 - 16 -> 16
+    // 4 - 8 -> 8
+    // 3 - 4 -> 4
+    // 2 - 2 -> 2
+    // 1 - 1 -> 1
+    // END
     u32 threshold = HISTOGRAM_BIN_COUNT / 2;
     for(i32 i = i32(log2(HISTOGRAM_BIN_COUNT)); i > 0; i--)
     {
@@ -29,6 +60,7 @@ void main()
         memoryBarrierShared();
         barrier();
     }
+#endif
 
     if(gl_LocalInvocationIndex == 0)
     {

@@ -35,6 +35,7 @@ struct Context
         daxa::TaskImage diffuse_map;
         daxa::TaskImage height_map;
         daxa::TaskImage normal_map;
+        daxa::TaskImage tonemapping_lut;
 
         daxa::TaskImage vsm_page_table;
         daxa::TaskImage vsm_debug_page_table;
@@ -45,8 +46,6 @@ struct Context
 
     struct Pipelines
     {
-        std::shared_ptr<daxa::ComputePipeline> BC6H_compress;
-        std::shared_ptr<daxa::ComputePipeline> height_to_normal;
         std::shared_ptr<daxa::ComputePipeline> transmittance;
         std::shared_ptr<daxa::ComputePipeline> multiscattering;
         std::shared_ptr<daxa::ComputePipeline> skyview;
@@ -136,6 +135,8 @@ struct Context
 
     daxa::SamplerId linear_sampler;
     daxa::SamplerId nearest_sampler;
+    // linear min, linear max, clamp edge
+    daxa::SamplerId llce_sampler;
     daxa::ImGuiRenderer imgui_renderer;
 
     u32 terrain_index_size;

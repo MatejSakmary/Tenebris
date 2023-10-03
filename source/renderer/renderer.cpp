@@ -31,6 +31,7 @@ Renderer::Renderer(const AppWindow & window, Globals * globals) :
                 DAXA_SHADER_INCLUDE_DIR,
                 "source/renderer",
                 "source/renderer/shaders",
+                "source/renderer/texture_manager/shaders",
                 "shaders",
                 "shared"
             },
@@ -59,8 +60,6 @@ Renderer::Renderer(const AppWindow & window, Globals * globals) :
         }
     };
 
-    init_compute_pipeline(get_BC6H_pipeline(), context.pipelines.BC6H_compress);
-    init_compute_pipeline(get_height_to_normal_pipeline(), context.pipelines.height_to_normal);
     init_compute_pipeline(get_transmittance_LUT_pipeline(), context.pipelines.transmittance);
     init_compute_pipeline(get_multiscattering_LUT_pipeline(), context.pipelines.multiscattering);
     init_compute_pipeline(get_skyview_LUT_pipeline(), context.pipelines.skyview);
@@ -96,6 +95,12 @@ Renderer::Renderer(const AppWindow & window, Globals * globals) :
         .minification_filter = daxa::Filter::NEAREST
     });
 
+    context.llce_sampler = context.device.create_sampler({
+        .address_mode_u = daxa::SamplerAddressMode::CLAMP_TO_EDGE,
+        .address_mode_v = daxa::SamplerAddressMode::CLAMP_TO_EDGE,
+        .address_mode_w = daxa::SamplerAddressMode::CLAMP_TO_EDGE,
+    });
+
     ImGui::CreateContext();
     ImGui_ImplGlfw_InitForVulkan(window.get_glfw_window_handle(), true);
     auto &io = ImGui::GetIO();
@@ -120,8 +125,7 @@ Renderer::Renderer(const AppWindow & window, Globals * globals) :
 
     manager = std::make_unique<TextureManager>(TextureManagerInfo{
         .device = context.device,
-        .compress_pipeline = context.pipelines.BC6H_compress,
-        .height_to_normal_pipeline = context.pipelines.height_to_normal,
+        .pipeline_manager = context.pipeline_manager,
     });
 
     context.sun_camera = Camera({
@@ -350,6 +354,7 @@ void Renderer::create_persistent_resources()
     context.images.diffuse_map = daxa::TaskImage({ .name = "diffuse map task image" });
     context.images.height_map = daxa::TaskImage({ .name = "height map task image" });
     context.images.normal_map = daxa::TaskImage({ .name = "normal map task image" });
+    context.images.tonemapping_lut = daxa::TaskImage({ .name = "tonemapping lut task image" });
 }
 
 void Renderer::load_textures()
@@ -357,7 +362,13 @@ void Renderer::load_textures()
     daxa::TaskImage tmp_raw_loaded_image = daxa::TaskImage({.name = "tmp raw loaded task image"});
 
     manager->load_texture({
-        .path = "assets/terrain/rugged_terrain_diffuse.exr",
+        .filepath = "assets/tonemapping_luts/tony_mc_mapface_f32.dds",
+        // .path = "assets/terrain/8k/mountain_range_diffuse.exr",
+        .dest_image = context.images.tonemapping_lut
+    });
+
+    manager->load_texture({
+        .filepath = "assets/terrain/rugged_terrain_diffuse.exr",
         // .path = "assets/terrain/8k/mountain_range_diffuse.exr",
         .dest_image = tmp_raw_loaded_image
     });
@@ -370,7 +381,7 @@ void Renderer::load_textures()
     context.device.destroy_image(tmp_raw_loaded_image.get_state().images[0]);
 
     manager->load_texture({
-        .path = "assets/terrain/rugged_terrain_height.exr",
+        .filepath = "assets/terrain/rugged_terrain_height.exr",
         // .path = "assets/terrain/8k/mountain_range_height.exr",
         .dest_image = context.images.height_map,
     });
@@ -392,6 +403,7 @@ void Renderer::initialize_main_tasklist()
     context.main_task_list.task_list.use_persistent_image(context.images.height_map);
     context.main_task_list.task_list.use_persistent_image(context.images.diffuse_map);
     context.main_task_list.task_list.use_persistent_image(context.images.normal_map);
+    context.main_task_list.task_list.use_persistent_image(context.images.tonemapping_lut);
 
     context.main_task_list.task_list.use_persistent_image(context.images.vsm_memory);
     context.main_task_list.task_list.use_persistent_image(context.images.vsm_meta_memory_table);
@@ -921,6 +933,7 @@ void Renderer::initialize_main_tasklist()
             ._average_luminance = context.buffers.average_luminance.view(),
             ._swapchain = context.images.swapchain.view(),
             ._offscreen = tl.images.offscreen,
+            ._tonemapping_lut = context.images.tonemapping_lut.view(),
         }},
         &context
     });
@@ -1183,6 +1196,7 @@ Renderer::~Renderer()
     destroy_image_if_valid(context.images.diffuse_map);
     destroy_image_if_valid(context.images.height_map);
     destroy_image_if_valid(context.images.normal_map);
+    destroy_image_if_valid(context.images.tonemapping_lut);
     destroy_image_if_valid(context.images.vsm_debug_page_table);
     destroy_image_if_valid(context.images.vsm_page_table);
     destroy_image_if_valid(context.images.vsm_memory);
@@ -1190,5 +1204,6 @@ Renderer::~Renderer()
     destroy_image_if_valid(context.images.vsm_debug_meta_memory_table);
     context.device.destroy_sampler(context.linear_sampler);
     context.device.destroy_sampler(context.nearest_sampler);
+    context.device.destroy_sampler(context.llce_sampler);
     context.device.collect_garbage();
 }

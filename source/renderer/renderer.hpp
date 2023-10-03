@@ -11,12 +11,10 @@
 #include "../camera.hpp"
 #include "shared/shared.inl"
 #include "context.hpp"
-#include "texture_manager.hpp"
+#include "texture_manager/texture_manager.hpp"
 
 #include "../terrain_gen/planet_generator.hpp"
 
-#include "tasks/bc6h_compress.inl"
-#include "tasks/height_to_normal.inl"
 #include "tasks/transmittance_LUT.inl"
 #include "tasks/multiscattering_LUT.inl"
 #include "tasks/skyview_LUT.inl"

@@ -9,7 +9,9 @@ add_executable( ${PROJECT_NAME}
     "source/gui_manager.cpp"
     "source/renderer/renderer.cpp"
     "source/terrain_gen/planet_generator.cpp"
-    "source/renderer/texture_manager.cpp")
+    "source/renderer/texture_manager/texture_manager.cpp"
+    "source/renderer/texture_manager/load_format_exr.cpp"
+    "source/renderer/texture_manager/load_format_dds.cpp")
 
 set(CDT_USE_AS_COMPILED_LIBRARY "ON")
 add_subdirectory("external/CDT")

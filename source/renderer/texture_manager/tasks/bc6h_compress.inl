@@ -3,7 +3,7 @@
 #include <daxa/daxa.inl>
 #include <daxa/utils/task_graph.inl>
 
-#include "../shared/shared.inl"
+#include "../../shared/shared.inl"
 
 struct BC6HCompressPC
 {
@@ -18,7 +18,7 @@ DAXA_TASK_USE_IMAGE(_dst_texture, REGULAR_2D, COMPUTE_SHADER_STORAGE_WRITE_ONLY)
 DAXA_DECL_TASK_USES_END()
 
 #if __cplusplus
-#include "../context.hpp"
+#include "../../context.hpp"
 struct TextureManagerInfo;
 
 inline auto get_BC6H_pipeline() -> daxa::ComputePipelineCompileInfo
@@ -32,7 +32,8 @@ inline auto get_BC6H_pipeline() -> daxa::ComputePipelineCompileInfo
 
 struct BC6HCompressTask : BC6HCompressTaskBase
 {
-    TextureManagerInfo *info = {};
+    std::shared_ptr<daxa::ComputePipeline> compress = {};
+    daxa::Device device = {};
     SamplerId nearest_sampler = {};
 
 	static constexpr u32 threadsX = 8;
@@ -45,7 +46,7 @@ struct BC6HCompressTask : BC6HCompressTaskBase
     {
         auto cmd_list = ti.get_command_list();
 
-        auto image_dimensions = info->device.info_image(uses._src_texture.image()).size;
+        auto image_dimensions = device.info_image(uses._src_texture.image()).size;
         cmd_list.set_uniform_buffer(ti.uses.get_uniform_buffer_info());
         cmd_list.push_constant(BC6HCompressPC{
             .TextureSizeInBlocks = u32vec2{
@@ -55,7 +56,7 @@ struct BC6HCompressTask : BC6HCompressTaskBase
             .TextureSizeRcp = f32vec2{1.0f / image_dimensions.x, 1.0f / image_dimensions.y},
             .point_sampler = nearest_sampler
         });
-        cmd_list.set_pipeline(*(info->compress_pipeline));
+        cmd_list.set_pipeline(*(compress));
 
         cmd_list.dispatch(((image_dimensions.x + divx - 1)/divx), ((image_dimensions.y + divy - 1)/divy));
     }

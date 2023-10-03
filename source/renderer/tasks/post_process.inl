@@ -8,13 +8,14 @@
 struct PostProcessPC
 {
     daxa_SamplerId sampler_id;
+    daxa_SamplerId llce_sampler;
 };
 
 DAXA_DECL_TASK_USES_BEGIN(PostProcessTaskBase, DAXA_UNIFORM_BUFFER_SLOT0)
-// DAXA_TASK_USE_BUFFER(_globals, daxa_BuffrPtr(Globals), FRAGMENT_SHADER_READ)
 DAXA_TASK_USE_BUFFER(_average_luminance, daxa_BufferPtr(AverageLuminance), FRAGMENT_SHADER_READ)
 DAXA_TASK_USE_IMAGE(_swapchain, REGULAR_2D, COLOR_ATTACHMENT)
 DAXA_TASK_USE_IMAGE(_offscreen, REGULAR_2D, FRAGMENT_SHADER_SAMPLED)
+DAXA_TASK_USE_IMAGE(_tonemapping_lut, REGULAR_3D, FRAGMENT_SHADER_SAMPLED)
 DAXA_DECL_TASK_USES_END()
 
 #if __cplusplus
@@ -56,7 +57,10 @@ struct PostProcessTask : PostProcessTaskBase
         });
 
         cmd_list.set_pipeline(*(context->pipelines.post_process));
-        cmd_list.push_constant(PostProcessPC{ .sampler_id = context->linear_sampler });
+        cmd_list.push_constant(PostProcessPC{
+            .sampler_id = context->linear_sampler,
+            .llce_sampler = context->llce_sampler
+        });
         cmd_list.draw({.vertex_count = 3});
         cmd_list.end_renderpass();
     }

@@ -2,7 +2,7 @@
 #define DAXA_ENABLE_SHADER_NO_NAMESPACE 1
 #define DAXA_ENABLE_IMAGE_OVERLOADS_BASIC 1
 #include <shared/shared.inl>
-#include <tasks/bc6h_compress.inl>
+#include "texture_manager/tasks/bc6h_compress.inl"
 
 DAXA_DECL_PUSH_CONSTANT(BC6HCompressPC, pc)
 

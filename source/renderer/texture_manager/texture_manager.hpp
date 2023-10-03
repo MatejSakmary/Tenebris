@@ -3,14 +3,12 @@
 #include <vector>
 #include <variant>
 
-#include <daxa/daxa.hpp>
 #include <daxa/utils/task_graph.hpp>
-using namespace daxa::types;
-
+#include <daxa/utils/pipeline_manager.hpp>
 
 struct LoadTextureInfo
 {
-    std::string path = {};
+    std::string filepath;
     daxa::TaskImage & dest_image;
 };
 
@@ -26,19 +24,10 @@ struct NormalsFromHeightInfo
     daxa::TaskImage & normals_texture;
 };
 
-struct ManagedTexture
-{
-    daxa::BufferId id = {};
-    std::string path = {};
-    i32vec2 dimensions = {-1, -1};
-    daxa::Format format = daxa::Format::UNDEFINED;
-};
-
 struct TextureManagerInfo
 {
     daxa::Device device;
-    std::shared_ptr<daxa::ComputePipeline> compress_pipeline;
-    std::shared_ptr<daxa::ComputePipeline> height_to_normal_pipeline;
+    daxa::PipelineManager pipeline_manager;
 };
 
 struct TextureManager
@@ -54,10 +43,12 @@ struct TextureManager
     ~TextureManager();
 
     private:
+
         bool should_compress = false;
         TextureManagerInfo info;
 
         // compress image resources
+        std::shared_ptr<daxa::ComputePipeline> compress;
         daxa::TaskImage compress_src_hdr_texture;
         daxa::TaskImage uint_compress_texture;
         daxa::TaskImage compress_dst_bc6h_texture;
@@ -67,6 +58,7 @@ struct TextureManager
         daxa::TaskImage load_dst_hdr_texture;
 
         // normal map get resources
+        std::shared_ptr<daxa::ComputePipeline> height_to_normal;
         daxa::TaskImage normal_src_hdr_texture;
         daxa::TaskImage normal_dst_hdr_texture;
 

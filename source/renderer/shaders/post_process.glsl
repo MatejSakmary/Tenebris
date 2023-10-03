@@ -5,84 +5,23 @@
 
 DAXA_DECL_PUSH_CONSTANT(PostProcessPC, pc)
 
-layout (location = 0) in f32vec2 in_uv;
-layout (location = 0) out f32vec4 out_color;
+#define AGX 0
+#define SCUFFED_ACES 1
+#define TONY_MC_MAPFACE 2
 
-// Used to convert from linear RGB to XYZ space
-const f32mat3x3 RGB_2_XYZ = f32mat3x3(
-    0.4124564, 0.2126729, 0.0193339,
-    0.3575761, 0.7151522, 0.1191920,
-    0.1804375, 0.0721750, 0.9503041
-);
+#define TONEMAPPING TONY_MC_MAPFACE
 
-// Used to convert from XYZ to linear RGB space
-const f32mat3x3 XYZ_2_RGB = f32mat3x3(
-     3.2404542,-0.9692660, 0.0556434,
-    -1.5371385, 1.8760108,-0.2040259,
-    -0.4985314, 0.0415560, 1.0572252
-);
-
-// Converts a color from XYZ to xyY space (Y is luminosity)
-f32vec3 xyz_to_xyY(f32vec3 xyz) {
-    f32 Y = xyz.y;
-    f32 x = xyz.x / (xyz.x + xyz.y + xyz.z);
-    f32 y = xyz.y / (xyz.x + xyz.y + xyz.z);
-    return f32vec3(x, y, Y);
-}
-
-// Converts a color from linear RGB to XYZ space
-f32vec3 rgb_to_xyz(f32vec3 rgb) {
-    return RGB_2_XYZ * rgb;
-}
-
-// Converts a color from linear RGB to xyY space
-f32vec3 rgb_to_xyY(f32vec3 rgb) {
-    f32vec3 xyz = rgb_to_xyz(rgb);
-    return xyz_to_xyY(xyz);
-}
-
-// Converts a color from xyY space to XYZ space
-f32vec3 xyY_to_xyz(f32vec3 xyY) {
-    f32 Y = xyY.z;
-    f32 x = Y * xyY.x / xyY.y;
-    f32 z = Y * (1.0 - xyY.x - xyY.y) / xyY.y;
-    return f32vec3(x, Y, z);
-}
-
-// Converts a color from XYZ to linear RGB space
-f32vec3 xyz_to_rgb(f32vec3 xyz) {
-    return XYZ_2_RGB * xyz;
-}
-
-// Converts a color from xyY space to linear RGB
-f32vec3 xyY_to_rgb(f32vec3 xyY) {
-    f32vec3 xyz = xyY_to_xyz(xyY);
-    return xyz_to_rgb(xyz);
-}
-
-f32 Tonemap_ACES(f32 x) {
-    // Narkowicz 2015, "ACES Filmic Tone Mapping Curve"
-    // const f32 a = 2.21;
-    // const f32 b = 0.03;
-    // const f32 c = 2.43;
-    // const f32 d = 0.59;
-    // const f32 e = 0.14;
-    const f32 a = 0.2;
-    const f32 b = 0.29;
-    const f32 c = 0.24;
-    const f32 d = 0.272;
-    const f32 e = 0.02;
-    return (x * (a * x + b)) / (x * (c * x + d) + e);
-}
-// AGX =====================================
 // Source - https://github.com/BelmuTM/Noble/blob/master/shaders/programs/post/pre_final.glsl
 //        - https://github.com/BelmuTM/Noble/blob/master/shaders/include/post/grading.glsl
-const f32mat3x3 SRGB_2_XYZ_MAT = f32mat3x3
-(
+#if TONEMAPPING == AGX
+const f32mat3x3 SRGB_2_XYZ_MAT = f32mat3x3(
 	0.4124564, 0.3575761, 0.1804375,
     0.2126729, 0.7151522, 0.0721750,
     0.0193339, 0.1191920, 0.9503041
 );
+const f32 SRGB_ALPHA = 0.055;
+
+f32vec3  saturate(f32vec3 x)  { return clamp(x, f32vec3(0.0), f32vec3(1.0)); }
 
 f32 luminance(f32vec3 color) 
 {
@@ -130,32 +69,22 @@ void agxEotf(inout f32vec3 color) {
 }
 
 void agxLook(inout f32vec3 color) {
-    // #if AGX_LOOK == 0
-    //     // Default
-        // const f32vec3  slope      = f32vec3(1.0);
-        // const f32vec3  power      = f32vec3(1.0);
-        // const f32 saturation = 1.0;
-    // #elif AGX_LOOK == 1
-        // Golden
-        // const f32vec3  slope      = f32vec3(1.0, 0.9, 0.5);
-        // const f32vec3  power      = f32vec3(0.8);
-        // const f32 saturation = 0.8;
-    // #elif AGX_LOOK == 2
-    //     // Punchy
-        const f32vec3  slope      = f32vec3(1.1);
-        const f32vec3  power      = f32vec3(1.2);
-        const f32 saturation = 1.2;
-    // #endif
+    // Punchy
+    const f32vec3  slope      = f32vec3(1.1);
+    const f32vec3  power      = f32vec3(1.2);
+    const f32 saturation = 1.3;
 
     f32 luma = luminance(color);
   
     color = pow(color * slope, power);
     color = luma + saturation * (color - luma);
 }
+#endif
 
-const f32 exposureBias      = 1.5;
+#if (TONEMAPPING == AGX) || (TONEMAPPING == TONY_MC_MAPFACE)
+const f32 exposureBias      = 1.0;
 const f32 calibration       = 12.5;  // Light meter calibration
-const f32 sensorSensitivity = 200.0; // Sensor sensitivity
+const f32 sensorSensitivity = 100.0; // Sensor sensitivity
 
 f32 computeEV100fromLuminance(f32 luminance) {
     return log2(luminance * sensorSensitivity * exposureBias / calibration);
@@ -171,19 +100,110 @@ f32 computeExposure(f32 averageLuminance) {
 
 	return exposure;
 }
+#endif
 
+#if TONEMAPPING == SCUFFED_ACES
+// Used to convert from linear RGB to XYZ space
+const f32mat3x3 RGB_2_XYZ = (f32mat3x3(
+    0.4124564, 0.2126729, 0.0193339,
+    0.3575761, 0.7151522, 0.1191920,
+    0.1804375, 0.0721750, 0.9503041
+));
+
+// Used to convert from XYZ to linear RGB space
+const f32mat3x3 XYZ_2_RGB = (f32mat3x3(
+     3.2404542,-0.9692660, 0.0556434,
+    -1.5371385, 1.8760108,-0.2040259,
+    -0.4985314, 0.0415560, 1.0572252
+));
+
+// Converts a color from linear RGB to XYZ space
+f32vec3 rgb_to_xyz(f32vec3 rgb) {
+    return RGB_2_XYZ * rgb;
+}
+
+// Converts a color from XYZ to linear RGB space
+f32vec3 xyz_to_rgb(f32vec3 xyz) {
+    return XYZ_2_RGB * xyz;
+}
+
+// Converts a color from XYZ to xyY space (Y is luminosity)
+f32vec3 xyz_to_xyY(f32vec3 xyz) {
+    f32 Y = xyz.y;
+    f32 x = xyz.x / (xyz.x + xyz.y + xyz.z);
+    f32 y = xyz.y / (xyz.x + xyz.y + xyz.z);
+    return f32vec3(x, y, Y);
+}
+
+// Converts a color from linear RGB to xyY space
+f32vec3 rgb_to_xyY(f32vec3 rgb) {
+    f32vec3 xyz = rgb_to_xyz(rgb);
+    return xyz_to_xyY(xyz);
+}
+
+// Converts a color from xyY space to XYZ space
+f32vec3 xyY_to_xyz(f32vec3 xyY) {
+    f32 Y = xyY.z;
+    f32 x = Y * xyY.x / xyY.y;
+    f32 z = Y * (1.0 - xyY.x - xyY.y) / xyY.y;
+    return f32vec3(x, Y, z);
+}
+
+// Converts a color from xyY space to linear RGB
+f32vec3 xyY_to_rgb(f32vec3 xyY) {
+    f32vec3 xyz = xyY_to_xyz(xyY);
+    return xyz_to_rgb(xyz);
+}
+
+f32 tonemap_ACES(f32 x) {
+    // Narkowicz 2015, "ACES Filmic Tone Mapping Curve"
+    const f32 a = 2.51;
+    const f32 b = 0.03;
+    const f32 c = 2.43;
+    const f32 d = 0.59;
+    const f32 e = 0.14;
+    return (x * (a * x + b)) / (x * (c * x + d) + e);
+}
+#endif
+// Source - https://github.com/h3r2tic/tony-mc-mapface/tree/main 
+#if TONEMAPPING == TONY_MC_MAPFACE
+f32vec3 tony_mc_mapface(f32vec3 exposed_color)
+{
+    // Apply a non-linear transform that the LUT is encoded with.
+    const f32vec3 encoded = exposed_color / (exposed_color + 1.0);
+
+    // Align the encoded range to texel centers.
+    const f32 LUT_DIMS = 48.0;
+    const f32vec3 uv = encoded * ((LUT_DIMS - 1.0) / LUT_DIMS) + 0.5 / LUT_DIMS;
+
+    // Note: for OpenGL, do `uv.y = 1.0 - uv.y`
+    return texture(daxa_sampler3D(_tonemapping_lut, pc.llce_sampler), uv).xyz;
+}
+#endif
+
+layout (location = 0) in f32vec2 in_uv;
+layout (location = 0) out f32vec4 out_color;
 void main()
 {
     f32vec3 hdr_color = texture(daxa_sampler2D(_offscreen, pc.sampler_id), in_uv).rgb;
-    // f32vec3 xyY = rgb_to_xyY(hdr_color);
-    // const f32 lp = xyY.z / (9.6 * deref(_average_luminance).luminance + 0.0001);
-    // xyY.z = Tonemap_ACES(lp);
 
+#if TONEMAPPING == AGX
     f32 exposure = computeExposure(deref(_average_luminance).luminance);
-    f32vec3 color = hdr_color * exposure;
-    agx(color);
-    agxLook(color);
-    agxEotf(color);
-    out_color = f32vec4(color, 1.0);
-// #endif
+    f32vec3 exposed_color = hdr_color * exposure;
+
+    agx(exposed_color);
+    agxLook(exposed_color);
+    agxEotf(exposed_color);
+    f32vec3 tonemapped_color = exposed_color;
+#elif TONEMAPPING == TONY_MC_MAPFACE
+    const f32 exposure = computeExposure(deref(_average_luminance).luminance);
+    const f32vec3 exposed_color = hdr_color * exposure;
+    const f32vec3 tonemapped_color = tony_mc_mapface(exposed_color);
+#elif TONEMAPPING == SCUFFED_ACES
+    f32vec3 xyY = rgb_to_xyY(hdr_color);
+    f32 lp = xyY.z / (9.6 * deref(_average_luminance).luminance + 0.0001); 
+    xyY.z = tonemap_ACES(lp);
+    f32vec3 tonemapped_color = xyY_to_rgb(xyY);
+#endif
+    out_color = f32vec4(tonemapped_color, 1.0);
 }

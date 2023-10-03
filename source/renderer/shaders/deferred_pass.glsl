@@ -111,7 +111,7 @@ f32vec3 get_far_sky_color(f32vec2 uv)
     f32vec3 sky_color = texture(daxa_sampler2D(_skyview, pc.linear_sampler_id), skyview_uv).rgb;
     if(!intersects_ground) { sky_color += add_sun_circle(world_direction, sun_direction); };
 
-    return sky_color;
+    return sky_color / 1.0;
 }
 
 void main() 

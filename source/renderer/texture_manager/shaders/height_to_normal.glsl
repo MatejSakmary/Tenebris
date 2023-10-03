@@ -1,7 +1,7 @@
 #define DAXA_ENABLE_SHADER_NO_NAMESPACE 1
 #define DAXA_ENABLE_IMAGE_OVERLOADS_BASIC 1
 #include <shared/shared.inl>
-#include "tasks/height_to_normal.inl"
+#include "texture_manager/tasks/height_to_normal.inl"
 
 #extension GL_EXT_debug_printf : enable
 
