@@ -5,8 +5,14 @@
 
 #include "../shared/shared.inl"
 
+struct VSMDebugVirtualPageTablePC
+{
+    daxa_i32 clip_level;
+};
+
 DAXA_DECL_TASK_USES_BEGIN(VSMDebugVirtualPageTableTaskBase, DAXA_UNIFORM_BUFFER_SLOT0)
-DAXA_TASK_USE_IMAGE(_vsm_page_table, REGULAR_2D, COMPUTE_SHADER_STORAGE_READ_ONLY)
+DAXA_TASK_USE_BUFFER(_globals, daxa_BufferPtr(Globals), COMPUTE_SHADER_READ)
+DAXA_TASK_USE_IMAGE(_vsm_page_table, REGULAR_2D_ARRAY, COMPUTE_SHADER_STORAGE_READ_ONLY)
 DAXA_TASK_USE_IMAGE(_vsm_debug_page_table, REGULAR_2D, COMPUTE_SHADER_STORAGE_WRITE_ONLY)
 DAXA_DECL_TASK_USES_END()
 
@@ -33,6 +39,7 @@ inline auto get_vsm_debug_page_table_pipeline() -> daxa::ComputePipelineCompileI
             .source = daxa::ShaderFile{"vsm_debug_pass.glsl"},
             .compile_options = daxa::ShaderCompileOptions{ .defines = {{"VSM_DEBUG_PAGE_TABLE", "1"}}},
         },
+        .push_constant_size = sizeof(VSMDebugVirtualPageTablePC),
         .name = "vsm debug page table"
     };
 }
@@ -46,7 +53,17 @@ struct VSMDebugVirtualPageTableTask : VSMDebugVirtualPageTableTaskBase
 
         cmd_list.set_uniform_buffer(ti.uses.get_uniform_buffer_info());
         cmd_list.set_pipeline(*(context->pipelines.vsm_debug_page_table));
-        cmd_list.dispatch(VSM_PAGE_TABLE_RESOLUTION, VSM_PAGE_TABLE_RESOLUTION);
+        for(i32 i = 0; i < VSM_CLIP_LEVELS; i++)
+        {
+            cmd_list.push_constant(VSMDebugVirtualPageTablePC{.clip_level = i});
+            cmd_list.dispatch(VSM_PAGE_TABLE_RESOLUTION, VSM_PAGE_TABLE_RESOLUTION);
+            cmd_list.pipeline_barrier({
+                .src_access = daxa::Access{
+                    .stages = daxa::PipelineStageFlagBits::COMPUTE_SHADER,
+                    .type = daxa::AccessTypeFlagBits::READ_WRITE
+                }
+            });
+        }
     }
 };
 

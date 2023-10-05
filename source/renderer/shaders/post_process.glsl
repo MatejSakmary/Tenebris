@@ -181,6 +181,70 @@ f32vec3 tony_mc_mapface(f32vec3 exposed_color)
 }
 #endif
 
+#define WHITE_POINT   6500
+#define WHITE_BALANCE 6500
+
+const mat3 SRGB_2_XYZ_MAT = mat3(
+	0.4124564, 0.3575761, 0.1804375,
+    0.2126729, 0.7151522, 0.0721750,
+    0.0193339, 0.1191920, 0.9503041
+);
+
+const mat3 XYZ_2_SRGB_MAT = mat3(
+	 3.2409699419,-1.5373831776,-0.4986107603,
+    -0.9692436363, 1.8759675015, 0.0415550574,
+	 0.0556300797,-0.2039769589, 1.0569715142
+);
+
+const f32mat3x3 CONE_RESP_CAT02 = f32mat3x3(
+	f32vec3( 0.7328, 0.4296,-0.1624),
+	f32vec3(-0.7036, 1.6975, 0.0061),
+	f32vec3( 0.0030, 0.0136, 0.9834)
+);
+
+vec3 fromXYZ(vec3 color) { return color * XYZ_2_SRGB_MAT; }
+vec3 toXYZ(vec3 color) { return color * SRGB_2_XYZ_MAT; }
+mat3 fromXYZ(mat3 mat) { return mat * XYZ_2_SRGB_MAT; }
+mat3 toXYZ(mat3 mat) { return mat * SRGB_2_XYZ_MAT; }
+
+vec3 plancks(float temperature, vec3 lambda) {
+    const float h = 6.62607015e-16; // Planck's constant
+    const float c = 2.99792458e17;  // Speed of light in a vacuum
+    const float k = 1.38064852e-5;  // Boltzmann's constant
+
+    float numerator   = 2.0 * h * pow(c, 2.0);
+    vec3  denominator = (exp(h * c / (lambda * k * temperature)) - vec3(1.0)) * pow(lambda, f32vec3(5.0));
+    return (numerator / denominator) * pow(1e9, 2.0);
+}
+
+vec3 blackbody(float temperature) {
+    vec3 rgb  = plancks(temperature, vec3(660.0, 550.0, 440.0));
+         rgb /= max(max(rgb.r, rgb.g), rgb.b); // Keeping the values below 1.0
+    return rgb;
+}
+
+f32mat3x3 chromaticAdaptationMatrix(f32vec3 source, f32vec3 destination) {
+	f32vec3 sourceLMS      = source * CONE_RESP_CAT02;
+	f32vec3 destinationLMS = destination * CONE_RESP_CAT02;
+	f32vec3 tmp            = destinationLMS / sourceLMS;
+
+	f32mat3x3 vonKries = f32mat3x3(
+		tmp.x, 0.0, 0.0,
+		0.0, tmp.y, 0.0,
+		0.0, 0.0, tmp.z
+	);
+
+	return (CONE_RESP_CAT02 * vonKries) * inverse(CONE_RESP_CAT02);
+}
+
+void whiteBalance(inout f32vec3 color) {
+    vec3 source           = toXYZ(blackbody(WHITE_BALANCE));
+    vec3 destination      = toXYZ(blackbody(WHITE_POINT  ));
+    mat3 chromaAdaptation = fromXYZ(toXYZ(chromaticAdaptationMatrix(source, destination)));
+
+    color *= chromaAdaptation;
+}
+
 layout (location = 0) in f32vec2 in_uv;
 layout (location = 0) out f32vec4 out_color;
 void main()
@@ -198,12 +262,13 @@ void main()
 #elif TONEMAPPING == TONY_MC_MAPFACE
     const f32 exposure = computeExposure(deref(_average_luminance).luminance);
     const f32vec3 exposed_color = hdr_color * exposure;
-    const f32vec3 tonemapped_color = tony_mc_mapface(exposed_color);
+    f32vec3 tonemapped_color = tony_mc_mapface(exposed_color);
 #elif TONEMAPPING == SCUFFED_ACES
     f32vec3 xyY = rgb_to_xyY(hdr_color);
     f32 lp = xyY.z / (9.6 * deref(_average_luminance).luminance + 0.0001); 
     xyY.z = tonemap_ACES(lp);
     f32vec3 tonemapped_color = xyY_to_rgb(xyY);
 #endif
+    whiteBalance(tonemapped_color);
     out_color = f32vec4(tonemapped_color, 1.0);
 }

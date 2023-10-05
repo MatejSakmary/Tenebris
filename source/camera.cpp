@@ -12,7 +12,7 @@ Camera::Camera(const CameraInfo & info) :
     up{daxa_vec3_to_glm(info.up)},
     proj_info{info.projection_info},
     speed{100.0f},
-    pitch{0.0f},
+    pitch{10.0f},
     sensitivity{0.08f},
     roll_sensitivity{20.0f}
 {
@@ -84,8 +84,8 @@ void Camera::update_front_vector(f32 x_offset, f32 y_offset)
 
     pitch = glm::degrees(glm::angle(front_, up));
 
-    const f32 MAX_PITCH_ANGLE = 179.0f;
-    const f32 MIN_PITCH_ANGLE = 1.0f;
+    const f32 MAX_PITCH_ANGLE = 179.9f;
+    const f32 MIN_PITCH_ANGLE = 0.01f;
     if (pitch < MIN_PITCH_ANGLE || pitch > MAX_PITCH_ANGLE )
     {
         return;

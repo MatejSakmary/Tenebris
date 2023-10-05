@@ -7,6 +7,7 @@
 #extension GL_KHR_shader_subgroup_arithmetic : enable
 #extension GL_EXT_debug_printf : enable
 
+DAXA_DECL_IMAGE_ACCESSOR_WITH_FORMAT(uimage2DArray, r32ui, , r32uiImageArray)
 DAXA_DECL_IMAGE_ACCESSOR_WITH_FORMAT(uimage2D, r32ui, , r32uiImage)
 
 #define _tile_size 32
@@ -50,38 +51,62 @@ void workgroup_min_max_depth(f32vec2 thread_min_max_depth)
     }
 }
 
+// Takes in Screen space uvs - in the range [0, 1]
+f32vec3 world_space_from_uv(f32vec2 screen_space_uv, f32 depth, f32mat4x4 inv_projection_view)
+{
+    const f32vec2 remap_uv = (screen_space_uv * 2.0) - 1.0;
+    const f32vec4 ndc_position = f32vec4(remap_uv, depth, 1.0);
+    const f32vec4 unprojected_ndc_position = inv_projection_view * ndc_position;
+
+    const f32vec3 offset_world_position = unprojected_ndc_position.xyz / unprojected_ndc_position.w;
+    return offset_world_position - deref(_globals).offset;
+}
+
 // For each fragment check if the page that will be needed during the shadowmap test is allocated
 // if not mark page as needing allocation
 void request_vsm_pages(f32vec4 depths, u32vec2 scaled_pixel_coords)
 {
     // texel gather component mapping - (00,w);(01,x);(11,y);(10,z) 
     // where the 00 is top left
-    const i32vec2 offsets[4] = i32vec2[](
-        i32vec2(0.5, 1.5),
-        i32vec2(1.5, 1.5),
-        i32vec2(1.5, 0.5),
-        i32vec2(0.5, 0.5)
+    const f32vec2 offsets[4] = f32vec2[](
+        f32vec2(0.5, 1.5),
+        f32vec2(1.5, 1.5),
+        f32vec2(1.5, 0.5),
+        f32vec2(0.5, 0.5)
     );
 
     for(i32 idx = 0; idx < 4; idx++)
     {
         // Skip fragments into which no objects were rendered
         if(depths[idx] == 0.0) { continue; }
+        const f32mat4x4 inv_projection_view = deref(_globals).inv_view_projection;
+
+        // Figure out the clipmap level
+        const f32vec2 left_texel_side =  (scaled_pixel_coords + offsets[idx] - f32vec2(0.5, 0.0)) / f32vec2(pc.depth_dimensions);
+        const f32vec2 right_texel_side = (scaled_pixel_coords + offsets[idx] + f32vec2(0.5, 0.0)) / f32vec2(pc.depth_dimensions);
+        const f32vec3 left_world_space = world_space_from_uv(left_texel_side, depths[idx], inv_projection_view);
+        const f32vec3 right_world_space = world_space_from_uv(right_texel_side, depths[idx], inv_projection_view);
+        const f32 texel_world_size = length(left_world_space - right_world_space);
+        i32 clip_level = max(i32(floor(log2(texel_world_size / deref(_globals).vsm_clip0_texel_world_size))), 0);
 
         const f32vec2 screen_space_uv = (scaled_pixel_coords + offsets[idx]) / f32vec2(pc.depth_dimensions);
-        const f32vec2 remap_uv = (screen_space_uv * 2.0) - 1.0;
-        const f32vec4 ndc_position = f32vec4(remap_uv, depths[idx], 1.0);
-        const f32vec4 unprojected_ndc_position = deref(_globals).inv_view_projection * ndc_position;
-        const f32vec3 offset_world_position = unprojected_ndc_position.xyz / unprojected_ndc_position.w;
-        const f32vec3 world_position = offset_world_position - deref(_globals).offset;
+        const f32vec3 world_position = world_space_from_uv(screen_space_uv, depths[idx], inv_projection_view);
 
-        const f32vec3 sun_offset_world_position = world_position + deref(_globals).sun_offset;
-        const f32vec4 sun_projected_world_position = deref(_globals).sun_projection_view * f32vec4(sun_offset_world_position, 1.0);
-        const f32vec3 sun_ndc_position = sun_projected_world_position.xyz / sun_projected_world_position.w;
-        const f32vec2 sun_depth_uv = (sun_ndc_position.xy + f32vec2(1.0)) / f32vec2(2.0);
+        f32vec2 sun_depth_uv;
+        for(clip_level; clip_level <= VSM_CLIP_LEVELS; clip_level++)
+        {
+            const f32vec3 sun_offset_world_position = world_position + deref(_globals).vsm_sun_offset;
+            const f32vec4 sun_projected_world_position = deref(_vsm_sun_projections[clip_level]).projection_view * f32vec4(sun_offset_world_position, 1.0);
+            const f32vec3 sun_ndc_position = sun_projected_world_position.xyz / sun_projected_world_position.w;
+            sun_depth_uv = (sun_ndc_position.xy + f32vec2(1.0)) / f32vec2(2.0);
+            bool is_in_clip_bounds = all(lessThanEqual(sun_depth_uv, f32vec2(1.0))) &&
+                                     all(greaterThanEqual(sun_depth_uv, f32vec2(0.0)));
+            if(is_in_clip_bounds) { break; }
+        }
+        if(clip_level >= VSM_CLIP_LEVELS) { continue; }
 
-        const i32vec2 vsm_page_pix_coords = i32vec2(sun_depth_uv * VSM_PAGE_TABLE_RESOLUTION);
-        const u32 page_entry = imageLoad(daxa_uimage2D(_vsm_page_table), vsm_page_pix_coords).r;
+        const i32vec3 vsm_page_pix_coords = i32vec3(sun_depth_uv * VSM_PAGE_TABLE_RESOLUTION, clip_level);
+        const u32 page_entry = imageLoad(daxa_uimage2DArray(_vsm_page_table), vsm_page_pix_coords).r;
 
         const bool is_not_allocated = !get_is_allocated(page_entry);
         const bool allocation_available = atomicAdd(deref(_vsm_allocate_indirect).x, 0) < MAX_NUM_VSM_ALLOC_REQUEST;
@@ -89,7 +114,7 @@ void request_vsm_pages(f32vec4 depths, u32vec2 scaled_pixel_coords)
         if(is_not_allocated && allocation_available)
         {
             const u32 prev_state = imageAtomicOr(
-                daxa_access(r32uiImage, _vsm_page_table),
+                daxa_access(r32uiImageArray, _vsm_page_table),
                 vsm_page_pix_coords,
                 requests_allocation_mask()
             );
@@ -108,7 +133,7 @@ void request_vsm_pages(f32vec4 depths, u32vec2 scaled_pixel_coords)
                     // debugPrintfEXT("Allocation attempted and failed\n");
                     atomicAdd(deref(_vsm_allocate_indirect).x, -1);
                     imageAtomicAnd(
-                        daxa_access(r32uiImage, _vsm_page_table),
+                        daxa_access(r32uiImageArray, _vsm_page_table),
                         vsm_page_pix_coords,
                         ~requests_allocation_mask()
                     );
@@ -118,7 +143,7 @@ void request_vsm_pages(f32vec4 depths, u32vec2 scaled_pixel_coords)
         else if (!get_is_visited_marked(page_entry) && !is_not_allocated)
         {
             const u32 prev_state = imageAtomicOr(
-                daxa_access(r32uiImage, _vsm_page_table),
+                daxa_access(r32uiImageArray, _vsm_page_table),
                 vsm_page_pix_coords,
                 visited_marked_mask()
             );

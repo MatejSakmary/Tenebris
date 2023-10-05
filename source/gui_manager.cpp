@@ -163,12 +163,13 @@ void GuiManager::on_update()
 
 #if VSM_DEBUG_VIZ_PASS == 1 
     ImGui::Begin("VSM Paging Texture");
+    ImGui::SliderInt("VSM Clip Level", &globals.vsm_debug_clip_level, 0, VSM_CLIP_LEVELS - 1);
     ImGui::Image(
         daxa::ImGuiRenderer::create_image_context({
             .image_view_id = info.renderer->context.images.vsm_debug_page_table.get_state().images[0].default_view(),
             .sampler_id = info.renderer->context.nearest_sampler
         }),
-        ImVec2(VSM_DEBUG_PAGING_TABLE_RESOLUTION * 2, VSM_DEBUG_PAGING_TABLE_RESOLUTION * 2) 
+        ImVec2(vsm_debug_paging_table_resolution(), vsm_debug_paging_table_resolution()) 
     );
     ImGui::End();
 

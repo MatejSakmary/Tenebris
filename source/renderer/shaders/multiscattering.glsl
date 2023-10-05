@@ -94,7 +94,6 @@ RaymarchResult integrate_scattered_luminance(f32vec3 world_position, f32vec3 wor
 
         result.multiscattering += accum_transmittance * multiscattered_cont_int;
         accum_light += accum_transmittance * inscatteredContInt;
-        // accum_light = accum_transmittance;
         accum_transmittance *= trans_increase_over_integration_step;
     }
     result.luminance = accum_light;

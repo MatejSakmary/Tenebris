@@ -103,11 +103,11 @@ void main()
     if(!info.condition)
     {
         imageStore(daxa_uimage2D(_vsm_meta_memory_table), thread_coords, meta_entry & (~meta_memory_visited_mask()));
-        const i32vec2 vsm_coords = get_vsm_coords_from_meta_entry(meta_entry);
+        const i32vec3 vsm_coords = get_vsm_coords_from_meta_entry(meta_entry);
 
-        const u32 vsm_entry = imageLoad(daxa_uimage2D(_vsm_page_table), vsm_coords).r;
+        const u32 vsm_entry = imageLoad(daxa_uimage2DArray(_vsm_page_table), vsm_coords).r;
         const u32 visited_reset_vsm_entry = vsm_entry & (~visited_marked_mask());
-        imageStore(daxa_uimage2D(_vsm_page_table), vsm_coords, u32vec4(visited_reset_vsm_entry))
+        imageStore(daxa_uimage2DArray(_vsm_page_table), vsm_coords, u32vec4(visited_reset_vsm_entry))
     }
-#endif // VSM_DEBUG_PASS_CLEARS_VISITED == 0
+#endif // VSM_DEBUG_VIZ_PASS == 0
 }

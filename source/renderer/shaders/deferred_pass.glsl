@@ -11,20 +11,19 @@ DAXA_DECL_PUSH_CONSTANT(DeferredPassPC, pc)
 layout (location = 0) in f32vec2 uv;
 layout (location = 0) out f32vec4 out_color;
 
-// const f32vec4 sun_color = f32vec4(255.0, 204.0, 153.0, 255.0)/255.0;
-const f32vec4 sun_color = f32vec4(255.0, 255.0, 255.0, 255.0)/255.0;
+const f32vec4 sun_color = f32vec4(255.0, 204.0, 153.0, 255.0)/255.0;
+// const f32vec4 sun_color = f32vec4(255.0, 255.0, 255.0, 255.0)/255.0;
 
-f32vec3 add_sun_circle(f32vec3 world_dir, f32vec3 sun_dir)
+f32vec3 add_sun_circle(f32vec3 world_dir, f32vec3 sun_dir, f32vec3 sky_color)
 {
     const f32 sun_solid_angle = 0.5 * PI / 180.0;
     const f32 min_sun_cos_theta = cos(sun_solid_angle);
 
     f32 cos_theta = dot(world_dir, sun_dir);
-    if(cos_theta >= min_sun_cos_theta) {return sun_color.xyz;}
+    if(cos_theta >= min_sun_cos_theta) {return sky_color;}
     else {return f32vec3(0.0);}
 }
 
-// TODO(msakmary) Duplicate code refactor
 f32vec3 get_far_sky_color(f32vec3 world_direction)
 {
     // Because the atmosphere is using km as it's default units and we want one unit in world
@@ -62,10 +61,11 @@ f32vec3 get_far_sky_color(f32vec3 world_direction)
     );
 
     f32vec3 sky_color = texture(daxa_sampler2D(_skyview, pc.linear_sampler_id), skyview_uv).rgb;
-    // if(!intersects_ground) { sky_color += add_sun_circle(world_direction, sun_direction); };
+    if(!intersects_ground) { sky_color += add_sun_circle(world_direction, sun_direction, sky_color); };
 
     return sky_color;
 }
+
 // uv going in needs to be in range [-1, 1]
 f32vec3 get_far_sky_color(f32vec2 uv)
 {
@@ -80,38 +80,7 @@ f32vec3 get_far_sky_color(f32vec2 uv)
     const f32vec4 unprojected_pos = deref(_globals).inv_view_projection * f32vec4(uv, 1.0, 1.0);
     const f32vec3 world_direction = normalize((unprojected_pos.xyz / unprojected_pos.w) - camera_position);
 
-    const f32vec3 world_up = normalize(world_camera_position);
-
-    const f32vec3 sun_direction = deref(_globals).sun_direction;
-    const f32 view_zenith_angle = acos(dot(world_direction, world_up));
-    const f32 light_view_angle = acos(dot(
-        normalize(f32vec3(sun_direction.xy, 0.0)),
-        normalize(f32vec3(world_direction.xy, 0.0))
-    ));
-
-    const f32 atmosphere_intersection_distance = ray_sphere_intersect_nearest(
-        world_camera_position,
-        world_direction,
-        f32vec3(0.0, 0.0, 0.0),
-        deref(_globals).atmosphere_bottom
-    );
-
-    const bool intersects_ground = atmosphere_intersection_distance >= 0.0;
-    const f32 camera_height = length(world_camera_position);
-
-    f32vec2 skyview_uv = skyview_lut_params_to_uv(
-        intersects_ground,
-        SkyviewParams(view_zenith_angle, light_view_angle),
-        deref(_globals).atmosphere_bottom,
-        deref(_globals).atmosphere_top,
-        f32vec2(deref(_globals).sky_lut_dim),
-        camera_height
-    );
-
-    f32vec3 sky_color = texture(daxa_sampler2D(_skyview, pc.linear_sampler_id), skyview_uv).rgb;
-    if(!intersects_ground) { sky_color += add_sun_circle(world_direction, sun_direction); };
-
-    return sky_color / 1.0;
+    return get_far_sky_color(world_direction);
 }
 
 void main() 

@@ -12,20 +12,36 @@
 #define UNIT_SCALE 0.001
 #define HISTOGRAM_BIN_COUNT 256
 
-#define VSM_TEXTURE_RESOLUTION 8192
+#define VSM_TEXTURE_RESOLUTION 4096
 #define VSM_MEMORY_RESOLUTION 4096
 #define VSM_PAGE_SIZE 128
+#define VSM_CLIP_LEVELS 4
 #define VSM_PAGE_TABLE_RESOLUTION (VSM_TEXTURE_RESOLUTION / VSM_PAGE_SIZE)
 #define VSM_META_MEMORY_RESOLUTION (VSM_MEMORY_RESOLUTION / VSM_PAGE_SIZE)
 // How many pixels in debug texture does a single page table entry span
 // for example a value of 4 means a single page entry will span 4x4 pixels in the debug texture
 #define VSM_DEBUG_PAGING_TABLE_SCALE 4
-#define VSM_DEBUG_PAGING_TABLE_RESOLUTION (VSM_PAGE_TABLE_RESOLUTION * VSM_DEBUG_PAGING_TABLE_SCALE)
+#if __cplusplus
+static constexpr daxa_i32 pow(daxa_i32 base, daxa_i32 exponent)
+{
+    if(exponent == 0) return 1;
+    daxa_i32 result = base;
+    for(daxa_i32 i = 1; i < exponent; i++)
+    {
+        result *= base;
+    }
+    return result;
+}
+static constexpr daxa_u32 vsm_debug_paging_table_resolution()
+{
+    return pow(2, VSM_CLIP_LEVELS - 1) * VSM_PAGE_TABLE_RESOLUTION * VSM_DEBUG_PAGING_TABLE_SCALE;
+}
+#endif // cplusplus
 #define VSM_DEBUG_VIZ_PASS 1
 
 // How many pixels in debug texture does a single page table entry span
 // for example a value of 4 means a single page entry will span 4x4 pixels in the debug texture
-#define VSM_DEBUG_META_MEMORY_SCALE 4
+#define VSM_DEBUG_META_MEMORY_SCALE 3
 #define VSM_DEBUG_META_MEMORY_RESOLUTION (VSM_META_MEMORY_RESOLUTION * VSM_DEBUG_META_MEMORY_SCALE)
 
 #define MAX_NUM_VSM_ALLOC_REQUEST 30
@@ -90,8 +106,6 @@ struct Globals
     daxa_f32vec3 camera_frust_top_offset;
     daxa_f32vec3 camera_frust_right_offset;
 
-    daxa_f32mat4x4 sun_projection_view;
-    daxa_i32vec3 sun_offset;
 
     // =============== Terrrain ======================
     daxa_f32vec2 terrain_scale;
@@ -105,15 +119,14 @@ struct Globals
 
     // ================ Shadows ======================
     daxa_f32 lambda;
-    daxa_f32mat4x4 sun_view_projection;
+    daxa_i32vec3 vsm_sun_offset;
+    daxa_f32 vsm_clip0_texel_world_size;
+    daxa_i32 vsm_debug_clip_level;
 
     // ================ Post process =================
     daxa_f32 min_luminance_log2;
     daxa_f32 max_luminance_log2;
     daxa_f32 inv_luminance_range_log2;
-
-    // ================ AgX ==========================
-    
 };
 
 DAXA_DECL_BUFFER_PTR(Globals)
@@ -196,9 +209,15 @@ struct AverageLuminance
 DAXA_DECL_BUFFER_PTR(AverageLuminance)
 
 // =============== VSM ===============================
+struct VSMClipProjection
+{
+    daxa_f32mat4x4 projection_view;
+    daxa_f32mat4x4 inv_projection_view;
+};
+DAXA_DECL_BUFFER_PTR(VSMClipProjection)
 struct AllocationRequest
 {
-    daxa_i32vec2 coords;
+    daxa_i32vec3 coords;
 };
 DAXA_DECL_BUFFER_PTR(AllocationRequest)
 

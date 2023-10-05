@@ -53,21 +53,24 @@ bool get_meta_memory_is_allocated(u32 meta_page_entry){ return (meta_page_entry 
 bool get_meta_memory_needs_clear(u32 meta_page_entry) { return (meta_page_entry & meta_memory_needs_clear_mask()) != 0; }
 bool get_meta_memory_is_visited(u32 meta_page_entry)  { return (meta_page_entry & meta_memory_visited_mask()) != 0; }
 
-// BIT 0 - 7  page entry x coord
-// BIT 8 - 15 page entry y coord
-i32vec2 get_vsm_coords_from_meta_entry(u32 page_entry)
+// BIT 0 - 7   page entry x coord
+// BIT 8 - 15  page entry y coord
+// BIT 16 - 19 vsm clip level
+i32vec3 get_vsm_coords_from_meta_entry(u32 page_entry)
 {
-    i32vec2 physical_coordinates = i32vec2(0,0);
-    physical_coordinates.x = i32((page_entry >> 0) & n_mask(8));
-    physical_coordinates.y = i32((page_entry >> 8) & n_mask(8));
+    i32vec3 physical_coordinates = i32vec3(0,0,0);
+    physical_coordinates.x = i32((page_entry >> 0)  & n_mask(8));
+    physical_coordinates.y = i32((page_entry >> 8)  & n_mask(8));
+    physical_coordinates.z = i32((page_entry >> 16) & n_mask(4));
 
     return physical_coordinates;
 }
 
-u32 pack_vsm_coords_to_meta_entry(i32vec2 coords)
+u32 pack_vsm_coords_to_meta_entry(i32vec3 coords)
 {
     u32 packed_coords = 0;
-    packed_coords |= (coords.y << 8);
-    packed_coords |= (coords.x & n_mask(8));
+    packed_coords |= ((coords.z & n_mask(4)) << 16);
+    packed_coords |= ((coords.y & n_mask(8)) << 8);
+    packed_coords |= ((coords.x & n_mask(8)) << 0);
     return packed_coords;
 }

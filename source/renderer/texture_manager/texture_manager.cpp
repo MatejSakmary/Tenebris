@@ -172,9 +172,9 @@ void TextureManager::load_texture(const LoadTextureInfo &load_info)
     DEBUG_OUT("[TextureManager::loat_texture_data()] Load of " + load_info.filepath + " took " << actual_wait_time << " ms");
 
     u32 const image_dimensions = 
-        std::min(image_info.resolution.z, 1) + 
-        std::min(image_info.resolution.y, 1) +
-        std::min(image_info.resolution.z, 1);
+        std::min(image_info.resolution.z - 1, 1) + 
+        std::min(image_info.resolution.y - 1, 1) +
+        std::min(image_info.resolution.x - 1, 1);
 
     // Creating load hdr destination image
     load_dst_hdr_texture.set_images({

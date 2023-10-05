@@ -153,17 +153,3 @@ auto load_dds_data(std::string const & filepath, daxa::Device device) -> LoadedI
         }
     };
 }
-
-    // dds::Image image { .filepath = load_info.path };
-    // auto result = dds::read_header(image);
-
-    // u32 pix_num = image.width;
-    // if(image.dimension == dds::ResourceDimension::Texture2D) { pix_num *= image.height; } 
-    // if(image.dimension == dds::ResourceDimension::Texture3D) { pix_num *= image.height * image.depth;  }
-
-
-    // auto new_buffer_id = info.device.create_buffer({
-    //     .size = pix_num * (dds::getBitsPerPixel(image.format) / 32),
-    //     .allocate_info = daxa::AutoAllocInfo{daxa::MemoryFlagBits::HOST_ACCESS_RANDOM},
-    //     .name = "managed texture buffer " + load_info.path
-    // });

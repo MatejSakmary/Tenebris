@@ -93,6 +93,7 @@ struct Context
             daxa::TaskBufferView vsm_free_page_buffer;
             daxa::TaskBufferView vsm_not_visited_page_buffer;
             daxa::TaskBufferView vsm_find_free_pages_header;
+            daxa::TaskBufferView vsm_sun_projection_matrices;
         };
 
         struct TransientImages
@@ -145,6 +146,7 @@ struct Context
     std::array<Histogram, HISTOGRAM_BIN_COUNT * 2> histogram;
     std::array<FrustumVertex, 8 * MAX_FRUSTUM_COUNT> frustum_vertices;
     std::array<FrustumColor, MAX_FRUSTUM_COUNT> frustum_colors;
+    std::array<VSMClipProjection, VSM_CLIP_LEVELS> vsm_sun_projections;
 };
 
 using MainConditionals = Context::MainTaskList::Conditionals;
