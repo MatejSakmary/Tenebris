@@ -11,7 +11,7 @@ DAXA_DECL_PUSH_CONSTANT(VSMDebugVirtualPageTablePC, pc)
 
 i32 get_offset_from_clip_level(i32 clip_level)
 {
-    const i32 num_clip0_tiles = i32(pow(2, VSM_CLIP_LEVELS - 1));
+    const i32 num_clip0_tiles = i32(pow(2, VSM_DEBUG_DRAWN_CLIP_LEVELS - 1));
     const i32 this_clip_tiles = i32(pow(2, clip_level));
     const f32 offset_tiles = f32(num_clip0_tiles - this_clip_tiles) / 2.0;
     return i32(offset_tiles * VSM_PAGE_TABLE_RESOLUTION * VSM_DEBUG_PAGING_TABLE_SCALE);
@@ -30,13 +30,7 @@ void main()
 
     if (get_is_visited_marked(page_entry))
     { 
-        color = f32vec4(1.0, 1.0, 0.0, 1.0);
-        const u32 is_visited_marked_erased_entry = page_entry & (~visited_marked_mask()); 
-        imageStore(
-            daxa_uimage2DArray(_vsm_page_table),
-            page_entry_coords,
-            u32vec4(is_visited_marked_erased_entry)
-        );
+        color.xyz = clip_to_color[clip_level % NUM_CLIP_VIZ_COLORS];
     }
     if(color.x == 0 && color.y == 0 && color.z == 0) { return; }
     // if(deref(_globals).vsm_debug_clip_level != clip_level) { continue; }
@@ -46,7 +40,6 @@ void main()
     const i32vec2 debug_page_coords = base_pix_pos * clip_scale * VSM_DEBUG_PAGING_TABLE_SCALE;
     const i32vec2 offset_debug_page_coords = debug_page_coords + get_offset_from_clip_level(clip_level);
 
-    color.xyz /= (clip_level + 1);
     const i32 debug_page_square = i32(VSM_DEBUG_PAGING_TABLE_SCALE * pow(2, clip_level));
     for(i32 x = 0; x < debug_page_square; x++)
     {
@@ -74,11 +67,12 @@ void main()
     { 
         color = f32vec4(1.0, 1.0, 0.0, 1.0);
         const u32 is_visited_erased_entry = meta_entry & (~meta_memory_visited_mask()); 
-        imageStore(
-            daxa_uimage2D(_vsm_meta_memory_table),
-            i32vec2(gl_GlobalInvocationID.xy),
-            u32vec4(is_visited_erased_entry)
-        );
+        imageStore(daxa_uimage2D(_vsm_meta_memory_table), i32vec2(gl_GlobalInvocationID.xy), u32vec4(is_visited_erased_entry));
+
+        const i32vec3 vsm_coords = get_vsm_coords_from_meta_entry(meta_entry);
+        const u32 vsm_entry = imageLoad(daxa_uimage2DArray(_vsm_page_table_mem_pass), vsm_coords).r;
+        const u32 visited_reset_vsm_entry = vsm_entry & (~(visited_marked_mask()));
+        imageStore(daxa_uimage2DArray(_vsm_page_table_mem_pass), vsm_coords, u32vec4(visited_reset_vsm_entry));
     }
 
     if(color.w != 0.0)

@@ -143,7 +143,7 @@ struct Context
     u32 terrain_index_size;
 
     u32 debug_frustum_cpu_count;
-    std::array<Histogram, HISTOGRAM_BIN_COUNT * 2> histogram;
+    std::array<Histogram, HISTOGRAM_BIN_COUNT> cpu_histogram;
     std::array<FrustumVertex, 8 * MAX_FRUSTUM_COUNT> frustum_vertices;
     std::array<FrustumColor, MAX_FRUSTUM_COUNT> frustum_colors;
     std::array<VSMClipProjection, VSM_CLIP_LEVELS> vsm_sun_projections;

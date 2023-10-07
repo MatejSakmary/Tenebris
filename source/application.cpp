@@ -104,7 +104,7 @@ Application::Application() :
         .projection_info = PerspectiveInfo{
             .aspect_ratio = f32(INIT_WINDOW_DIMENSIONS.x)/f32(INIT_WINDOW_DIMENSIONS.y),
             .fov = glm::radians(70.0f),
-            .near_plane = 10.0f,
+            .near_plane = 0.01f,
         }
     }},
     debug_camera{{

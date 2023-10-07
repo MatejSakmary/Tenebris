@@ -74,10 +74,8 @@ void GuiManager::on_update()
             auto typed_data = reinterpret_cast<Histogram*>(data);
             return static_cast<float>(typed_data[idx].bin_count);
         },
-        reinterpret_cast<void *>(info.renderer->context.histogram.data()),
-        HISTOGRAM_BIN_COUNT, 
-        globals.frame_index % 2 ? 0 : HISTOGRAM_BIN_COUNT,
-        NULL, 0.0f, 40000.0f, ImVec2(0, 80.0)
+        reinterpret_cast<void *>(info.renderer->context.cpu_histogram.data()),
+        HISTOGRAM_BIN_COUNT, 0, NULL, 0.0f, 40000.0f, ImVec2(0, 80.0)
     );
 
     if(ImGui::Button("Save", {150, 20})) { save(curr_path); }

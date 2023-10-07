@@ -1,6 +1,89 @@
 #define DAXA_ENABLE_SHADER_NO_NAMESPACE 1
 #include <shared/shared.inl>
 
+#define NUM_CLIP_VIZ_COLORS 4
+const f32vec3 clip_to_color[NUM_CLIP_VIZ_COLORS] = f32vec3[](
+    f32vec3( 26, 172, 172) / 255,
+    f32vec3(255,  75, 145) / 255,
+    f32vec3(255, 118, 118) / 255,
+    f32vec3(255, 205,  75) / 255
+);
+
+#if VSM_CLIP_INFO_FUNCTIONS
+struct ClipFromUVsInfo
+{
+    // Should be UVs of the center of the texel
+    f32vec2 uv;
+    u32vec2 screen_resolution;
+    f32 depth;
+    f32mat4x4 inv_projection_view;
+};
+
+struct ClipInfo
+{
+    i32 clip_level;
+    f32vec2 sun_depth_uv;
+};
+
+f32vec3 camera_offset_world_space_from_uv(f32vec2 screen_space_uv, f32 depth, f32mat4x4 inv_projection_view)
+{
+    const f32vec2 remap_uv = (screen_space_uv * 2.0) - 1.0;
+    const f32vec4 ndc_position = f32vec4(remap_uv, depth, 1.0);
+    const f32vec4 unprojected_ndc_position = inv_projection_view * ndc_position;
+
+    const f32vec3 offset_world_position = unprojected_ndc_position.xyz / unprojected_ndc_position.w;
+    return offset_world_position;
+}
+
+ClipInfo clip_info_from_uvs(ClipFromUVsInfo info)
+{
+    const f32vec2 center_texel_coords = info.uv * info.screen_resolution;
+
+    const f32vec2 left_side_texel_coords = center_texel_coords - f32vec2(0.5, 0.0);
+    const f32vec2 left_side_texel_uvs = left_side_texel_coords / f32vec2(info.screen_resolution);
+    const f32vec3 camera_offset_left_world_space = camera_offset_world_space_from_uv(
+        left_side_texel_uvs,
+        info.depth,
+        info.inv_projection_view
+    );
+
+    const f32vec2 right_side_texel_coords = center_texel_coords + f32vec2(0.5, 0.0);
+    const f32vec2 right_side_texel_uvs = right_side_texel_coords / f32vec2(info.screen_resolution);
+    const f32vec3 camera_offset_right_world_space = camera_offset_world_space_from_uv(
+        right_side_texel_uvs,
+        info.depth,
+        info.inv_projection_view
+    );
+
+    const f32vec3 camera_offset_center_world_space = camera_offset_world_space_from_uv(
+        info.uv,
+        info.depth,
+        info.inv_projection_view
+    );
+
+    const f32 texel_world_size = length(camera_offset_left_world_space - camera_offset_right_world_space);
+    i32 clip_level = max(i32(ceil(log2(texel_world_size / deref(_globals).vsm_clip0_texel_world_size))), 0);
+
+    f32vec2 sun_depth_uv;
+    const i32vec3 camera_to_sun_offset = deref(_vsm_sun_projections[clip_level]).offset - deref(_globals).offset;
+    const f32vec3 sun_offset_world_position = camera_offset_center_world_space + camera_to_sun_offset;
+    const f32vec4 sun_projected_world_position = 
+        deref(_vsm_sun_projections[clip_level]).projection_view * f32vec4(sun_offset_world_position, 1.0);
+    const f32vec3 sun_ndc_position = sun_projected_world_position.xyz / sun_projected_world_position.w;
+    sun_depth_uv = (sun_ndc_position.xy + f32vec2(1.0)) / f32vec2(2.0);
+    return ClipInfo(clip_level, sun_depth_uv);
+}
+#endif //VSM_CLIP_INFO_FUNCTIONS
+
+i32vec2 virtual_uv_to_physical_texel(f32vec2 virtual_uv, i32vec2 physical_page_coords)
+{
+    const i32vec2 virtual_texel_coord = i32vec2(virtual_uv * VSM_TEXTURE_RESOLUTION);
+    const i32vec2 in_page_texel_coord = i32vec2(mod(virtual_texel_coord, f32(VSM_PAGE_SIZE)));
+    const i32vec2 in_memory_offset = physical_page_coords * VSM_PAGE_SIZE;
+    const i32vec2 memory_texel_coord = in_memory_offset + in_page_texel_coord;
+    return memory_texel_coord;
+}
+
 u32 n_mask(u32 count) { return ((1 << count) - 1); }
 
 // BIT 31 -> 0 - FREE/ 1 - ALLOCATED

@@ -155,6 +155,23 @@ void Renderer::create_persistent_resources()
         .name = "globals task buffer"
     });
 
+    context.buffers.histogram_readback = daxa::TaskBuffer({
+        .initial_buffers = {
+            .buffers = std::array{
+                context.device.create_buffer(daxa::BufferInfo{
+                    .size = static_cast<u32>(sizeof(Histogram) * HISTOGRAM_BIN_COUNT * 2),
+                    .allocate_info = daxa::AutoAllocInfo(
+                        daxa::MemoryFlagBits::DEDICATED_MEMORY |
+                        daxa::MemoryFlagBits::HOST_ACCESS_RANDOM
+                    ),
+                    .name = "histogram readback buffer",
+                })
+            },
+        },
+        .name = "histogram readback task buffer"
+    });
+
+
     context.buffers.frustum_indices = daxa::TaskBuffer({
         .initial_buffers = {
             .buffers = std::array{
@@ -239,6 +256,7 @@ void Renderer::create_persistent_resources()
                     .array_layer_count = VSM_CLIP_LEVELS,
                     .usage = 
                         daxa::ImageUsageFlagBits::SHADER_STORAGE |
+                        daxa::ImageUsageFlagBits::SHADER_SAMPLED |
                         daxa::ImageUsageFlagBits::TRANSFER_DST,
                     .name = "vsm page table physical image"
                 })
@@ -401,6 +419,7 @@ void Renderer::initialize_main_tasklist()
     context.main_task_list.task_list.use_persistent_buffer(context.buffers.terrain_vertices);
     context.main_task_list.task_list.use_persistent_buffer(context.buffers.frustum_indices);
     context.main_task_list.task_list.use_persistent_buffer(context.buffers.average_luminance);
+    context.main_task_list.task_list.use_persistent_buffer(context.buffers.histogram_readback);
     context.main_task_list.task_list.use_persistent_image(context.images.swapchain);
     context.main_task_list.task_list.use_persistent_image(context.images.height_map);
     context.main_task_list.task_list.use_persistent_image(context.images.diffuse_map);
@@ -896,13 +915,18 @@ void Renderer::initialize_main_tasklist()
         .uses = {
             ._globals = context.buffers.globals.view(),
             ._cascade_data = tl.buffers.shadowmap_data,
+            ._vsm_sun_projections = tl.buffers.vsm_sun_projection_matrices,
             ._offscreen = tl.images.offscreen,
             ._g_albedo = tl.images.g_albedo,
             ._g_normals = tl.images.g_normals,
             ._transmittance = tl.images.transmittance_lut,
             ._esm = tl.images.esm_cascades.view({.base_array_layer = 0, .layer_count = NUM_CASCADES}),
             ._skyview = tl.images.skyview_lut,
-            ._depth = tl.images.depth
+            ._depth = tl.images.depth,
+            ._vsm_page_table = context.images.vsm_page_table.view().view(
+                {.base_array_layer = 0, .layer_count = VSM_CLIP_LEVELS}
+            ),
+            ._vsm_physical_memory = context.images.vsm_memory.view()
         }},
         &context
     });
@@ -921,27 +945,23 @@ void Renderer::initialize_main_tasklist()
 
     #pragma region readback_histogram
     tl.task_list.add_task({
-        .uses = { daxa::BufferTransferRead{tl.buffers.luminance_histogram}},
+        .uses = { 
+            daxa::BufferTransferRead{tl.buffers.luminance_histogram},
+            daxa::BufferTransferWrite{context.buffers.histogram_readback}
+        },
         .task = [&, this](daxa::TaskInterface ti)
         {
             auto cmd_list = ti.get_command_list();
             const u32 size = static_cast<u32>(sizeof(Histogram)) * HISTOGRAM_BIN_COUNT;
-            auto staging_mem_result = ti.get_allocator().allocate(size);
-            DBG_ASSERT_TRUE_M(
-                staging_mem_result.has_value(),
-                "[Renderer::readback_histogram()] Failed to create staging buffer"
-            );
-            auto staging_mem = staging_mem_result.value();
+            const bool is_frame_even = globals->frame_index % 2 == 0;
+
             cmd_list.copy_buffer_to_buffer({
                 .src_buffer = ti.uses[tl.buffers.luminance_histogram].buffer(),
                 .src_offset = 0,
-                .dst_buffer = ti.get_allocator().get_buffer(),
-                .dst_offset = staging_mem.buffer_offset,
+                .dst_buffer = ti.uses[context.buffers.histogram_readback].buffer(),
+                .dst_offset = is_frame_even ? 0u : sizeof(Histogram) * HISTOGRAM_BIN_COUNT,
                 .size = size
             });
-            const bool is_frame_even = globals->frame_index % 2 == 0;
-            void * cpu_dst = context.histogram.data() + (is_frame_even ? 0 : HISTOGRAM_BIN_COUNT);
-            memcpy(cpu_dst, staging_mem.host_address, size);
         },
         .name = "readback histogram"
     });
@@ -1002,6 +1022,9 @@ void Renderer::initialize_main_tasklist()
     #pragma region vsm_debug_meta_table
     tl.task_list.add_task(VSMDebugMetaTableTask{{
         .uses = {
+            ._vsm_page_table_mem_pass = context.images.vsm_page_table.view().view(
+                {.base_array_layer = 0, .layer_count = VSM_CLIP_LEVELS}
+            ),
             ._vsm_meta_memory_table = context.images.vsm_meta_memory_table.view(),
             ._vsm_debug_meta_memory_table = context.images.vsm_debug_meta_memory_table.view()
         }},
@@ -1158,40 +1181,37 @@ void Renderer::draw(DrawInfo const & info)
     globals->secondary_inv_view_projection = secondary_camera->get_inv_view_proj_matrix(); 
 
     // Setup VSM Clip projection matrices
-    context.sun_camera.set_position(
-        (globals->sun_direction * -1000.0f) +
-         globals->camera_position - 
-         f32vec3{
-            static_cast<f32>(globals->offset.x),
-            static_cast<f32>(globals->offset.y),
-            static_cast<f32>(globals->offset.z)
-        }
-    );
+
+    // context.sun_camera.set_position( (globals->sun_direction * -1000.0f) + camera_fp_offset);
     context.sun_camera.set_front(globals->sun_direction);
     OrthographicInfo curr_clip_projection = OrthographicInfo {
-            .left   = -200.0f,
-            .right  =  200.0f,
-            .top    =  200.0f,
-            .bottom = -200.0f,
-            .near   =  10.0f,
-            .far    =  10'000.0f
+        .left   = -5.0f,
+        .right  =  5.0f,
+        .top    =  5.0f,
+        .bottom = -5.0f,
+        .near   =  10.0f,
+        .far    =  10'000.0f
     };
+    f32 curr_clip_texel_world_size = (curr_clip_projection.right - curr_clip_projection.left) / VSM_TEXTURE_RESOLUTION;
     globals->vsm_sun_offset = context.sun_camera.offset;
-    globals->vsm_clip0_texel_world_size = (curr_clip_projection.right - curr_clip_projection.left) / VSM_TEXTURE_RESOLUTION;
+    globals->vsm_clip0_texel_world_size = curr_clip_texel_world_size;
     context.main_task_list.conditionals.at(MainConditionals::USE_DEBUG_CAMERA) = globals->use_debug_camera;
 
     for(i32 clip_level = 0; clip_level < VSM_CLIP_LEVELS; clip_level++)
     {
-        // TODO(msakmary) Make proj info only accesible through a set/get so that we can mark dirty
         context.sun_camera.proj_info = curr_clip_projection;
         context.sun_camera.update_front_vector(0.0f, 0.0f);
+        const f32vec3 to_sun_camera_offset = globals->sun_direction * -1000.0f;
+        const f32 clip_page_world_size = curr_clip_texel_world_size * VSM_PAGE_SIZE;
+        context.sun_camera.align_clip_to_player(&info.main_camera, to_sun_camera_offset);
 
         context.vsm_sun_projections.at(clip_level) = VSMClipProjection{
+            .offset = context.sun_camera.offset,
             .projection_view = context.sun_camera.get_projection_view_matrix(),
             .inv_projection_view = context.sun_camera.get_inv_view_proj_matrix()
         };
 
-        if(globals->use_debug_camera)
+        if(clip_level < 8 && globals->use_debug_camera)
         {
             context.sun_camera.write_frustum_vertices({
                 std::span<FrustumVertex, 8>{&context.frustum_vertices[8 * context.debug_frustum_cpu_count], 8 }
@@ -1204,6 +1224,7 @@ void Renderer::draw(DrawInfo const & info)
         curr_clip_projection.right *= 2;
         curr_clip_projection.top *= 2;
         curr_clip_projection.bottom *= 2;
+        curr_clip_texel_world_size *= 2;
     }
 
     auto [front, top, right] = info.main_camera.get_frustum_info();
@@ -1223,6 +1244,11 @@ void Renderer::draw(DrawInfo const & info)
         context.main_task_list.conditionals.data(),
         context.main_task_list.conditionals.size()
     }});
+
+    auto * histogram_host_pointer = context.device.get_host_address_as<Histogram>(context.buffers.histogram_readback.get_state().buffers[0]);
+    const bool was_last_frame_even = ((globals->frame_index - 1) % 2) == 0;
+    const u32 offset = was_last_frame_even ? 0 : HISTOGRAM_BIN_COUNT;
+    memcpy(context.cpu_histogram.data(), histogram_host_pointer + offset, sizeof(Histogram) * HISTOGRAM_BIN_COUNT);
 
     globals->frame_index++;
 
@@ -1261,6 +1287,7 @@ Renderer::~Renderer()
     destroy_buffer_if_valid(context.buffers.terrain_vertices);
     destroy_buffer_if_valid(context.buffers.globals);
     destroy_buffer_if_valid(context.buffers.average_luminance);
+    destroy_buffer_if_valid(context.buffers.histogram_readback);
     destroy_image_if_valid(context.images.diffuse_map);
     destroy_image_if_valid(context.images.height_map);
     destroy_image_if_valid(context.images.normal_map);

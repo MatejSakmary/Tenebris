@@ -17,7 +17,8 @@ DAXA_TASK_USE_IMAGE(_vsm_debug_page_table, REGULAR_2D, COMPUTE_SHADER_STORAGE_WR
 DAXA_DECL_TASK_USES_END()
 
 DAXA_DECL_TASK_USES_BEGIN(VSMDebugMetaTableTaskBase, DAXA_UNIFORM_BUFFER_SLOT0)
-DAXA_TASK_USE_IMAGE(_vsm_meta_memory_table, REGULAR_2D, COMPUTE_SHADER_STORAGE_READ_ONLY)
+DAXA_TASK_USE_IMAGE(_vsm_page_table_mem_pass, REGULAR_2D_ARRAY, COMPUTE_SHADER_STORAGE_READ_WRITE)
+DAXA_TASK_USE_IMAGE(_vsm_meta_memory_table, REGULAR_2D, COMPUTE_SHADER_STORAGE_READ_WRITE)
 DAXA_TASK_USE_IMAGE(_vsm_debug_meta_memory_table, REGULAR_2D, COMPUTE_SHADER_STORAGE_WRITE_ONLY)
 DAXA_DECL_TASK_USES_END()
 
@@ -53,7 +54,7 @@ struct VSMDebugVirtualPageTableTask : VSMDebugVirtualPageTableTaskBase
 
         cmd_list.set_uniform_buffer(ti.uses.get_uniform_buffer_info());
         cmd_list.set_pipeline(*(context->pipelines.vsm_debug_page_table));
-        for(i32 i = 0; i < VSM_CLIP_LEVELS; i++)
+        for(i32 i = 0; i < VSM_DEBUG_DRAWN_CLIP_LEVELS; i++)
         {
             cmd_list.push_constant(VSMDebugVirtualPageTablePC{.clip_level = i});
             cmd_list.dispatch(VSM_PAGE_TABLE_RESOLUTION, VSM_PAGE_TABLE_RESOLUTION);

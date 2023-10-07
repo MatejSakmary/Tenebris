@@ -1,8 +1,10 @@
 #define DAXA_ENABLE_SHADER_NO_NAMESPACE 1
 #define DAXA_ENABLE_IMAGE_OVERLOADS_BASIC 1
 #include <shared/shared.inl>
-#include "common_func.glsl"
 #include "tasks/deferred_pass.inl"
+#define VSM_CLIP_INFO_FUNCTIONS 1
+#include "vsm_common.glsl"
+#include "common_func.glsl"
 
 #extension GL_EXT_debug_printf : enable
 
@@ -81,6 +83,37 @@ f32vec3 get_far_sky_color(f32vec2 uv)
     const f32vec3 world_direction = normalize((unprojected_pos.xyz / unprojected_pos.w) - camera_position);
 
     return get_far_sky_color(world_direction);
+}
+
+// takes in uvs in the range [0, 1]
+f32vec3 get_vsm_debug_page_color(f32vec2 uv, f32 depth)
+{
+    f32vec3 color = f32vec3(1.0, 1.0, 1.0);
+    const f32mat4x4 inv_projection_view = deref(_globals).inv_view_projection;
+    ClipInfo clip_info = clip_info_from_uvs(ClipFromUVsInfo(uv, pc.offscreen_resolution, depth, inv_projection_view));
+    if(clip_info.clip_level >= VSM_CLIP_LEVELS) { return color; }
+
+    const i32vec3 vsm_page_texel_coords = i32vec3(clip_info.sun_depth_uv * VSM_PAGE_TABLE_RESOLUTION, clip_info.clip_level);
+    const u32 page_entry = texelFetch(daxa_utexture2DArray(_vsm_page_table), vsm_page_texel_coords, 0).r;
+
+    if(get_is_allocated(page_entry))
+    {
+        const i32vec2 physical_page_coords = get_meta_coords_from_vsm_entry(page_entry);
+        const i32vec2 physical_texel_coords = virtual_uv_to_physical_texel(clip_info.sun_depth_uv, physical_page_coords);
+        const i32vec2 in_page_texel_coords = i32vec2(mod(physical_texel_coords, f32(VSM_PAGE_SIZE)));
+        bool texel_near_border = any(greaterThan(in_page_texel_coords, i32vec2(126))) ||
+                                 any(lessThan(in_page_texel_coords, i32vec2(2)));
+        if(texel_near_border)
+        {
+            color = f32vec3(0.0, 0.0, 0.0);
+        } else {
+            color = clip_to_color[i32(mod(clip_info.clip_level,f32(NUM_CLIP_VIZ_COLORS)))];
+        }
+    } else {
+        color = f32vec3(1.0, 0.0, 0.0);
+    }
+    return color;
+
 }
 
 void main() 
@@ -168,6 +201,8 @@ void main()
         // return;
     }
 
+    const f32vec3 vsm_debug_color = get_vsm_debug_page_color(uv, depth);
+
     const f32vec4 albedo = texture(daxa_sampler2D(_g_albedo, pc.nearest_sampler_id), uv);
     const f32vec3 normal = texture(daxa_sampler2D(_g_normals, pc.nearest_sampler_id), uv).xyz;
 
@@ -182,4 +217,5 @@ void main()
                  clamp(pow(shadow, 2), 0.0, 1.0) *
                  f32vec4(transmittance_to_sun, 1.0) *
                  deref(_globals).sun_brightness * sun_color + ambient;
+    out_color.xyz *= vsm_debug_color;
 }

@@ -95,19 +95,20 @@ void main()
     {
         deref(_vsm_not_visited_pages_buffer[info.reserved_offset + info.order]).coords = thread_coords;
     }
-// If we are debug drawing vsm meta memory and paging texture we don't want to clear visited here
-// The debug pass will clear those flags in that case
-#if VSM_DEBUG_VIZ_PASS == 0
     // Second invocation of count_pages_and_reserve_buffer_slots will attempt to find allocated and non-visited pages
     // We want to clear the visited condition from every single page for the next frame
+
+    // If we are debug drawing vsm meta memory and paging texture we don't want to clear visited here
+    // The debug pass will clear those flags in that case
+#if VSM_DEBUG_VIZ_PASS == 0
     if(!info.condition)
     {
-        imageStore(daxa_uimage2D(_vsm_meta_memory_table), thread_coords, meta_entry & (~meta_memory_visited_mask()));
         const i32vec3 vsm_coords = get_vsm_coords_from_meta_entry(meta_entry);
+        imageStore(daxa_uimage2D(_vsm_meta_memory_table), thread_coords, u32vec4(meta_entry & (~meta_memory_visited_mask())));
 
         const u32 vsm_entry = imageLoad(daxa_uimage2DArray(_vsm_page_table), vsm_coords).r;
         const u32 visited_reset_vsm_entry = vsm_entry & (~visited_marked_mask());
-        imageStore(daxa_uimage2DArray(_vsm_page_table), vsm_coords, u32vec4(visited_reset_vsm_entry))
+        imageStore(daxa_uimage2DArray(_vsm_page_table), vsm_coords, u32vec4(visited_reset_vsm_entry));
     }
-#endif // VSM_DEBUG_VIZ_PASS == 0
+#endif // DEBUG_VIZ_PASS
 }
