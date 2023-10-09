@@ -149,6 +149,8 @@ void Application::main_loop()
 {
     while (!window.get_window_should_close())
     {
+        bool control_main_camera = !gui.globals.use_debug_camera || gui.globals.control_main_camera;
+        active_camera = control_main_camera ? &main_camera : &debug_camera;
         glfwPollEvents();
         process_input();
         gui.on_update();

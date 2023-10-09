@@ -60,6 +60,13 @@ void GuiManager::on_update()
     ImGui::Checkbox("Use debug camera", &use_debug);
     globals.use_debug_camera = use_debug ? 1u : 0u;
 
+    if(use_debug == false) {globals.control_main_camera = false;}
+    if(!use_debug) { ImGui::BeginDisabled(); }
+    bool control_main = globals.control_main_camera == 1;
+    ImGui::Checkbox("Control main camera", &control_main);
+    globals.control_main_camera = control_main ? 1u : 0u;
+    if(!use_debug) { ImGui::EndDisabled(); }
+
     ImGui::SliderFloat("Lambda", &globals.lambda, 0.0, 1.0);
     ImGui::SliderFloat("Min luminance", &min_luminance, 0.0, 10.0);
     ImGui::SliderFloat("Max luminance", &max_luminance, 0.0, 10.0);
@@ -160,6 +167,17 @@ void GuiManager::on_update()
     ImGui::End();
 
 #if VSM_DEBUG_VIZ_PASS == 1 
+    ImGui::Begin("Clip page offsets");
+    for(i32 clip_level = 0; clip_level < VSM_CLIP_LEVELS; clip_level++)
+    {
+        ImGui::Text("Clip %d", clip_level);
+        ImGui::Text("\t In VSM offset is x: %d y: %d",
+            info.renderer->context.vsm_sun_projections[clip_level].page_offset.x,
+            info.renderer->context.vsm_sun_projections[clip_level].page_offset.y
+        );
+    }
+    ImGui::End();
+
     ImGui::Begin("VSM Paging Texture");
     ImGui::SliderInt("VSM Clip Level", &globals.vsm_debug_clip_level, 0, VSM_CLIP_LEVELS - 1);
     ImGui::Image(

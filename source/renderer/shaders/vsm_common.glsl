@@ -9,6 +9,24 @@ const f32vec3 clip_to_color[NUM_CLIP_VIZ_COLORS] = f32vec3[](
     f32vec3(255, 205,  75) / 255
 );
 
+#if VSM_WRAPPING_FUNCTIONS || VSM_CLIP_INFO_FUNCTIONS
+i32vec3 vsm_page_coords_to_wrapped_coords(i32vec3 page_coords)
+{
+    const i32vec2 vsm_toroidal_offset = deref(_vsm_sun_projections[page_coords.z]).page_offset;
+    const i32vec2 vsm_toroidal_pix_coords = page_coords.xy - vsm_toroidal_offset.xy;
+    if( 
+        page_coords.x < 0 ||
+        page_coords.x > (VSM_PAGE_TABLE_RESOLUTION - 1) ||
+        page_coords.y < 0 ||
+        page_coords.y > (VSM_PAGE_TABLE_RESOLUTION - 1))
+    {
+        return i32vec3(1000, 1000, page_coords.z);
+    }
+    const i32vec2 vsm_wrapped_pix_coords = i32vec2(mod(vsm_toroidal_pix_coords.xy, f32(VSM_PAGE_TABLE_RESOLUTION)));
+    return i32vec3(vsm_wrapped_pix_coords, page_coords.z);
+}
+#endif //VSM_WRAPPING_FUNCTIONS
+
 #if VSM_CLIP_INFO_FUNCTIONS
 struct ClipFromUVsInfo
 {
@@ -35,7 +53,7 @@ f32vec3 camera_offset_world_space_from_uv(f32vec2 screen_space_uv, f32 depth, f3
     return offset_world_position;
 }
 
-ClipInfo clip_info_from_uvs(ClipFromUVsInfo info)
+ClipInfo clip_info_from_uvs(ClipFromUVsInfo info, i32 force_clip_level)
 {
     const f32vec2 center_texel_coords = info.uv * info.screen_resolution;
 
@@ -63,15 +81,26 @@ ClipInfo clip_info_from_uvs(ClipFromUVsInfo info)
 
     const f32 texel_world_size = length(camera_offset_left_world_space - camera_offset_right_world_space);
     i32 clip_level = max(i32(ceil(log2(texel_world_size / deref(_globals).vsm_clip0_texel_world_size))), 0);
+    if(force_clip_level != -1) { clip_level = force_clip_level; }
 
     f32vec2 sun_depth_uv;
-    const i32vec3 camera_to_sun_offset = deref(_vsm_sun_projections[clip_level]).offset - deref(_globals).offset;
+    // TODO(msakmary) Fix me this is very hacky
+    const bool use_secondary_offset = deref(_globals).use_debug_camera && force_clip_level == -1;
+    const i32vec3 camera_offset = use_secondary_offset ? deref(_globals).secondary_offset : deref(_globals).offset;
+
+    const i32vec3 camera_to_sun_offset = deref(_vsm_sun_projections[clip_level]).offset - camera_offset;
     const f32vec3 sun_offset_world_position = camera_offset_center_world_space + camera_to_sun_offset;
     const f32vec4 sun_projected_world_position = 
         deref(_vsm_sun_projections[clip_level]).projection_view * f32vec4(sun_offset_world_position, 1.0);
     const f32vec3 sun_ndc_position = sun_projected_world_position.xyz / sun_projected_world_position.w;
     sun_depth_uv = (sun_ndc_position.xy + f32vec2(1.0)) / f32vec2(2.0);
     return ClipInfo(clip_level, sun_depth_uv);
+}
+
+i32vec3 vsm_clip_info_to_wrapped_coords(ClipInfo info)
+{
+    const i32vec3 vsm_page_pix_coords = i32vec3(floor(info.sun_depth_uv * VSM_PAGE_TABLE_RESOLUTION), info.clip_level);
+    return vsm_page_coords_to_wrapped_coords(vsm_page_pix_coords);
 }
 #endif //VSM_CLIP_INFO_FUNCTIONS
 

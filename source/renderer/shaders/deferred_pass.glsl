@@ -90,10 +90,16 @@ f32vec3 get_vsm_debug_page_color(f32vec2 uv, f32 depth)
 {
     f32vec3 color = f32vec3(1.0, 1.0, 1.0);
     const f32mat4x4 inv_projection_view = deref(_globals).inv_view_projection;
-    ClipInfo clip_info = clip_info_from_uvs(ClipFromUVsInfo(uv, pc.offscreen_resolution, depth, inv_projection_view));
+    ClipInfo clip_info;
+    if(pc.debug_active)
+    {
+        clip_info = clip_info_from_uvs(ClipFromUVsInfo(uv, pc.offscreen_resolution, depth, inv_projection_view), 0);
+    } else {
+        clip_info = clip_info_from_uvs(ClipFromUVsInfo(uv, pc.offscreen_resolution, depth, inv_projection_view), -1);
+    }
     if(clip_info.clip_level >= VSM_CLIP_LEVELS) { return color; }
 
-    const i32vec3 vsm_page_texel_coords = i32vec3(clip_info.sun_depth_uv * VSM_PAGE_TABLE_RESOLUTION, clip_info.clip_level);
+    const i32vec3 vsm_page_texel_coords = vsm_clip_info_to_wrapped_coords(clip_info);
     const u32 page_entry = texelFetch(daxa_utexture2DArray(_vsm_page_table), vsm_page_texel_coords, 0).r;
 
     if(get_is_allocated(page_entry))
@@ -108,9 +114,11 @@ f32vec3 get_vsm_debug_page_color(f32vec2 uv, f32 depth)
             color = f32vec3(0.0, 0.0, 0.0);
         } else {
             color = clip_to_color[i32(mod(clip_info.clip_level,f32(NUM_CLIP_VIZ_COLORS)))];
+            if(get_is_visited_marked(page_entry)) {color = f32vec3(1.0, 1.0, 0.0);}
         }
     } else {
         color = f32vec3(1.0, 0.0, 0.0);
+        if(get_is_dirty(page_entry)) {color = f32vec3(0.0, 0.0, 1.0);}
     }
     return color;
 
@@ -214,7 +222,7 @@ void main()
     f32vec4 ambient = f32vec4(deref(_globals).sun_brightness * sun_color.xyz * get_far_sky_color(normal), 1.0); 
 
     out_color *= clamp(sun_norm_dot, 0.0, 1.0) *
-                 clamp(pow(shadow, 2), 0.0, 1.0) *
+                //  clamp(pow(shadow, 2), 0.0, 1.0) *
                  f32vec4(transmittance_to_sun, 1.0) *
                  deref(_globals).sun_brightness * sun_color + ambient;
     out_color.xyz *= vsm_debug_color;

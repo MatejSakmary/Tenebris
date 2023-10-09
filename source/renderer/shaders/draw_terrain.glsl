@@ -111,12 +111,12 @@ void main()
     const f32 adjusted_height = (sampled_height - deref(_globals).terrain_midpoint) * deref(_globals).terrain_height_scale;
 
     gl_Position.xy *= deref(_globals).terrain_scale;
-    if(out_uv.x < 0.999 && out_uv.x > 0.001 && out_uv.y < 0.999 && out_uv.y > 0.001)
-    {
+    // if(out_uv.x < 0.999 && out_uv.x > 0.001 && out_uv.y < 0.999 && out_uv.y > 0.001)
+    // {
         gl_Position.z = adjusted_height;
-    } else {
-        gl_Position.z = -1000.0;
-    }
+    // } else {
+    //     gl_Position.z = -1000.0;
+    // }
 
     f32vec4 pre_trans_scaled_pos = f32vec4(gl_Position.xyz, 1.0);
 #if defined(SHADOWMAP_DRAW)

@@ -7,6 +7,7 @@
 
 struct DeferredPassPC
 {
+    bool debug_active;
     daxa_SamplerId linear_sampler_id;
     daxa_SamplerId nearest_sampler_id;
     daxa_u32vec2 esm_resolution;
@@ -72,6 +73,7 @@ struct DeferredPassTask : DeferredPassTaskBase
 
         cmd_list.set_pipeline(*context->pipelines.deferred_pass);
         cmd_list.push_constant(DeferredPassPC{ 
+            .debug_active = context->main_task_list.conditionals.at(MainConditionals::USE_DEBUG_CAMERA),
             .linear_sampler_id = context->linear_sampler,
             .nearest_sampler_id = context->nearest_sampler,
             .esm_resolution = {esm_resolution.x, esm_resolution.y},

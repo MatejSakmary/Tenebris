@@ -252,7 +252,7 @@ auto Camera::get_camera_position() const -> f32vec3
     return f32vec3{position.x, position.y, position.z};
 }
 
-void Camera::align_clip_to_player(Camera const * player_camera, f32vec3 sun_offset)
+auto Camera::align_clip_to_player(Camera const * player_camera, f32vec3 sun_offset) -> i32vec2
 {
     const f32vec3 foffset_player_position = player_camera->get_camera_position(); 
 
@@ -275,40 +275,41 @@ void Camera::align_clip_to_player(Camera const * player_camera, f32vec3 sun_offs
     );
 
     const auto projected_player_position = projection * view * glm_player_position;
-    const auto projected_persp_player_position = glm::vec3(
+    const auto ndc_player_position = glm::vec3(
         projected_player_position.x / glm_player_position.w,
         projected_player_position.y / glm_player_position.w,
         projected_player_position.z / glm_player_position.w
     );
-    const auto texel_space_player_position = glm::ivec3(projected_persp_player_position * glm::vec3(VSM_TEXTURE_RESOLUTION));
-    const auto i_aligned_texel_space_player_xy_position = glm::ivec2(
-        i32(texel_space_player_position.x / (VSM_PAGE_SIZE * 2)),
-        i32(texel_space_player_position.y / (VSM_PAGE_SIZE * 2))
+    // NOTE(msakmary) We need to multiply by two because we were converting from NDC space which is [-1, 1] and not uv spcae
+    const f32 ndc_page_size = static_cast<f32>(VSM_PAGE_SIZE * 2) / static_cast<f32>(VSM_TEXTURE_RESOLUTION);
+    const auto ndc_page_scaled_player_position = glm::vec2(
+        ndc_player_position.x / ndc_page_size,
+        ndc_player_position.y / ndc_page_size
     );
-    const auto aligned_texel_space_player_position = glm::ivec3(
-        i_aligned_texel_space_player_xy_position.x * (VSM_PAGE_SIZE * 2),
-        i_aligned_texel_space_player_xy_position.y * (VSM_PAGE_SIZE * 2),
-        texel_space_player_position.z
+    const auto ndc_page_scaled_aligned_player_position = glm::vec2(
+        std::ceil(ndc_page_scaled_player_position.x), 
+        std::ceil(ndc_page_scaled_player_position.y)
     );
-    const auto uv_aligned_player_position = glm::vec3(aligned_texel_space_player_position) / glm::vec3(VSM_TEXTURE_RESOLUTION);
-    const auto unprojected_aligned_player_position = glm::inverse(projection * view) * glm::vec4(uv_aligned_player_position, 1.0);
+    const auto ndc_aligned_player_position = glm::vec3(
+        ndc_page_scaled_aligned_player_position * ndc_page_size,
+        ndc_player_position.z
+    );
+    const auto unprojected_aligned_player_position = glm::inverse(projection * view) * glm::vec4(ndc_aligned_player_position, 1.0);
     const auto aligned_offset_player_position = glm::vec3(
         unprojected_aligned_player_position.x / unprojected_aligned_player_position.w,
         unprojected_aligned_player_position.y / unprojected_aligned_player_position.w,
         unprojected_aligned_player_position.z / unprojected_aligned_player_position.w
     );
+
     const auto new_position = f32vec3{
         aligned_offset_player_position.x - static_cast<f32>(offset.x),
         aligned_offset_player_position.y - static_cast<f32>(offset.y),
         aligned_offset_player_position.z - static_cast<f32>(offset.z),
     };
 
-    // const auto f_view_xy_aligned_position = glm::vec2(i_view_xy_aligned_position) * page_world_size;
-    // const auto unprojected_aligned_offset_player_position = glm::inverse(view) * glm::vec4(fclip_aligned_player_position, 1.0);
-    // const f32vec3 new_player_position = f32vec3{
-    //     unprojected_aligned_offset_player_position.x,
-    //     unprojected_aligned_offset_player_position.y,
-    //     unprojected_aligned_offset_player_position.z
-    // };
     set_position(new_position + sun_offset);
+    return i32vec2{
+        -static_cast<i32>(ndc_page_scaled_aligned_player_position.x),
+        -static_cast<i32>(ndc_page_scaled_aligned_player_position.y)
+    };
 }

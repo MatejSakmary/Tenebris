@@ -56,6 +56,7 @@ struct Context
         std::shared_ptr<daxa::ComputePipeline> prepare_shadow_matrices;
         std::shared_ptr<daxa::ComputePipeline> luminance_histogram;
         std::shared_ptr<daxa::ComputePipeline> adapt_average_luminance;
+        std::shared_ptr<daxa::ComputePipeline> vsm_free_wrapped_pages;
         std::shared_ptr<daxa::ComputePipeline> vsm_find_free_pages;
         std::shared_ptr<daxa::ComputePipeline> vsm_allocate_pages;
         std::shared_ptr<daxa::ComputePipeline> vsm_debug_page_table;
@@ -90,6 +91,7 @@ struct Context
             daxa::TaskBufferView vsm_allocation_requests;
             daxa::TaskBufferView vsm_allocate_indirect;
 
+            daxa::TaskBufferView vsm_free_wrapped_pages_info;
             daxa::TaskBufferView vsm_free_page_buffer;
             daxa::TaskBufferView vsm_not_visited_page_buffer;
             daxa::TaskBufferView vsm_find_free_pages_header;
@@ -147,6 +149,8 @@ struct Context
     std::array<FrustumVertex, 8 * MAX_FRUSTUM_COUNT> frustum_vertices;
     std::array<FrustumColor, MAX_FRUSTUM_COUNT> frustum_colors;
     std::array<VSMClipProjection, VSM_CLIP_LEVELS> vsm_sun_projections;
+    std::array<FreeWrappedPagesInfo, VSM_CLIP_LEVELS> vsm_free_wrapped_pages_info;
+    std::array<i32vec2, VSM_CLIP_LEVELS> vsm_last_frame_offset;
 };
 
 using MainConditionals = Context::MainTaskList::Conditionals;

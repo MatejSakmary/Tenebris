@@ -13,15 +13,15 @@
 #define HISTOGRAM_BIN_COUNT 256
 
 #define VSM_TEXTURE_RESOLUTION 4096
-#define VSM_MEMORY_RESOLUTION 8192
+#define VSM_MEMORY_RESOLUTION 4096
 #define VSM_PAGE_SIZE 128
-#define VSM_CLIP_LEVELS 16
+#define VSM_CLIP_LEVELS 1
 #define VSM_PAGE_TABLE_RESOLUTION (VSM_TEXTURE_RESOLUTION / VSM_PAGE_SIZE)
 #define VSM_META_MEMORY_RESOLUTION (VSM_MEMORY_RESOLUTION / VSM_PAGE_SIZE)
 // How many pixels in debug texture does a single page table entry span
 // for example a value of 4 means a single page entry will span 4x4 pixels in the debug texture
-#define VSM_DEBUG_PAGING_TABLE_SCALE 2
-#define VSM_DEBUG_DRAWN_CLIP_LEVELS 4
+#define VSM_DEBUG_PAGING_TABLE_SCALE 16
+#define VSM_DEBUG_DRAWN_CLIP_LEVELS 1
 #if __cplusplus
 static constexpr daxa_i32 pow(daxa_i32 base, daxa_i32 exponent)
 {
@@ -89,6 +89,7 @@ struct Globals
     
     // =============== Camera =========================
     daxa_b32 use_debug_camera;
+    daxa_b32 control_main_camera;
 
     daxa_f32vec3 camera_position;
     daxa_i32vec3 offset;
@@ -212,6 +213,7 @@ DAXA_DECL_BUFFER_PTR(AverageLuminance)
 // =============== VSM ===============================
 struct VSMClipProjection
 {
+    daxa_i32vec2 page_offset;
     daxa_i32vec3 offset;
     daxa_f32mat4x4 projection_view;
     daxa_f32mat4x4 inv_projection_view;
@@ -235,3 +237,9 @@ struct FindFreePagesHeader
     daxa_u32 not_visited_buffer_counter;
 };
 DAXA_DECL_BUFFER_PTR(FindFreePagesHeader)
+
+struct FreeWrappedPagesInfo
+{
+    daxa_i32vec2 clear_offset;
+};
+DAXA_DECL_BUFFER_PTR(FreeWrappedPagesInfo)

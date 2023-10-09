@@ -27,6 +27,7 @@ void main()
     if      (get_requests_allocation(page_entry)) { color = f32vec4(0.0, 0.0, 1.0, 1.0); }
     else if (get_is_allocated(page_entry))        { color = f32vec4(0.0, 1.0, 0.0, 1.0); }
     else if (get_allocation_failed(page_entry))   { color = f32vec4(1.0, 0.0, 0.0, 1.0); }
+    else if (get_is_dirty(page_entry))            { color = f32vec4(0.0, 0.0, 1.0, 1.0); }
 
     if (get_is_visited_marked(page_entry))
     { 

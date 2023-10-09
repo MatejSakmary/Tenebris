@@ -72,6 +72,7 @@ Renderer::Renderer(const AppWindow & window, Globals * globals) :
     init_compute_pipeline(get_luminance_histogram_pipeline(), context.pipelines.luminance_histogram);
     init_compute_pipeline(get_adapt_average_luminance_pipeline(), context.pipelines.adapt_average_luminance);
 
+    init_compute_pipeline(get_vsm_free_wrapped_pages_pipeline(), context.pipelines.vsm_free_wrapped_pages);
     init_compute_pipeline(get_vsm_find_free_pages_pipeline(), context.pipelines.vsm_find_free_pages);
     init_compute_pipeline(get_vsm_allocate_pages_pipeline(), context.pipelines.vsm_allocate_pages);
     init_compute_pipeline(get_vsm_debug_page_table_pipeline(), context.pipelines.vsm_debug_page_table);
@@ -383,12 +384,12 @@ void Renderer::load_textures()
 
     manager->load_texture({
         .filepath = "assets/tonemapping_luts/tony_mc_mapface_f32.dds",
-        // .path = "assets/terrain/8k/mountain_range_diffuse.exr",
         .dest_image = context.images.tonemapping_lut
     });
 
     manager->load_texture({
         .filepath = "assets/terrain/rugged_terrain_diffuse.exr",
+        // .filepath = "assets/terrain/boulder/color.exr",
         // .path = "assets/terrain/8k/mountain_range_diffuse.exr",
         .dest_image = tmp_raw_loaded_image
     });
@@ -402,6 +403,7 @@ void Renderer::load_textures()
 
     manager->load_texture({
         .filepath = "assets/terrain/rugged_terrain_height.exr",
+        // .filepath = "assets/terrain/boulder/height.exr",
         // .path = "assets/terrain/8k/mountain_range_height.exr",
         .dest_image = context.images.height_map,
     });
@@ -497,6 +499,11 @@ void Renderer::initialize_main_tasklist()
     #pragma endregion
 
     #pragma region vsm_resources
+    tl.buffers.vsm_free_wrapped_pages_info = tl.task_list.create_transient_buffer({
+        .size = static_cast<u32>(sizeof(FreeWrappedPagesInfo) * VSM_CLIP_LEVELS),
+        .name = "vsm free wrapped pages info"
+    });
+
     tl.buffers.vsm_allocation_requests = tl.task_list.create_transient_buffer({
         .size = static_cast<u32>(sizeof(AllocationRequest) * 200),
         .name = "vsm allocation buffer"
@@ -591,6 +598,7 @@ void Renderer::initialize_main_tasklist()
             daxa::BufferHostTransferWrite{tl.buffers.vsm_allocate_indirect},
             daxa::BufferHostTransferWrite{tl.buffers.vsm_find_free_pages_header},
             daxa::BufferHostTransferWrite{tl.buffers.vsm_sun_projection_matrices},
+            daxa::BufferHostTransferWrite{tl.buffers.vsm_free_wrapped_pages_info},
         },
         .task = [&, this](daxa::TaskInterface ti)
         {
@@ -679,7 +687,12 @@ void Renderer::initialize_main_tasklist()
                     context.vsm_sun_projections.data(),
                     sizeof(VSMClipProjection) * VSM_CLIP_LEVELS
                 );
-
+                // VSM free wrapped apges info
+                upload_cpu_to_gpu(
+                    ti.uses[tl.buffers.vsm_free_wrapped_pages_info].buffer(),
+                    context.vsm_free_wrapped_pages_info.data(),
+                    sizeof(FreeWrappedPagesInfo) * VSM_CLIP_LEVELS
+                );
             }
         },
         .name = "upload data",
@@ -717,6 +730,18 @@ void Renderer::initialize_main_tasklist()
             ._transmittance_LUT = tl.images.transmittance_lut,
             ._multiscattering_LUT = tl.images.multiscattering_lut,
             ._skyview_LUT = tl.images.skyview_lut
+        }},
+        &context
+    });
+    #pragma endregion
+
+    #pragma region vsm_free_wrapped_pages
+    tl.task_list.add_task(VSMFreeWrappedPagesTask{{
+        .uses = {
+            ._free_wrapped_pages_info = tl.buffers.vsm_free_wrapped_pages_info,
+            ._vsm_sun_projections = tl.buffers.vsm_sun_projection_matrices,
+            ._vsm_page_table = context.images.vsm_page_table.view(),
+            ._vsm_meta_memory_table = context.images.vsm_meta_memory_table.view()
         }},
         &context
     });
@@ -1180,15 +1205,32 @@ void Renderer::draw(DrawInfo const & info)
     globals->secondary_projection          = secondary_camera->get_projection_matrix();
     globals->secondary_inv_view_projection = secondary_camera->get_inv_view_proj_matrix(); 
 
+    if(globals->use_debug_camera && globals->control_main_camera)
+    {
+        secondary_camera->write_frustum_vertices({
+            std::span<FrustumVertex, 8>{&context.frustum_vertices[8 * context.debug_frustum_cpu_count], 8 }
+        });
+        context.frustum_colors[context.debug_frustum_cpu_count].color = f32vec3{1.0, 1.0, 1.0};
+        context.debug_frustum_cpu_count += 1;
+    }
+
     // Setup VSM Clip projection matrices
 
     // context.sun_camera.set_position( (globals->sun_direction * -1000.0f) + camera_fp_offset);
     context.sun_camera.set_front(globals->sun_direction);
+    // OrthographicInfo curr_clip_projection = OrthographicInfo {
+    //     .left   = -5.0f,
+    //     .right  =  5.0f,
+    //     .top    =  5.0f,
+    //     .bottom = -5.0f,
+    //     .near   =  10.0f,
+    //     .far    =  10'000.0f
+    // };
     OrthographicInfo curr_clip_projection = OrthographicInfo {
-        .left   = -5.0f,
-        .right  =  5.0f,
-        .top    =  5.0f,
-        .bottom = -5.0f,
+        .left   = -500.0f,
+        .right  =  500.0f,
+        .top    =  500.0f,
+        .bottom = -500.0f,
         .near   =  10.0f,
         .far    =  10'000.0f
     };
@@ -1203,15 +1245,23 @@ void Renderer::draw(DrawInfo const & info)
         context.sun_camera.update_front_vector(0.0f, 0.0f);
         const f32vec3 to_sun_camera_offset = globals->sun_direction * -1000.0f;
         const f32 clip_page_world_size = curr_clip_texel_world_size * VSM_PAGE_SIZE;
-        context.sun_camera.align_clip_to_player(&info.main_camera, to_sun_camera_offset);
+
+        const auto page_offset = context.sun_camera.align_clip_to_player(&info.main_camera, to_sun_camera_offset);
+        const auto clear_offset = page_offset - context.vsm_last_frame_offset.at(clip_level);
+        context.vsm_last_frame_offset.at(clip_level) = page_offset;
+        context.vsm_free_wrapped_pages_info.at(clip_level).clear_offset = clear_offset;
 
         context.vsm_sun_projections.at(clip_level) = VSMClipProjection{
+            .page_offset = i32vec2{
+                page_offset.x % VSM_PAGE_TABLE_RESOLUTION,
+                page_offset.y % VSM_PAGE_TABLE_RESOLUTION
+            },
             .offset = context.sun_camera.offset,
             .projection_view = context.sun_camera.get_projection_view_matrix(),
             .inv_projection_view = context.sun_camera.get_inv_view_proj_matrix()
         };
 
-        if(clip_level < 8 && globals->use_debug_camera)
+        if(clip_level < 1 && globals->use_debug_camera)
         {
             context.sun_camera.write_frustum_vertices({
                 std::span<FrustumVertex, 8>{&context.frustum_vertices[8 * context.debug_frustum_cpu_count], 8 }

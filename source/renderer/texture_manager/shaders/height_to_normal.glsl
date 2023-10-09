@@ -19,6 +19,10 @@ void main()
     i32vec2 down_pos  = clamp(i32vec2(gl_GlobalInvocationID.xy) + i32vec2(0, -1), i32vec2(0, 0), i32vec2(pc.texture_size) - i32vec2(1, 1));
     i32vec2 right_pos = clamp(i32vec2(gl_GlobalInvocationID.xy) + i32vec2(1, 0) , i32vec2(0, 0), i32vec2(pc.texture_size) - i32vec2(1, 1));
     i32vec2 left_pos  = clamp(i32vec2(gl_GlobalInvocationID.xy) + i32vec2(-1, 0), i32vec2(0, 0), i32vec2(pc.texture_size) - i32vec2(1, 1));
+    // f32 sample_up    = imageLoad(daxa_image2D(_height_texture), up_pos).r / 4332.0;    
+    // f32 sample_down  = imageLoad(daxa_image2D(_height_texture), down_pos).r / 4332.0;    
+    // f32 sample_right = imageLoad(daxa_image2D(_height_texture), right_pos).r/ 4332.0;    
+    // f32 sample_left  = imageLoad(daxa_image2D(_height_texture), left_pos).r / 4332.0;    
     f32 sample_up    = imageLoad(daxa_image2D(_height_texture), up_pos).r;    
     f32 sample_down  = imageLoad(daxa_image2D(_height_texture), down_pos).r;    
     f32 sample_right = imageLoad(daxa_image2D(_height_texture), right_pos).r;    
