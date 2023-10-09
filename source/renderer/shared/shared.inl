@@ -15,7 +15,7 @@
 #define VSM_TEXTURE_RESOLUTION 4096
 #define VSM_MEMORY_RESOLUTION 4096
 #define VSM_PAGE_SIZE 128
-#define VSM_CLIP_LEVELS 1
+#define VSM_CLIP_LEVELS 16
 #define VSM_PAGE_TABLE_RESOLUTION (VSM_TEXTURE_RESOLUTION / VSM_PAGE_SIZE)
 #define VSM_META_MEMORY_RESOLUTION (VSM_MEMORY_RESOLUTION / VSM_PAGE_SIZE)
 // How many pixels in debug texture does a single page table entry span
@@ -35,7 +35,8 @@ static constexpr daxa_i32 pow(daxa_i32 base, daxa_i32 exponent)
 }
 static constexpr daxa_u32 vsm_debug_paging_table_resolution()
 {
-    return pow(2, VSM_DEBUG_DRAWN_CLIP_LEVELS - 1) * VSM_PAGE_TABLE_RESOLUTION * VSM_DEBUG_PAGING_TABLE_SCALE;
+    // return pow(2, VSM_DEBUG_DRAWN_CLIP_LEVELS - 1) * VSM_PAGE_TABLE_RESOLUTION * VSM_DEBUG_PAGING_TABLE_SCALE;
+    return VSM_PAGE_TABLE_RESOLUTION * VSM_DEBUG_PAGING_TABLE_SCALE;
 }
 #endif // cplusplus
 #define VSM_DEBUG_VIZ_PASS 1

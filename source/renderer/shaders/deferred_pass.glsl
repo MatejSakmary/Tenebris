@@ -89,14 +89,12 @@ f32vec3 get_far_sky_color(f32vec2 uv)
 f32vec3 get_vsm_debug_page_color(f32vec2 uv, f32 depth)
 {
     f32vec3 color = f32vec3(1.0, 1.0, 1.0);
+
     const f32mat4x4 inv_projection_view = deref(_globals).inv_view_projection;
-    ClipInfo clip_info;
-    if(pc.debug_active)
-    {
-        clip_info = clip_info_from_uvs(ClipFromUVsInfo(uv, pc.offscreen_resolution, depth, inv_projection_view), 0);
-    } else {
-        clip_info = clip_info_from_uvs(ClipFromUVsInfo(uv, pc.offscreen_resolution, depth, inv_projection_view), -1);
-    }
+    const ClipFromUVsInfo info = ClipFromUVsInfo(uv, pc.offscreen_resolution, depth, inv_projection_view);
+    const i32 select_level = pc.debug_active ? deref(_globals).vsm_debug_clip_level : -1;
+    const ClipInfo clip_info = clip_info_from_uvs(info, select_level);
+
     if(clip_info.clip_level >= VSM_CLIP_LEVELS) { return color; }
 
     const i32vec3 vsm_page_texel_coords = vsm_clip_info_to_wrapped_coords(clip_info);

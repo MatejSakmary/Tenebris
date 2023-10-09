@@ -21,6 +21,7 @@ GuiManager::GuiManager(GuiManagerInfo const & info) :
     load(curr_path, true);
     globals.use_debug_camera = false;
     globals.sun_brightness = 1000.0f;
+    globals.vsm_debug_clip_level = 0;
 }
 
 void GuiManager::on_update()

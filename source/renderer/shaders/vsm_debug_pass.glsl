@@ -7,7 +7,6 @@
 layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
 #if defined(VSM_DEBUG_PAGE_TABLE)
-DAXA_DECL_PUSH_CONSTANT(VSMDebugVirtualPageTablePC, pc)
 
 i32 get_offset_from_clip_level(i32 clip_level)
 {
@@ -19,7 +18,7 @@ i32 get_offset_from_clip_level(i32 clip_level)
 
 void main()
 {
-    const i32 clip_level = pc.clip_level;
+    const i32 clip_level = deref(_globals).vsm_debug_clip_level;
     const i32vec3 page_entry_coords = i32vec3(gl_GlobalInvocationID.xy, clip_level);
     const u32 page_entry = imageLoad(daxa_uimage2DArray(_vsm_page_table), page_entry_coords).r;
     f32vec4 color = f32vec4(0.0, 0.0, 0.0, 1.0);
@@ -36,22 +35,25 @@ void main()
     if(color.x == 0 && color.y == 0 && color.z == 0) { return; }
     // if(deref(_globals).vsm_debug_clip_level != clip_level) { continue; }
 
-    const i32 clip_scale = i32(pow(2, clip_level));
     const i32vec2 base_pix_pos = i32vec2(gl_GlobalInvocationID.xy);
-    const i32vec2 debug_page_coords = base_pix_pos * clip_scale * VSM_DEBUG_PAGING_TABLE_SCALE;
-    const i32vec2 offset_debug_page_coords = debug_page_coords + get_offset_from_clip_level(clip_level);
+    // const i32 clip_scale = i32(pow(2, clip_level));
+    // const i32vec2 debug_page_coords = base_pix_pos * clip_scale * VSM_DEBUG_PAGING_TABLE_SCALE;
+    // const i32vec2 offset_debug_page_coords = debug_page_coords + get_offset_from_clip_level(clip_level);
+    // const i32 debug_page_square = i32(VSM_DEBUG_PAGING_TABLE_SCALE * pow(2, clip_level));
 
-    const i32 debug_page_square = i32(VSM_DEBUG_PAGING_TABLE_SCALE * pow(2, clip_level));
+    const i32vec2 offset_debug_page_coords = base_pix_pos * VSM_DEBUG_PAGING_TABLE_SCALE;
+    const i32 debug_page_square = i32(VSM_DEBUG_PAGING_TABLE_SCALE);
+
     for(i32 x = 0; x < debug_page_square; x++)
     {
         for(i32 y = 0; y < debug_page_square; y++)
         {
             const i32vec2 shaded_pix_pos = i32vec2(offset_debug_page_coords.x + x, offset_debug_page_coords.y + y);
             const f32vec3 previous_color = imageLoad(daxa_image2D(_vsm_debug_page_table), shaded_pix_pos).rgb;
-            if(!(previous_color.r > 0.0 && previous_color.g > 0.0))
-            {
-                imageStore(daxa_image2D(_vsm_debug_page_table), shaded_pix_pos, color);
-            }
+            // if(!(previous_color.r > 0.0 && previous_color.g > 0.0))
+            // {
+            imageStore(daxa_image2D(_vsm_debug_page_table), shaded_pix_pos, color);
+            // }
         }
     }
 }

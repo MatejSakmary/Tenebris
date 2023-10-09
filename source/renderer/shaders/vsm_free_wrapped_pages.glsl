@@ -24,12 +24,12 @@ void main()
     if(should_clear)
     {
         const u32 vsm_page_entry = imageLoad(daxa_uimage2DArray(_vsm_page_table), vsm_wrapped_page_coords).r;
+        imageStore(daxa_uimage2DArray(_vsm_page_table), vsm_wrapped_page_coords, u32vec4(dirty_mask()));
         if(get_is_allocated(vsm_page_entry))
         {
-            // debugPrintfEXT("Freeing %d, %d, %d\n", vsm_page_coords.x, vsm_page_coords.y, vsm_page_coords.z);
             const i32vec2 meta_memory_coords = get_meta_coords_from_vsm_entry(vsm_page_entry);
-            imageStore(daxa_uimage2DArray(_vsm_page_table), vsm_wrapped_page_coords, u32vec4(dirty_mask()));
             imageStore(daxa_uimage2D(_vsm_meta_memory_table), meta_memory_coords, u32vec4(0));
+            // imageStore(daxa_uimage2DArray(_vsm_page_table), vsm_wrapped_page_coords, u32vec4(dirty_mask()));
         }
     }
 }
