@@ -91,6 +91,7 @@ struct Globals
     // =============== Camera =========================
     daxa_b32 use_debug_camera;
     daxa_b32 control_main_camera;
+    daxa_b32 force_view_clip_level;
 
     daxa_f32vec3 camera_position;
     daxa_i32vec3 offset;

@@ -35,6 +35,8 @@ struct ClipFromUVsInfo
     u32vec2 screen_resolution;
     f32 depth;
     f32mat4x4 inv_projection_view;
+    i32vec3 camera_offset;
+    i32 force_clip_level;
 };
 
 struct ClipInfo
@@ -53,47 +55,49 @@ f32vec3 camera_offset_world_space_from_uv(f32vec2 screen_space_uv, f32 depth, f3
     return offset_world_position;
 }
 
-ClipInfo clip_info_from_uvs(ClipFromUVsInfo info, i32 force_clip_level)
+ClipInfo clip_info_from_uvs(ClipFromUVsInfo info)
 {
-    const f32vec2 center_texel_coords = info.uv * info.screen_resolution;
+    i32 clip_level;
+    if(info.force_clip_level == -1)
+    {
+        const f32vec2 center_texel_coords = info.uv * info.screen_resolution;
 
-    const f32vec2 left_side_texel_coords = center_texel_coords - f32vec2(0.5, 0.0);
-    const f32vec2 left_side_texel_uvs = left_side_texel_coords / f32vec2(info.screen_resolution);
-    const f32vec3 camera_offset_left_world_space = camera_offset_world_space_from_uv(
-        left_side_texel_uvs,
-        info.depth,
-        info.inv_projection_view
-    );
+        const f32vec2 left_side_texel_coords = center_texel_coords - f32vec2(0.5, 0.0);
+        const f32vec2 left_side_texel_uvs = left_side_texel_coords / f32vec2(info.screen_resolution);
+        const f32vec3 camera_offset_left_world_space = camera_offset_world_space_from_uv(
+            left_side_texel_uvs,
+            info.depth,
+            info.inv_projection_view
+        );
 
-    const f32vec2 right_side_texel_coords = center_texel_coords + f32vec2(0.5, 0.0);
-    const f32vec2 right_side_texel_uvs = right_side_texel_coords / f32vec2(info.screen_resolution);
-    const f32vec3 camera_offset_right_world_space = camera_offset_world_space_from_uv(
-        right_side_texel_uvs,
-        info.depth,
-        info.inv_projection_view
-    );
+        const f32vec2 right_side_texel_coords = center_texel_coords + f32vec2(0.5, 0.0);
+        const f32vec2 right_side_texel_uvs = right_side_texel_coords / f32vec2(info.screen_resolution);
+        const f32vec3 camera_offset_right_world_space = camera_offset_world_space_from_uv(
+            right_side_texel_uvs,
+            info.depth,
+            info.inv_projection_view
+        );
+
+
+        const f32 texel_world_size = length(camera_offset_left_world_space - camera_offset_right_world_space);
+        clip_level = max(i32(ceil(log2(texel_world_size / deref(_globals).vsm_clip0_texel_world_size))), 0);
+    } 
+    else 
+    {
+        clip_level = info.force_clip_level;
+    }
 
     const f32vec3 camera_offset_center_world_space = camera_offset_world_space_from_uv(
         info.uv,
         info.depth,
         info.inv_projection_view
     );
-
-    const f32 texel_world_size = length(camera_offset_left_world_space - camera_offset_right_world_space);
-    i32 clip_level = max(i32(ceil(log2(texel_world_size / deref(_globals).vsm_clip0_texel_world_size))), 0);
-    if(force_clip_level != -1) { clip_level = force_clip_level; }
-
-    f32vec2 sun_depth_uv;
-    // TODO(msakmary) Fix me this is very hacky
-    const bool use_secondary_offset = deref(_globals).use_debug_camera && force_clip_level == -1;
-    const i32vec3 camera_offset = use_secondary_offset ? deref(_globals).secondary_offset : deref(_globals).offset;
-
-    const i32vec3 camera_to_sun_offset = deref(_vsm_sun_projections[clip_level]).offset - camera_offset;
+    const i32vec3 camera_to_sun_offset = deref(_vsm_sun_projections[clip_level]).offset - info.camera_offset;
     const f32vec3 sun_offset_world_position = camera_offset_center_world_space + camera_to_sun_offset;
     const f32vec4 sun_projected_world_position = 
         deref(_vsm_sun_projections[clip_level]).projection_view * f32vec4(sun_offset_world_position, 1.0);
     const f32vec3 sun_ndc_position = sun_projected_world_position.xyz / sun_projected_world_position.w;
-    sun_depth_uv = (sun_ndc_position.xy + f32vec2(1.0)) / f32vec2(2.0);
+    const f32vec2 sun_depth_uv = (sun_ndc_position.xy + f32vec2(1.0)) / f32vec2(2.0);
     return ClipInfo(clip_level, sun_depth_uv);
 }
 

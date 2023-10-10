@@ -91,10 +91,42 @@ f32vec3 get_vsm_debug_page_color(f32vec2 uv, f32 depth)
     f32vec3 color = f32vec3(1.0, 1.0, 1.0);
 
     const f32mat4x4 inv_projection_view = deref(_globals).inv_view_projection;
-    const ClipFromUVsInfo info = ClipFromUVsInfo(uv, pc.offscreen_resolution, depth, inv_projection_view);
-    const i32 select_level = pc.debug_active ? deref(_globals).vsm_debug_clip_level : -1;
-    const ClipInfo clip_info = clip_info_from_uvs(info, select_level);
+    const i32vec3 camera_offset = deref(_globals).offset;
+    const i32 force_clip_level = deref(_globals).force_view_clip_level ? deref(_globals).vsm_debug_clip_level : -1;
 
+    ClipInfo clip_info;
+    // When we are using debug camera and no clip level is manually forced we need to
+    // search through all the clip levels linearly to see if one level contains VSM entry
+    // for this tile - This is a DEBUG ONLY thing the perf will probably suffer
+    if(deref(_globals).use_debug_camera && !deref(_globals).force_view_clip_level)
+    {
+        for(i32 clip_level = 0; clip_level < VSM_CLIP_LEVELS; clip_level++)
+        {
+            clip_info = clip_info_from_uvs(ClipFromUVsInfo(
+                uv,
+                pc.offscreen_resolution,
+                depth,
+                inv_projection_view,
+                camera_offset,
+                clip_level
+            ));
+            const i32vec3 vsm_page_texel_coords = vsm_clip_info_to_wrapped_coords(clip_info);
+            const u32 page_entry = texelFetch(daxa_utexture2DArray(_vsm_page_table), vsm_page_texel_coords, 0).r;
+
+            if(get_is_visited_marked(page_entry)) {break;}
+        }
+    }
+    else 
+    {
+        clip_info = clip_info_from_uvs(ClipFromUVsInfo(
+            uv,
+            pc.offscreen_resolution,
+            depth,
+            inv_projection_view,
+            camera_offset,
+            force_clip_level
+        ));
+    }
     if(clip_info.clip_level >= VSM_CLIP_LEVELS) { return color; }
 
     const i32vec3 vsm_page_texel_coords = vsm_clip_info_to_wrapped_coords(clip_info);

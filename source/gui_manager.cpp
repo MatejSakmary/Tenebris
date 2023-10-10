@@ -22,6 +22,7 @@ GuiManager::GuiManager(GuiManagerInfo const & info) :
     globals.use_debug_camera = false;
     globals.sun_brightness = 1000.0f;
     globals.vsm_debug_clip_level = 0;
+    globals.force_view_clip_level = false;
 }
 
 void GuiManager::on_update()
@@ -180,6 +181,13 @@ void GuiManager::on_update()
     ImGui::End();
 
     ImGui::Begin("VSM Paging Texture");
+    if(!globals.use_debug_camera) {globals.force_view_clip_level = false;}
+    if(!use_debug) { ImGui::BeginDisabled(); }
+    bool force_view_clip_level = globals.force_view_clip_level == 1;
+    ImGui::Checkbox("Force view clip level", &force_view_clip_level);
+    globals.force_view_clip_level = force_view_clip_level ? 1u : 0u;
+    if(!use_debug) { ImGui::EndDisabled(); }
+
     ImGui::SliderInt("VSM Clip Level", &globals.vsm_debug_clip_level, 0, VSM_CLIP_LEVELS - 1);
     ImGui::Image(
         daxa::ImGuiRenderer::create_image_context({

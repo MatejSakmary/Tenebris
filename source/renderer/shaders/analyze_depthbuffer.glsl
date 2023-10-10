@@ -71,15 +71,19 @@ void request_vsm_pages(f32vec4 depths, u32vec2 scaled_pixel_coords)
         if(depths[idx] == 0.0) { continue; }
 
         const bool use_secondary_camera = deref(_globals).use_debug_camera;
+        // We always want to use the main camera - if debug pass is active main camera info is stored in secondary camera
         const f32mat4x4 inv_projection_view = use_secondary_camera ? deref(_globals).secondary_inv_view_projection : deref(_globals).inv_view_projection;
+        const i32vec3 camera_offset = use_secondary_camera ? deref(_globals).secondary_offset : deref(_globals).offset;
         const f32vec2 screen_space_uv = (scaled_pixel_coords + offsets[idx]) / f32vec2(pc.depth_dimensions);
 
         ClipInfo clip_info = clip_info_from_uvs(ClipFromUVsInfo(
             screen_space_uv,
             pc.depth_dimensions,
             depths[idx],
-            inv_projection_view
-        ), -1);
+            inv_projection_view,
+            camera_offset,
+            -1
+        ));
         if(clip_info.clip_level >= VSM_CLIP_LEVELS) { continue; }
 
         const i32vec3 vsm_page_wrapped_coords = vsm_clip_info_to_wrapped_coords(clip_info);
