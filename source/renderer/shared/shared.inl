@@ -2,8 +2,6 @@
 
 #include <daxa/daxa.inl>
 
-// An atmosphere layer density which can be calculated as:
-//   density = exp_term * exp(exp_scale * h) + linear_term * h + constant_term,
 
 #define MAX_FRUSTUM_COUNT 8
 #define FRUSTUM_VERTEX_COUNT 8
@@ -47,9 +45,13 @@ static constexpr daxa_u32 vsm_debug_paging_table_resolution()
 #define VSM_DEBUG_META_MEMORY_RESOLUTION (VSM_META_MEMORY_RESOLUTION * VSM_DEBUG_META_MEMORY_SCALE)
 
 #define MAX_NUM_VSM_ALLOC_REQUEST 256
+// #define MAX_NUM_VSM_ALLOC_REQUEST 1
 
 #define VSM_FIND_FREE_PAGES_LOCAL_SIZE_X 32
+#define VSM_CLEAR_PAGES_LOCAL_SIZE_XY 16
 
+// An atmosphere layer density which can be calculated as:
+//   density = exp_term * exp(exp_scale * h) + linear_term * h + constant_term,
 struct DensityProfileLayer
 {
     daxa_f32 layer_width;

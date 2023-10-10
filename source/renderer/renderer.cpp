@@ -75,6 +75,7 @@ Renderer::Renderer(const AppWindow & window, Globals * globals) :
     init_compute_pipeline(get_vsm_free_wrapped_pages_pipeline(), context.pipelines.vsm_free_wrapped_pages);
     init_compute_pipeline(get_vsm_find_free_pages_pipeline(), context.pipelines.vsm_find_free_pages);
     init_compute_pipeline(get_vsm_allocate_pages_pipeline(), context.pipelines.vsm_allocate_pages);
+    init_compute_pipeline(get_vsm_clear_pages_pipeline(), context.pipelines.vsm_clear_pages);
     init_compute_pipeline(get_vsm_debug_page_table_pipeline(), context.pipelines.vsm_debug_page_table);
     init_compute_pipeline(get_vsm_debug_meta_memory_table_pipeline(), context.pipelines.vsm_debug_meta_memory_table);
 
@@ -514,6 +515,11 @@ void Renderer::initialize_main_tasklist()
         .name = "vsm allocate indirect"
     });
 
+    tl.buffers.vsm_clear_indirect = tl.task_list.create_transient_buffer({
+        .size = static_cast<u32>(sizeof(DispatchIndirectStruct)),
+        .name = "vsm clear indirect"
+    });
+
     tl.buffers.vsm_free_page_buffer = tl.task_list.create_transient_buffer({
         .size = static_cast<u32>(sizeof(PageCoordBuffer) * (MAX_NUM_VSM_ALLOC_REQUEST)),
         .name = "vsm free page buffer"
@@ -596,6 +602,7 @@ void Renderer::initialize_main_tasklist()
             daxa::BufferHostTransferWrite{tl.buffers.frustum_colors},
             daxa::BufferHostTransferWrite{tl.buffers.luminance_histogram},
             daxa::BufferHostTransferWrite{tl.buffers.vsm_allocate_indirect},
+            daxa::BufferHostTransferWrite{tl.buffers.vsm_clear_indirect},
             daxa::BufferHostTransferWrite{tl.buffers.vsm_find_free_pages_header},
             daxa::BufferHostTransferWrite{tl.buffers.vsm_sun_projection_matrices},
             daxa::BufferHostTransferWrite{tl.buffers.vsm_free_wrapped_pages_info},
@@ -660,7 +667,7 @@ void Renderer::initialize_main_tasklist()
                     reset_bin_values.data(),
                     sizeof(Histogram) * HISTOGRAM_BIN_COUNT
                 );
-                // Allocate indirect
+                // Allocate and clear indirect
                 DispatchIndirectStruct dispatch_indirect{
                     .x = 0,
                     .y = 1,
@@ -668,6 +675,16 @@ void Renderer::initialize_main_tasklist()
                 };
                 upload_cpu_to_gpu(
                     ti.uses[tl.buffers.vsm_allocate_indirect].buffer(),
+                    &dispatch_indirect,
+                    sizeof(DispatchIndirectStruct)
+                );
+                // WARN(msakmary) assuming nvidia 32 thread subgroup
+                dispatch_indirect.x = VSM_PAGE_SIZE / VSM_CLEAR_PAGES_LOCAL_SIZE_XY;
+                dispatch_indirect.y = VSM_PAGE_SIZE / VSM_CLEAR_PAGES_LOCAL_SIZE_XY;
+                DBG_ASSERT_TRUE_M(dispatch_indirect.x * VSM_CLEAR_PAGES_LOCAL_SIZE_XY == VSM_PAGE_SIZE, 
+                    "Page size is not 16 aligned - either align it or change the code to account for that");
+                upload_cpu_to_gpu(
+                    ti.uses[tl.buffers.vsm_clear_indirect].buffer(),
                     &dispatch_indirect,
                     sizeof(DispatchIndirectStruct)
                 );
@@ -878,6 +895,7 @@ void Renderer::initialize_main_tasklist()
         .uses = {
             ._vsm_allocation_buffer = tl.buffers.vsm_allocation_requests,
             ._vsm_allocate_indirect = tl.buffers.vsm_allocate_indirect,
+            ._vsm_clear_indirect = tl.buffers.vsm_clear_indirect,
             ._vsm_free_pages_buffer = tl.buffers.vsm_free_page_buffer,
             ._vsm_not_visited_pages_buffer = tl.buffers.vsm_not_visited_page_buffer,
             ._vsm_find_free_pages_header = tl.buffers.vsm_find_free_pages_header,
@@ -885,6 +903,20 @@ void Renderer::initialize_main_tasklist()
                 {.base_array_layer = 0, .layer_count = VSM_CLIP_LEVELS}
             ),
             ._vsm_meta_memory_table = context.images.vsm_meta_memory_table.view(),
+        }},
+        &context
+    });
+    #pragma endregion
+
+    #pragma region clear_vsm_pages
+    tl.task_list.add_task(VSMClearPagesTask{{
+        .uses = {
+            ._vsm_allocation_buffer = tl.buffers.vsm_allocation_requests,
+            ._vsm_clear_indirect = tl.buffers.vsm_clear_indirect,
+            ._vsm_page_table = context.images.vsm_page_table.view().view(
+                {.base_array_layer = 0, .layer_count = VSM_CLIP_LEVELS}
+            ),
+            ._vsm_memory = context.images.vsm_memory
         }},
         &context
     });

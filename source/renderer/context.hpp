@@ -59,6 +59,7 @@ struct Context
         std::shared_ptr<daxa::ComputePipeline> vsm_free_wrapped_pages;
         std::shared_ptr<daxa::ComputePipeline> vsm_find_free_pages;
         std::shared_ptr<daxa::ComputePipeline> vsm_allocate_pages;
+        std::shared_ptr<daxa::ComputePipeline> vsm_clear_pages;
         std::shared_ptr<daxa::ComputePipeline> vsm_debug_page_table;
         std::shared_ptr<daxa::ComputePipeline> vsm_debug_meta_memory_table;
 
@@ -90,6 +91,7 @@ struct Context
 
             daxa::TaskBufferView vsm_allocation_requests;
             daxa::TaskBufferView vsm_allocate_indirect;
+            daxa::TaskBufferView vsm_clear_indirect;
 
             daxa::TaskBufferView vsm_free_wrapped_pages_info;
             daxa::TaskBufferView vsm_free_page_buffer;

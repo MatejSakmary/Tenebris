@@ -9,6 +9,12 @@
 layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 void main()
 {
+    // Prepare indirect dispatch buffer for clear page pass
+    if(gl_GlobalInvocationID.x == 0)
+    {
+        deref(_vsm_clear_indirect).z = deref(_vsm_allocate_indirect).x;
+    }
+
     // - Read the values stored inside FindFreePages header
     //   - If the GlobalThreadID is less than free_buffer_counter:
     //     - Read the entry in FreePageBuffer[GlobalThreadID]
@@ -19,7 +25,6 @@ void main()
     //     - Read the meta memory entry
     //     - Reset (Deallocate) the entry that previously owned this memory in virtual page table 
     //     - Assign new entries to the page_table_texel and meta_memory_texel
-
     FindFreePagesHeader header = deref(_vsm_find_free_pages_header);
 
     const i32 id = i32(gl_GlobalInvocationID.x);

@@ -8,6 +8,7 @@
 DAXA_DECL_TASK_USES_BEGIN(VSMAllocatePagesTaskBase, DAXA_UNIFORM_BUFFER_SLOT0)
 DAXA_TASK_USE_BUFFER(_vsm_allocation_buffer, daxa_BufferPtr(AllocationRequest), COMPUTE_SHADER_READ)
 DAXA_TASK_USE_BUFFER(_vsm_allocate_indirect, daxa_BufferPtr(DispatchIndirectStruct), COMPUTE_SHADER_READ)
+DAXA_TASK_USE_BUFFER(_vsm_clear_indirect, daxa_BufferPtr(DispatchIndirectStruct), COMPUTE_SHADER_WRITE)
 DAXA_TASK_USE_BUFFER(_vsm_free_pages_buffer, daxa_BufferPtr(PageCoordBuffer), COMPUTE_SHADER_READ)
 DAXA_TASK_USE_BUFFER(_vsm_not_visited_pages_buffer, daxa_BufferPtr(PageCoordBuffer), COMPUTE_SHADER_READ)
 DAXA_TASK_USE_BUFFER(_vsm_find_free_pages_header, daxa_BufferPtr(FindFreePagesHeader), COMPUTE_SHADER_READ)
