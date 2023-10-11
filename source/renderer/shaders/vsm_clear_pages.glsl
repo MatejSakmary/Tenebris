@@ -23,5 +23,5 @@ void main()
     const i32vec2 in_memory_corner_coords = memory_page_coords * VSM_PAGE_SIZE;
     const i32vec2 in_memory_workgroup_offset = i32vec2(gl_WorkGroupID.xy) * VSM_CLEAR_PAGES_LOCAL_SIZE_XY;
     const i32vec2 thread_memory_coords = in_memory_corner_coords + in_memory_workgroup_offset + i32vec2(gl_LocalInvocationID.xy);
-    imageStore(daxa_image2D(_vsm_memory), thread_memory_coords, f32vec4(1.0f));
+    imageStore(daxa_image2D(_vsm_memory), thread_memory_coords, f32vec4(1.0));
 }

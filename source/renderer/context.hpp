@@ -60,6 +60,7 @@ struct Context
         std::shared_ptr<daxa::ComputePipeline> vsm_find_free_pages;
         std::shared_ptr<daxa::ComputePipeline> vsm_allocate_pages;
         std::shared_ptr<daxa::ComputePipeline> vsm_clear_pages;
+        std::shared_ptr<daxa::RasterPipeline> vsm_draw_pages;
         std::shared_ptr<daxa::ComputePipeline> vsm_debug_page_table;
         std::shared_ptr<daxa::ComputePipeline> vsm_debug_meta_memory_table;
 
@@ -116,6 +117,8 @@ struct Context
             daxa::TaskImageView shadowmap_cascades;
             daxa::TaskImageView esm_tmp_cascades;
             daxa::TaskImageView esm_cascades;
+
+            daxa::TaskImageView vsm_debug_image;
         };
 
         std::array<bool, Conditionals::COUNT> conditionals;

@@ -76,6 +76,7 @@ Renderer::Renderer(const AppWindow & window, Globals * globals) :
     init_compute_pipeline(get_vsm_find_free_pages_pipeline(), context.pipelines.vsm_find_free_pages);
     init_compute_pipeline(get_vsm_allocate_pages_pipeline(), context.pipelines.vsm_allocate_pages);
     init_compute_pipeline(get_vsm_clear_pages_pipeline(), context.pipelines.vsm_clear_pages);
+    init_raster_pipeline(get_vsm_draw_pages_pipeline(), context.pipelines.vsm_draw_pages);
     init_compute_pipeline(get_vsm_debug_page_table_pipeline(), context.pipelines.vsm_debug_page_table);
     init_compute_pipeline(get_vsm_debug_meta_memory_table_pipeline(), context.pipelines.vsm_debug_meta_memory_table);
 
@@ -205,6 +206,7 @@ void Renderer::create_persistent_resources()
         .initial_images = {
             .images = std::array{
                 context.device.create_image(daxa::ImageInfo{
+                    .flags = daxa::ImageCreateFlagBits::ALLOW_MUTABLE_FORMAT,
                     .format = daxa::Format::R32_SFLOAT,
                     .size = {VSM_MEMORY_RESOLUTION, VSM_MEMORY_RESOLUTION, 1},
                     .usage = daxa::ImageUsageFlagBits::SHADER_SAMPLED | daxa::ImageUsageFlagBits::SHADER_STORAGE,
@@ -500,6 +502,12 @@ void Renderer::initialize_main_tasklist()
     #pragma endregion
 
     #pragma region vsm_resources
+    tl.images.vsm_debug_image = tl.task_list.create_transient_image({
+        .format = daxa::Format::R16G16B16A16_SFLOAT,
+        .size = {VSM_TEXTURE_RESOLUTION, VSM_TEXTURE_RESOLUTION, 1u},
+        .name = "transient vsm debug image"
+    });
+
     tl.buffers.vsm_free_wrapped_pages_info = tl.task_list.create_transient_buffer({
         .size = static_cast<u32>(sizeof(FreeWrappedPagesInfo) * VSM_CLIP_LEVELS),
         .name = "vsm free wrapped pages info"
@@ -681,6 +689,7 @@ void Renderer::initialize_main_tasklist()
                 // WARN(msakmary) assuming nvidia 32 thread subgroup
                 dispatch_indirect.x = VSM_PAGE_SIZE / VSM_CLEAR_PAGES_LOCAL_SIZE_XY;
                 dispatch_indirect.y = VSM_PAGE_SIZE / VSM_CLEAR_PAGES_LOCAL_SIZE_XY;
+                dispatch_indirect.z = 0;
                 DBG_ASSERT_TRUE_M(dispatch_indirect.x * VSM_CLEAR_PAGES_LOCAL_SIZE_XY == VSM_PAGE_SIZE, 
                     "Page size is not 16 aligned - either align it or change the code to account for that");
                 upload_cpu_to_gpu(
@@ -784,6 +793,7 @@ void Renderer::initialize_main_tasklist()
                     ._vertices = context.buffers.terrain_vertices.view(),
                     ._indices = context.buffers.terrain_indices.view(),
                     ._globals = context.buffers.globals.view(),
+                    ._vsm_sun_projections = tl.buffers.vsm_sun_projection_matrices,
                     ._g_albedo = tl.images.g_albedo,
                     ._g_normals = tl.images.g_normals,
                     ._depth = secondary_camera_depth,
@@ -803,6 +813,7 @@ void Renderer::initialize_main_tasklist()
                     ._vertices = context.buffers.terrain_vertices.view(),
                     ._indices = context.buffers.terrain_indices.view(),
                     ._globals = context.buffers.globals.view(),
+                    ._vsm_sun_projections = tl.buffers.vsm_sun_projection_matrices,
                     ._g_albedo = tl.images.g_albedo,
                     ._g_normals = tl.images.g_normals,
                     ._depth = tl.images.depth,
@@ -842,6 +853,7 @@ void Renderer::initialize_main_tasklist()
                     ._vertices = context.buffers.terrain_vertices.view(),
                     ._indices = context.buffers.terrain_indices.view(),
                     ._globals = context.buffers.globals.view(),
+                    ._vsm_sun_projections = tl.buffers.vsm_sun_projection_matrices,
                     ._g_albedo = tl.images.g_albedo,
                     ._g_normals = tl.images.g_normals,
                     ._depth = tl.images.depth,
@@ -922,6 +934,24 @@ void Renderer::initialize_main_tasklist()
     });
     #pragma endregion
 
+    #pragma region draw_vsm_pages
+    tl.task_list.add_task(VSMDrawPagesTask{{
+        .uses = {
+            ._globals = context.buffers.globals.view(),
+            ._vertices = context.buffers.terrain_vertices.view(),
+            ._indices = context.buffers.terrain_indices.view(),
+            ._vsm_sun_projections = tl.buffers.vsm_sun_projection_matrices,
+            ._height_map = context.images.height_map.view(),
+            ._debug = tl.images.vsm_debug_image,
+            ._vsm_page_table = context.images.vsm_page_table.view().view(
+                {.base_array_layer = 0, .layer_count = VSM_CLIP_LEVELS}
+            ),
+            ._vsm_memory = context.images.vsm_memory.view()
+        }},
+        &context
+    });
+    #pragma endregion
+
     #pragma region prepare_shadowmap_matrices
     tl.task_list.add_task(PrepareShadowmapMatricesTask{{
         .uses = {
@@ -945,7 +975,6 @@ void Renderer::initialize_main_tasklist()
             ._cascade_data = tl.buffers.shadowmap_data,
             ._shadowmap_cascades = tl.images.shadowmap_cascades,
             ._height_map = context.images.height_map.view(),
-            ._depth = tl.images.depth,
         }},
         &context,
     });
@@ -1252,26 +1281,26 @@ void Renderer::draw(DrawInfo const & info)
 
     // context.sun_camera.set_position( (globals->sun_direction * -1000.0f) + camera_fp_offset);
     context.sun_camera.set_front(f32vec3{
-        -globals->sun_direction.x,
-        -globals->sun_direction.y,
-        -globals->sun_direction.z
+        globals->sun_direction.x,
+        globals->sun_direction.y,
+        globals->sun_direction.z
     });
-    OrthographicInfo curr_clip_projection = OrthographicInfo {
-        .left   = -5.0f,
-        .right  =  5.0f,
-        .top    =  5.0f,
-        .bottom = -5.0f,
-        .near   =  10.0f,
-        .far    =  10'000.0f
-    };
     // OrthographicInfo curr_clip_projection = OrthographicInfo {
-    //     .left   = -500.0f,
-    //     .right  =  500.0f,
-    //     .top    =  500.0f,
-    //     .bottom = -500.0f,
+    //     .left   = -5.0f,
+    //     .right  =  5.0f,
+    //     .top    =  5.0f,
+    //     .bottom = -5.0f,
     //     .near   =  10.0f,
     //     .far    =  10'000.0f
     // };
+    OrthographicInfo curr_clip_projection = OrthographicInfo {
+        .left   = -5000.0f,
+        .right  =  5000.0f,
+        .top    =  5000.0f,
+        .bottom = -5000.0f,
+        .near   =  10.0f,
+        .far    =  10'000.0f
+    };
     f32 curr_clip_texel_world_size = (curr_clip_projection.right - curr_clip_projection.left) / VSM_TEXTURE_RESOLUTION;
     globals->vsm_sun_offset = context.sun_camera.offset;
     globals->vsm_clip0_texel_world_size = curr_clip_texel_world_size;
@@ -1281,7 +1310,7 @@ void Renderer::draw(DrawInfo const & info)
     {
         context.sun_camera.proj_info = curr_clip_projection;
         context.sun_camera.update_front_vector(0.0f, 0.0f);
-        const f32vec3 to_sun_camera_offset = globals->sun_direction * 1000.0f;
+        const f32vec3 to_sun_camera_offset = globals->sun_direction * -1000.0f;
         const f32 clip_page_world_size = curr_clip_texel_world_size * VSM_PAGE_SIZE;
 
         const auto page_offset = context.sun_camera.align_clip_to_player(&info.main_camera, to_sun_camera_offset);

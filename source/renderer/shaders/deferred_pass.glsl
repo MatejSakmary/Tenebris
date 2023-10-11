@@ -151,7 +151,41 @@ f32vec3 get_vsm_debug_page_color(f32vec2 uv, f32 depth)
         if(get_is_dirty(page_entry)) {color = f32vec3(0.0, 0.0, 1.0);}
     }
     return color;
+}
 
+// TODO(msakmary) Improve accuracy by doing integer offset math instead of passing
+// world pos as float
+f32 get_vsm_shadow(f32vec2 uv, f32 depth, f32vec3 world_pos)
+{
+    const f32mat4x4 inv_projection_view = deref(_globals).inv_view_projection;
+    const i32vec3 camera_offset = deref(_globals).offset;
+    ClipInfo clip_info = clip_info_from_uvs(ClipFromUVsInfo(
+        uv,
+        pc.offscreen_resolution,
+        depth,
+        inv_projection_view,
+        camera_offset,
+        -1
+    ));
+    if(clip_info.clip_level >= VSM_CLIP_LEVELS) { return 1.0; }
+
+    const i32vec3 vsm_page_texel_coords = vsm_clip_info_to_wrapped_coords(clip_info);
+    const u32 page_entry = texelFetch(daxa_utexture2DArray(_vsm_page_table), vsm_page_texel_coords, 0).r;
+
+    if(!get_is_allocated(page_entry)) { return 1.0; }
+
+    const i32vec2 physical_page_coords = get_meta_coords_from_vsm_entry(page_entry);
+    const i32vec2 physical_texel_coords = virtual_uv_to_physical_texel(clip_info.sun_depth_uv, physical_page_coords);
+    const f32 vsm_sample = texelFetch(daxa_texture2D(_vsm_physical_memory), physical_texel_coords, 0).r;
+
+    const f32mat4x4 vsm_shadow_projection_view = deref(_vsm_sun_projections[clip_info.clip_level]).projection_view;
+    const i32vec3 sun_camera_offset = deref(_vsm_sun_projections[clip_info.clip_level]).offset;
+    const f32vec3 sun_offset_world_pos = world_pos + sun_camera_offset;
+    const f32vec4 vsm_projected_world = vsm_shadow_projection_view * f32vec4(sun_offset_world_pos, 1.0);
+    const f32vec3 vsm_projected_ndc = vsm_projected_world.xyz / vsm_projected_world.w;
+    const f32 vsm_projected_depth = vsm_projected_ndc.z;
+    const bool is_in_shadow = vsm_sample < (vsm_projected_depth + 0.001);
+    return is_in_shadow ? 0.0 : 1.0;
 }
 
 void main() 
@@ -240,6 +274,9 @@ void main()
     }
 
     const f32vec3 vsm_debug_color = get_vsm_debug_page_color(uv, depth);
+    // TODO(msakmary) Improve accuracy by doing integer offset math instead of passing
+    // world pos as float
+    const f32 vsm_shadow = get_vsm_shadow(uv, depth, world_position);
 
     const f32vec4 albedo = texture(daxa_sampler2D(_g_albedo, pc.nearest_sampler_id), uv);
     const f32vec3 normal = texture(daxa_sampler2D(_g_normals, pc.nearest_sampler_id), uv).xyz;
@@ -251,9 +288,10 @@ void main()
     out_color = pow(albedo, f32vec4(f32vec3(2.4), 1.0));
     f32vec4 ambient = f32vec4(deref(_globals).sun_brightness * sun_color.xyz * get_far_sky_color(normal), 1.0); 
 
-    out_color *= clamp(sun_norm_dot, 0.0, 1.0) *
+    out_color *= //clamp(sun_norm_dot, 0.0, 1.0) * 
+                vsm_shadow * 
                 //  clamp(pow(shadow, 2), 0.0, 1.0) *
                  f32vec4(transmittance_to_sun, 1.0) *
                  deref(_globals).sun_brightness * sun_color + ambient;
-    out_color.xyz *= vsm_debug_color;
+    out_color.xyz *= vsm_shadow;
 }
