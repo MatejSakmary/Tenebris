@@ -77,6 +77,7 @@ Renderer::Renderer(const AppWindow & window, Globals * globals) :
     init_compute_pipeline(get_vsm_allocate_pages_pipeline(), context.pipelines.vsm_allocate_pages);
     init_compute_pipeline(get_vsm_clear_pages_pipeline(), context.pipelines.vsm_clear_pages);
     init_raster_pipeline(get_vsm_draw_pages_pipeline(), context.pipelines.vsm_draw_pages);
+    init_compute_pipeline(get_vsm_clear_dirty_bit_pipeline(), context.pipelines.vsm_clear_dirty_bit);
     init_compute_pipeline(get_vsm_debug_page_table_pipeline(), context.pipelines.vsm_debug_page_table);
     init_compute_pipeline(get_vsm_debug_meta_memory_table_pipeline(), context.pipelines.vsm_debug_meta_memory_table);
 
@@ -513,8 +514,13 @@ void Renderer::initialize_main_tasklist()
         .name = "vsm free wrapped pages info"
     });
 
+    tl.buffers.vsm_allocation_count = tl.task_list.create_transient_buffer({
+        .size = static_cast<u32>(sizeof(AllocationCount)),
+        .name = "vsm allocation count"
+    });
+
     tl.buffers.vsm_allocation_requests = tl.task_list.create_transient_buffer({
-        .size = static_cast<u32>(sizeof(AllocationRequest) * 200),
+        .size = static_cast<u32>(sizeof(AllocationRequest) * MAX_NUM_VSM_ALLOC_REQUEST),
         .name = "vsm allocation buffer"
     });
 
@@ -526,6 +532,11 @@ void Renderer::initialize_main_tasklist()
     tl.buffers.vsm_clear_indirect = tl.task_list.create_transient_buffer({
         .size = static_cast<u32>(sizeof(DispatchIndirectStruct)),
         .name = "vsm clear indirect"
+    });
+
+    tl.buffers.vsm_clear_dirty_bit_indirect = tl.task_list.create_transient_buffer({
+        .size = static_cast<u32>(sizeof(DispatchIndirectStruct)),
+        .name = "vsm clear dirty bit indirect"
     });
 
     tl.buffers.vsm_free_page_buffer = tl.task_list.create_transient_buffer({
@@ -609,8 +620,7 @@ void Renderer::initialize_main_tasklist()
             daxa::BufferHostTransferWrite{tl.buffers.frustum_indirect},
             daxa::BufferHostTransferWrite{tl.buffers.frustum_colors},
             daxa::BufferHostTransferWrite{tl.buffers.luminance_histogram},
-            daxa::BufferHostTransferWrite{tl.buffers.vsm_allocate_indirect},
-            daxa::BufferHostTransferWrite{tl.buffers.vsm_clear_indirect},
+            daxa::BufferHostTransferWrite{tl.buffers.vsm_allocation_count},
             daxa::BufferHostTransferWrite{tl.buffers.vsm_find_free_pages_header},
             daxa::BufferHostTransferWrite{tl.buffers.vsm_sun_projection_matrices},
             daxa::BufferHostTransferWrite{tl.buffers.vsm_free_wrapped_pages_info},
@@ -675,27 +685,12 @@ void Renderer::initialize_main_tasklist()
                     reset_bin_values.data(),
                     sizeof(Histogram) * HISTOGRAM_BIN_COUNT
                 );
-                // Allocate and clear indirect
-                DispatchIndirectStruct dispatch_indirect{
-                    .x = 0,
-                    .y = 1,
-                    .z = 1
-                };
+                // Reset vsm allocation count to 0
+                AllocationCount allocation_count{ .count = 0};
                 upload_cpu_to_gpu(
-                    ti.uses[tl.buffers.vsm_allocate_indirect].buffer(),
-                    &dispatch_indirect,
-                    sizeof(DispatchIndirectStruct)
-                );
-                // WARN(msakmary) assuming nvidia 32 thread subgroup
-                dispatch_indirect.x = VSM_PAGE_SIZE / VSM_CLEAR_PAGES_LOCAL_SIZE_XY;
-                dispatch_indirect.y = VSM_PAGE_SIZE / VSM_CLEAR_PAGES_LOCAL_SIZE_XY;
-                dispatch_indirect.z = 0;
-                DBG_ASSERT_TRUE_M(dispatch_indirect.x * VSM_CLEAR_PAGES_LOCAL_SIZE_XY == VSM_PAGE_SIZE, 
-                    "Page size is not 16 aligned - either align it or change the code to account for that");
-                upload_cpu_to_gpu(
-                    ti.uses[tl.buffers.vsm_clear_indirect].buffer(),
-                    &dispatch_indirect,
-                    sizeof(DispatchIndirectStruct)
+                    ti.uses[tl.buffers.vsm_allocation_count].buffer(),
+                    &allocation_count,
+                    sizeof(AllocationCount)
                 );
                 // Vsm find free pages header
                 FindFreePagesHeader header = FindFreePagesHeader{
@@ -832,8 +827,11 @@ void Renderer::initialize_main_tasklist()
                 .uses = {
                     ._globals = context.buffers.globals.view(),
                     ._depth_limits = tl.buffers.depth_limits,
+                    ._vsm_allocation_count = tl.buffers.vsm_allocation_count,
                     ._vsm_allocation_buffer = tl.buffers.vsm_allocation_requests,
                     ._vsm_allocate_indirect = tl.buffers.vsm_allocate_indirect,
+                    ._vsm_clear_indirect = tl.buffers.vsm_clear_indirect,
+                    ._vsm_clear_dirty_bit_indirect = tl.buffers.vsm_clear_dirty_bit_indirect,
                     ._vsm_sun_projections = tl.buffers.vsm_sun_projection_matrices,
                     ._depth = secondary_camera_depth,
                     ._vsm_page_table = context.images.vsm_page_table.view().view(
@@ -871,8 +869,11 @@ void Renderer::initialize_main_tasklist()
                 .uses = {
                     ._globals = context.buffers.globals.view(),
                     ._depth_limits = tl.buffers.depth_limits,
+                    ._vsm_allocation_count = tl.buffers.vsm_allocation_count,
                     ._vsm_allocation_buffer = tl.buffers.vsm_allocation_requests,
                     ._vsm_allocate_indirect = tl.buffers.vsm_allocate_indirect,
+                    ._vsm_clear_indirect = tl.buffers.vsm_clear_indirect,
+                    ._vsm_clear_dirty_bit_indirect = tl.buffers.vsm_clear_dirty_bit_indirect,
                     ._vsm_sun_projections = tl.buffers.vsm_sun_projection_matrices,
                     ._depth = tl.images.depth,
                     ._vsm_page_table = context.images.vsm_page_table.view().view(
@@ -905,6 +906,7 @@ void Renderer::initialize_main_tasklist()
     #pragma region allocate_vsm_pages
     tl.task_list.add_task(VSMAllocatePagesTask{{
         .uses = {
+            ._vsm_allocation_count = tl.buffers.vsm_allocation_count,
             ._vsm_allocation_buffer = tl.buffers.vsm_allocation_requests,
             ._vsm_allocate_indirect = tl.buffers.vsm_allocate_indirect,
             ._vsm_clear_indirect = tl.buffers.vsm_clear_indirect,
@@ -947,6 +949,20 @@ void Renderer::initialize_main_tasklist()
                 {.base_array_layer = 0, .layer_count = VSM_CLIP_LEVELS}
             ),
             ._vsm_memory = context.images.vsm_memory.view()
+        }},
+        &context
+    });
+    #pragma endregion
+
+    #pragma region vsm_clear_dirty_bit
+    tl.task_list.add_task(VSMClearDirtyBitTask{{
+        .uses = {
+            ._vsm_allocation_count = tl.buffers.vsm_allocation_count,
+            ._vsm_allocation_buffer = tl.buffers.vsm_allocation_requests,
+            ._vsm_clear_dirty_bit_indirect = tl.buffers.vsm_clear_dirty_bit_indirect,
+            ._vsm_page_table = context.images.vsm_page_table.view().view(
+                {.base_array_layer = 0, .layer_count = VSM_CLIP_LEVELS}
+            ),
         }},
         &context
     });
@@ -1281,24 +1297,24 @@ void Renderer::draw(DrawInfo const & info)
 
     // context.sun_camera.set_position( (globals->sun_direction * -1000.0f) + camera_fp_offset);
     context.sun_camera.set_front(f32vec3{
-        globals->sun_direction.x,
-        globals->sun_direction.y,
-        globals->sun_direction.z
+        -globals->sun_direction.x,
+        -globals->sun_direction.y,
+        -globals->sun_direction.z
     });
     // OrthographicInfo curr_clip_projection = OrthographicInfo {
-    //     .left   = -5.0f,
-    //     .right  =  5.0f,
-    //     .top    =  5.0f,
-    //     .bottom = -5.0f,
+    //     .left   = -100.0f,
+    //     .right  =  100.0f,
+    //     .top    =  100.0f,
+    //     .bottom = -100.0f,
     //     .near   =  10.0f,
     //     .far    =  10'000.0f
     // };
     OrthographicInfo curr_clip_projection = OrthographicInfo {
-        .left   = -5000.0f,
-        .right  =  5000.0f,
-        .top    =  5000.0f,
-        .bottom = -5000.0f,
-        .near   =  10.0f,
+        .left   = -1000.0f,
+        .right  =  1000.0f,
+        .top    =  1000.0f,
+        .bottom = -1000.0f,
+        .near   =  100.0f,
         .far    =  10'000.0f
     };
     f32 curr_clip_texel_world_size = (curr_clip_projection.right - curr_clip_projection.left) / VSM_TEXTURE_RESOLUTION;
@@ -1310,10 +1326,18 @@ void Renderer::draw(DrawInfo const & info)
     {
         context.sun_camera.proj_info = curr_clip_projection;
         context.sun_camera.update_front_vector(0.0f, 0.0f);
-        const f32vec3 to_sun_camera_offset = globals->sun_direction * -1000.0f;
+        const f32vec3 to_sun_camera_offset = globals->sun_direction;
         const f32 clip_page_world_size = curr_clip_texel_world_size * VSM_PAGE_SIZE;
 
-        const auto page_offset = context.sun_camera.align_clip_to_player(&info.main_camera, to_sun_camera_offset);
+        const auto page_offset = context.sun_camera.align_clip_to_player(
+            &info.main_camera, to_sun_camera_offset, 
+            std::span<FrustumVertex, 128>{&context.frustum_vertices[8 * context.debug_frustum_cpu_count], 128});
+        for(int i = 0; i < 16; i++)
+        {
+            context.frustum_colors[context.debug_frustum_cpu_count + i].color = f32vec3{0.0, 0.0, 1.0};
+        }
+        context.debug_frustum_cpu_count += 16;
+
         const auto clear_offset = page_offset - context.vsm_last_frame_offset.at(clip_level);
         context.vsm_last_frame_offset.at(clip_level) = page_offset;
         context.vsm_free_wrapped_pages_info.at(clip_level).clear_offset = clear_offset;

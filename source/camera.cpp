@@ -108,6 +108,8 @@ void Camera::recalculate_matrices()
             ortho_info.near,
             ortho_info.far
         );
+        /* GLM is using OpenGL standard where Y coordinate of the clip coordinates is inverted */
+        projection[1][1] *= -1.0;
     } 
     else 
     {
@@ -252,7 +254,7 @@ auto Camera::get_camera_position() const -> f32vec3
     return f32vec3{position.x, position.y, position.z};
 }
 
-auto Camera::align_clip_to_player(Camera const * player_camera, f32vec3 sun_offset) -> i32vec2
+auto Camera::align_clip_to_player(Camera const * player_camera, f32vec3 sun_offset, std::span<FrustumVertex, 128> vertices_space) -> i32vec2
 {
     const f32vec3 foffset_player_position = player_camera->get_camera_position(); 
 
@@ -264,13 +266,13 @@ auto Camera::align_clip_to_player(Camera const * player_camera, f32vec3 sun_offs
     };
 
     const f32vec3 fplayer_position = foffset_player_position - fplayer_offset;
-    set_position(sun_offset);
+    set_position(f32vec3{0.0f, 0.0f, 0.0f});
     recalculate_matrices();
 
     const glm::vec4 glm_player_position = glm::vec4(
-        fplayer_position.x + offset.x,
-        fplayer_position.y + offset.y,
-        fplayer_position.z + offset.z,
+        fplayer_position.x - offset.x,
+        fplayer_position.y - offset.y,
+        fplayer_position.z - offset.z,
         1.0
     );
 
@@ -290,25 +292,93 @@ auto Camera::align_clip_to_player(Camera const * player_camera, f32vec3 sun_offs
         std::ceil(ndc_page_scaled_player_position.x), 
         std::ceil(ndc_page_scaled_player_position.y)
     );
-    const auto ndc_aligned_player_position = glm::vec3(
-        ndc_page_scaled_aligned_player_position * ndc_page_size,
-        ndc_player_position.z
-    );
-    const auto unprojected_aligned_player_position = glm::inverse(projection * view) * glm::vec4(ndc_aligned_player_position, 1.0);
-    const auto aligned_offset_player_position = glm::vec3(
-        unprojected_aligned_player_position.x / unprojected_aligned_player_position.w,
-        unprojected_aligned_player_position.y / unprojected_aligned_player_position.w,
-        unprojected_aligned_player_position.z / unprojected_aligned_player_position.w
+
+    const auto ortho_info = std::get<OrthographicInfo>(proj_info);
+
+    const auto near_offset_ndc_u_in_world = glm::inverse(projection * view) * glm::vec4(ndc_page_size, 0.0, 0.0, 1.0);
+    const auto near_offset_ndc_v_in_world = glm::inverse(projection * view) * glm::vec4(0.0, ndc_page_size, 0.0, 1.0);
+
+    const auto ndc_u_in_world = glm::vec3(
+        near_offset_ndc_u_in_world.x + ortho_info.near * sun_offset.x,
+        near_offset_ndc_u_in_world.y + ortho_info.near * sun_offset.y,
+        near_offset_ndc_u_in_world.z + ortho_info.near * sun_offset.z
     );
 
-    const auto new_position = f32vec3{
-        aligned_offset_player_position.x - static_cast<f32>(offset.x),
-        aligned_offset_player_position.y - static_cast<f32>(offset.y),
-        aligned_offset_player_position.z - static_cast<f32>(offset.z),
+    const auto ndc_v_in_world = glm::vec3(
+        near_offset_ndc_v_in_world.x + ortho_info.near * sun_offset.x,
+        near_offset_ndc_v_in_world.y + ortho_info.near * sun_offset.y,
+        near_offset_ndc_v_in_world.z + ortho_info.near * sun_offset.z
+    );
+
+
+    const f32 x_offset = -(ndc_u_in_world.z / sun_offset.z);
+    const auto x_offset_vector = x_offset * glm::vec3(sun_offset.x, sun_offset.y, sun_offset.z);
+    const auto on_plane_ndc_u_in_world = ndc_u_in_world + x_offset_vector;
+
+    const f32 y_offset = -(ndc_v_in_world.z / sun_offset.z);
+    const auto y_offset_vector = y_offset * glm::vec3(sun_offset.x, sun_offset.y, sun_offset.z);
+    const auto on_plane_ndc_v_in_world = ndc_v_in_world + y_offset_vector;
+
+    const auto new_on_plane_position = glm::vec3(
+        ndc_page_scaled_aligned_player_position.x * on_plane_ndc_u_in_world +
+        ndc_page_scaled_aligned_player_position.y * on_plane_ndc_v_in_world
+    );
+
+    const auto scaled_sun_offset = 1000.0f * glm::vec3(sun_offset.x, sun_offset.y, sun_offset.z);
+    const auto new_position = new_on_plane_position + scaled_sun_offset;
+
+    const auto modified_info = OrthographicInfo{
+        .left   = ortho_info.left   / 4.0f,
+        .right  = ortho_info.right  / 4.0f,
+        .top    = ortho_info.top    / 4.0f,
+        .bottom = ortho_info.bottom / 4.0f,
+        .near   = ortho_info.near,
+        .far    = ortho_info.far,
     };
 
-    set_position(new_position + sun_offset);
+    set_position(f32vec3{new_position.x, new_position.y, new_position.z});
+    recalculate_matrices();
+
+    const auto origin_shift = (projection * view * glm::vec4(0.0, 0.0, 0.0, 1.0)).z;
+    const auto page_x_depth_offset = ((projection * view) * glm::vec4(x_offset_vector, 1.0)).z - origin_shift;
+    const auto page_y_depth_offset = ((projection * view) * glm::vec4(y_offset_vector, 1.0)).z - origin_shift;
+
+    for(i32 u = 0; u < 4; u++)
+    {
+        for(int v = 0; v < 4; v++)
+        {
+            const auto page_corner_uv = glm::vec2(u, v);
+
+            const f32 depth = (3.0f - page_corner_uv.x) * page_x_depth_offset + (3.0f - page_corner_uv.y) * page_y_depth_offset;
+
+            const auto page_center_uv_offset = glm::vec2(0.5);
+            const auto page_center_uv = page_corner_uv + page_center_uv_offset;
+
+            const auto page_scaled_ndc_position = glm::vec2(page_center_uv - glm::vec2(2.0));
+
+            const auto sun_ndc_position = glm::vec4(page_scaled_ndc_position * ndc_page_size, -depth, 1.0); 
+            const auto offset_new_position = inverse(projection * view) * sun_ndc_position;
+            const auto _new_position = glm::vec3(
+                offset_new_position.x - offset.x + ortho_info.near * sun_offset.x,
+                offset_new_position.y - offset.y + ortho_info.near * sun_offset.y,
+                offset_new_position.z - offset.z + ortho_info.near * sun_offset.z);
+
+            proj_info = modified_info;
+            set_position(f32vec3{_new_position.x, _new_position.y, _new_position.z});
+            write_frustum_vertices({
+                .vertices_dst = std::span<FrustumVertex, 8>{&vertices_space[(u * 4 + v) * 8], 8}
+            });
+
+            proj_info = ortho_info;
+            set_position(f32vec3{new_position.x, new_position.y, new_position.z});
+            recalculate_matrices();
+        }
+    }
+
+    proj_info = ortho_info;
+    set_position(f32vec3{new_position.x, new_position.y, new_position.z});
     return i32vec2{
+        // Because sun is looking at our position the X coordinate offset is mirrored
         -static_cast<i32>(ndc_page_scaled_aligned_player_position.x),
         -static_cast<i32>(ndc_page_scaled_aligned_player_position.y)
     };

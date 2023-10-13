@@ -106,7 +106,7 @@ void main()
 
     // Clamp the borders of the terrain so that the sun does not see under it when drawing at shallow angles
     const bool is_on_boundary = uv.x > 0.999 || uv.x < 0.001 || uv.y > 0.999 || uv.y < 0.001;
-    const f32 correct_height = /*is_on_boundary ? -1000.0 :*/ adjusted_height;
+    const f32 correct_height = is_on_boundary ? -100000.0 : adjusted_height;
 
     const f32vec3 height_correct_position = f32vec3(scaled_position.xy, correct_height);
     // offset the terrain position by the current clip camera world offset
@@ -129,11 +129,10 @@ void main()
     const i32vec3 wrapped_coords = vsm_clip_info_to_wrapped_coords(info);
     const u32 vsm_page_entry = imageLoad(daxa_uimage2DArray(_vsm_page_table), wrapped_coords).r;
 
-    if(get_is_allocated(vsm_page_entry) /*&& !get_is_dirty(vsm_page_entry)*/)
+    if(get_is_allocated(vsm_page_entry) && get_is_dirty(vsm_page_entry))
     {
         const i32vec2 memory_page_coords = get_meta_coords_from_vsm_entry(vsm_page_entry);
         const i32vec2 physical_texel_coords = virtual_uv_to_physical_texel(virtual_uv, memory_page_coords);
-        // albedo_out = f32vec4(physical_texel_coords, 0.0, 0.0);
 
         imageAtomicMin(
             daxa_access(r32uiImage, pc.u32_vsm_memory_view),

@@ -34,6 +34,7 @@
 #include "tasks/vsm_allocate_pages.inl"
 #include "tasks/vsm_clear_pages.inl"
 #include "tasks/vsm_draw_pages.inl"
+#include "tasks/vsm_clear_dirty_bit.inl"
 #include "tasks/vsm_debug_pass.inl"
 
 using namespace daxa::types;

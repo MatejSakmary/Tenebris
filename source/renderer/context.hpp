@@ -61,6 +61,7 @@ struct Context
         std::shared_ptr<daxa::ComputePipeline> vsm_allocate_pages;
         std::shared_ptr<daxa::ComputePipeline> vsm_clear_pages;
         std::shared_ptr<daxa::RasterPipeline> vsm_draw_pages;
+        std::shared_ptr<daxa::ComputePipeline> vsm_clear_dirty_bit;
         std::shared_ptr<daxa::ComputePipeline> vsm_debug_page_table;
         std::shared_ptr<daxa::ComputePipeline> vsm_debug_meta_memory_table;
 
@@ -90,9 +91,12 @@ struct Context
             daxa::TaskBufferView frustum_indirect;
             daxa::TaskBufferView luminance_histogram;
 
+            daxa::TaskBufferView vsm_allocation_count;
             daxa::TaskBufferView vsm_allocation_requests;
+
             daxa::TaskBufferView vsm_allocate_indirect;
             daxa::TaskBufferView vsm_clear_indirect;
+            daxa::TaskBufferView vsm_clear_dirty_bit_indirect;
 
             daxa::TaskBufferView vsm_free_wrapped_pages_info;
             daxa::TaskBufferView vsm_free_page_buffer;

@@ -6,6 +6,7 @@
 #include "../shared/shared.inl"
 
 DAXA_DECL_TASK_USES_BEGIN(VSMAllocatePagesTaskBase, DAXA_UNIFORM_BUFFER_SLOT0)
+DAXA_TASK_USE_BUFFER(_vsm_allocation_count, daxa_BufferPtr(AllocationCount), COMPUTE_SHADER_READ)
 DAXA_TASK_USE_BUFFER(_vsm_allocation_buffer, daxa_BufferPtr(AllocationRequest), COMPUTE_SHADER_READ)
 DAXA_TASK_USE_BUFFER(_vsm_allocate_indirect, daxa_BufferPtr(DispatchIndirectStruct), COMPUTE_SHADER_READ)
 DAXA_TASK_USE_BUFFER(_vsm_clear_indirect, daxa_BufferPtr(DispatchIndirectStruct), COMPUTE_SHADER_WRITE)

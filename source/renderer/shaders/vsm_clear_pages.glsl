@@ -15,6 +15,8 @@ void main()
     {
         const i32vec3 alloc_request_page_coords = deref(_vsm_allocation_buffer[gl_GlobalInvocationID.z]).coords;
         vsm_page_entry = imageLoad(daxa_uimage2DArray(_vsm_page_table), alloc_request_page_coords).r;
+        const u32 vsm_page_entry_marked_dirty = vsm_page_entry | dirty_mask();
+        imageStore(daxa_uimage2DArray(_vsm_page_table), alloc_request_page_coords, u32vec4(vsm_page_entry_marked_dirty));
     }
     vsm_page_entry = subgroupBroadcast(vsm_page_entry, 0);
     if(!get_is_allocated(vsm_page_entry)) { return; }

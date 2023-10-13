@@ -20,7 +20,7 @@ i32vec3 vsm_page_coords_to_wrapped_coords(i32vec3 page_coords)
         page_coords.y < 0 ||
         page_coords.y > (VSM_PAGE_TABLE_RESOLUTION - 1))
     {
-        return i32vec3(1000, 1000, page_coords.z);
+        return i32vec3(-1, -1, page_coords.z);
     }
     const i32vec2 vsm_wrapped_pix_coords = i32vec2(mod(vsm_toroidal_pix_coords.xy, f32(VSM_PAGE_TABLE_RESOLUTION)));
     return i32vec3(vsm_wrapped_pix_coords, page_coords.z);
@@ -80,7 +80,7 @@ ClipInfo clip_info_from_uvs(ClipFromUVsInfo info)
 
 
         const f32 texel_world_size = length(camera_offset_left_world_space - camera_offset_right_world_space);
-        clip_level = max(i32(ceil(log2(texel_world_size / deref(_globals).vsm_clip0_texel_world_size))), 0);
+        clip_level = clamp(i32(ceil(log2(texel_world_size / deref(_globals).vsm_clip0_texel_world_size))), 0, VSM_CLIP_LEVELS - 1);
     } 
     else 
     {

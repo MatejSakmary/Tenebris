@@ -16,7 +16,7 @@ void main()
 
     const f32mat4x4 projection_view = deref(_globals).projection * deref(_globals).view;
 
-    color = vertex_index > 3 ? deref(_frustum_colors[instance]).color : f32vec3(1.0, 1.0, 1.0);
+    color = deref(_frustum_colors[instance]).color;
     gl_Position = projection_view * offset_position;
 
 }

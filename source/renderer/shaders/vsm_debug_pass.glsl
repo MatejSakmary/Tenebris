@@ -62,7 +62,7 @@ void main()
 {
     const u32 meta_entry = imageLoad(daxa_uimage2D(_vsm_meta_memory_table), i32vec2(gl_GlobalInvocationID.xy)).r;
     const i32vec2 base_pix_pos = i32vec2(gl_GlobalInvocationID.xy * VSM_DEBUG_META_MEMORY_SCALE);
-    f32vec4 color = f32vec4(0.0, 0.0, 0.0, 0.0);
+    f32vec4 color = f32vec4(0.0, 0.0, 0.0, 1.0);
 
     if (get_meta_memory_is_allocated(meta_entry)) { color = f32vec4(0.0, 1.0, 0.0, 1.0); }
 
@@ -77,6 +77,7 @@ void main()
         const u32 visited_reset_vsm_entry = vsm_entry & (~(visited_marked_mask()));
         imageStore(daxa_uimage2DArray(_vsm_page_table_mem_pass), vsm_coords, u32vec4(visited_reset_vsm_entry));
     }
+    if(get_meta_memory_needs_clear(meta_entry)) { color += f32vec4(0.0, 0.0, 1.0, 1.0); }
 
     if(color.w != 0.0)
     {

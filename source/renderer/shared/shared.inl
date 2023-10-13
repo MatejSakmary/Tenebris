@@ -3,15 +3,15 @@
 #include <daxa/daxa.inl>
 
 
-#define MAX_FRUSTUM_COUNT 8
+#define MAX_FRUSTUM_COUNT 32
 #define FRUSTUM_VERTEX_COUNT 8
 #define NUM_CASCADES 4
 #define SHADOWMAP_RESOLUTION 1024
 #define UNIT_SCALE 0.001
 #define HISTOGRAM_BIN_COUNT 256
 
-#define VSM_TEXTURE_RESOLUTION 4096
-#define VSM_MEMORY_RESOLUTION 4096
+#define VSM_TEXTURE_RESOLUTION 512
+#define VSM_MEMORY_RESOLUTION 1024
 #define VSM_PAGE_SIZE 128
 #define VSM_CLIP_LEVELS 1
 #define VSM_PAGE_TABLE_RESOLUTION (VSM_TEXTURE_RESOLUTION / VSM_PAGE_SIZE)
@@ -49,6 +49,13 @@ static constexpr daxa_u32 vsm_debug_paging_table_resolution()
 
 #define VSM_FIND_FREE_PAGES_LOCAL_SIZE_X 32
 #define VSM_CLEAR_PAGES_LOCAL_SIZE_XY 16
+#define VSM_CLEAR_DIRTY_BIT_LOCAL_SIZE_X 32
+#define VSM_ALLOCATE_PAGES_LOCAL_SIZE_X 32
+#ifdef __cplusplus
+static_assert((VSM_PAGE_SIZE % VSM_CLEAR_PAGES_LOCAL_SIZE_XY) == 0,
+    "Clear pages pass is written in a way that it requires the page size to be a multiple \
+     of 16, either align the page size or change the code to account for this");
+#endif //__cplusplus
 
 // An atmosphere layer density which can be calculated as:
 //   density = exp_term * exp(exp_scale * h) + linear_term * h + constant_term,
@@ -223,6 +230,11 @@ struct VSMClipProjection
     daxa_f32mat4x4 inv_projection_view;
 };
 DAXA_DECL_BUFFER_PTR(VSMClipProjection)
+struct AllocationCount
+{
+    daxa_u32 count;
+};
+DAXA_DECL_BUFFER_PTR(AllocationCount)
 struct AllocationRequest
 {
     daxa_i32vec3 coords;

@@ -87,10 +87,11 @@ void request_vsm_pages(f32vec4 depths, u32vec2 scaled_pixel_coords)
         if(clip_info.clip_level >= VSM_CLIP_LEVELS) { continue; }
 
         const i32vec3 vsm_page_wrapped_coords = vsm_clip_info_to_wrapped_coords(clip_info);
+        if(vsm_page_wrapped_coords.x < 0 || vsm_page_wrapped_coords.y < 0) { continue; }
         const u32 page_entry = imageLoad(daxa_uimage2DArray(_vsm_page_table), vsm_page_wrapped_coords).r;
 
         const bool is_not_allocated = !get_is_allocated(page_entry);
-        const bool allocation_available = atomicAdd(deref(_vsm_allocate_indirect).x, 0) < MAX_NUM_VSM_ALLOC_REQUEST;
+        const bool allocation_available = atomicAdd(deref(_vsm_allocation_count).count, 0) < MAX_NUM_VSM_ALLOC_REQUEST;
 
         if(is_not_allocated && allocation_available)
         {
@@ -104,15 +105,14 @@ void request_vsm_pages(f32vec4 depths, u32vec2 scaled_pixel_coords)
             {
                 // If this is the thread to mark this page as REQUESTS_ALLOCATION
                 //    -> create a new allocation request in the allocation buffer
-                u32 idx = atomicAdd(deref(_vsm_allocate_indirect).x, 1);
+                u32 idx = atomicAdd(deref(_vsm_allocation_count).count, 1);
                 if(idx < MAX_NUM_VSM_ALLOC_REQUEST)
                 {
                     deref(_vsm_allocation_buffer[idx]) = AllocationRequest(vsm_page_wrapped_coords);
                 } 
                 else 
                 {
-                    // debugPrintfEXT("Allocation attempted and failed\n");
-                    atomicAdd(deref(_vsm_allocate_indirect).x, -1);
+                    atomicAdd(deref(_vsm_allocation_count).count, -1);
                     imageAtomicAnd(
                         daxa_access(r32uiImageArray, _vsm_page_table),
                         vsm_page_wrapped_coords,
@@ -196,6 +196,28 @@ void main()
 #else
 void main()
 {
+    // Prepare indirect dispatches for further vsm passes
+    if(all(equal(gl_GlobalInvocationID, u32vec3(0, 0, 0))))
+    {
+        const u32 allocations_number = deref(_vsm_allocation_count).count;
+
+        const u32 allocate_dispach_count = 
+            (allocations_number + VSM_ALLOCATE_PAGES_LOCAL_SIZE_X - 1) / VSM_ALLOCATE_PAGES_LOCAL_SIZE_X;
+        deref(_vsm_allocate_indirect).x = 1;
+        deref(_vsm_allocate_indirect).y = 1;
+        deref(_vsm_allocate_indirect).z = allocate_dispach_count;
+
+        deref(_vsm_clear_indirect).x = VSM_PAGE_SIZE / VSM_CLEAR_PAGES_LOCAL_SIZE_XY;
+        deref(_vsm_clear_indirect).y = VSM_PAGE_SIZE / VSM_CLEAR_PAGES_LOCAL_SIZE_XY;
+        deref(_vsm_clear_indirect).z = deref(_vsm_allocation_count).count;
+
+        const u32 clear_dirty_bit_distpach_count = 
+            (allocations_number + VSM_CLEAR_DIRTY_BIT_LOCAL_SIZE_X - 1) / VSM_CLEAR_DIRTY_BIT_LOCAL_SIZE_X;
+        deref(_vsm_clear_dirty_bit_indirect).x = 1;
+        deref(_vsm_clear_dirty_bit_indirect).y = 1;
+        deref(_vsm_clear_dirty_bit_indirect).z = clear_dirty_bit_distpach_count;
+
+    }
     u32 work_group_threads = _tile_size * _tile_size;
     u32 workgroup_offset = gl_WorkGroupID.x * work_group_threads;
     u32 _subgroup_offset = gl_SubgroupID * gl_SubgroupSize;

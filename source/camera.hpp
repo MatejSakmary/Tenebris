@@ -94,7 +94,7 @@ struct Camera
 
     [[nodiscard]] auto get_shadowmap_view_matrix(f32vec3 const & sun_direction, i32vec3 const & offset) -> f32mat4x4;
     [[nodiscard]] auto get_frustum_info() -> CameraFrustumInfo;
-    auto align_clip_to_player(Camera const * player_camera, f32vec3 sun_offset) -> i32vec2;
+    auto align_clip_to_player(Camera const * player_camera, f32vec3 sun_offset, std::span<FrustumVertex, 128> vertices_space) -> i32vec2;
     void write_frustum_vertices(WriteVerticesInfo const & info);
 
     private:

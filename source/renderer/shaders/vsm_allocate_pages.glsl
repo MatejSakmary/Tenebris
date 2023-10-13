@@ -6,15 +6,9 @@
 
 #extension GL_EXT_debug_printf : enable
 
-layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout (local_size_x = VSM_ALLOCATE_PAGES_LOCAL_SIZE_X) in;
 void main()
 {
-    // Prepare indirect dispatch buffer for clear page pass
-    if(gl_GlobalInvocationID.x == 0)
-    {
-        deref(_vsm_clear_indirect).z = deref(_vsm_allocate_indirect).x;
-    }
-
     // - Read the values stored inside FindFreePages header
     //   - If the GlobalThreadID is less than free_buffer_counter:
     //     - Read the entry in FreePageBuffer[GlobalThreadID]
@@ -27,7 +21,9 @@ void main()
     //     - Assign new entries to the page_table_texel and meta_memory_texel
     FindFreePagesHeader header = deref(_vsm_find_free_pages_header);
 
-    const i32 id = i32(gl_GlobalInvocationID.x);
+    const i32 id = i32((gl_GlobalInvocationID.z * VSM_ALLOCATE_PAGES_LOCAL_SIZE_X) + gl_LocalInvocationID.x);
+    if(id >= deref(_vsm_allocation_count).count) { return; }
+
     const i32 free_shifted_id = id - i32(header.free_buffer_counter);
 
     const i32vec3 alloc_request_page_coords = deref(_vsm_allocation_buffer[id]).coords;

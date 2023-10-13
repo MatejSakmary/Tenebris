@@ -153,19 +153,18 @@ f32vec3 get_vsm_debug_page_color(f32vec2 uv, f32 depth)
     return color;
 }
 
-// TODO(msakmary) Improve accuracy by doing integer offset math instead of passing
-// world pos as float
-f32 get_vsm_shadow(f32vec2 uv, f32 depth, f32vec3 world_pos)
+f32 get_vsm_shadow(f32vec2 uv, f32 depth, f32vec3 offset_world_position)
 {
     const f32mat4x4 inv_projection_view = deref(_globals).inv_view_projection;
     const i32vec3 camera_offset = deref(_globals).offset;
+    const i32 force_clip_level = deref(_globals).force_view_clip_level ? deref(_globals).vsm_debug_clip_level : -1;
     ClipInfo clip_info = clip_info_from_uvs(ClipFromUVsInfo(
         uv,
         pc.offscreen_resolution,
         depth,
         inv_projection_view,
         camera_offset,
-        -1
+        force_clip_level
     ));
     if(clip_info.clip_level >= VSM_CLIP_LEVELS) { return 1.0; }
 
@@ -179,18 +178,24 @@ f32 get_vsm_shadow(f32vec2 uv, f32 depth, f32vec3 world_pos)
     const f32 vsm_sample = texelFetch(daxa_texture2D(_vsm_physical_memory), physical_texel_coords, 0).r;
 
     const f32mat4x4 vsm_shadow_projection_view = deref(_vsm_sun_projections[clip_info.clip_level]).projection_view;
+
     const i32vec3 sun_camera_offset = deref(_vsm_sun_projections[clip_info.clip_level]).offset;
-    const f32vec3 sun_offset_world_pos = world_pos + sun_camera_offset;
+    const i32vec3 main_camera_offset = deref(_globals).offset;
+    const i32vec3 main_to_sun_offset = sun_camera_offset - main_camera_offset;
+
+    const f32vec3 sun_offset_world_pos = offset_world_position + main_to_sun_offset;
     const f32vec4 vsm_projected_world = vsm_shadow_projection_view * f32vec4(sun_offset_world_pos, 1.0);
     const f32vec3 vsm_projected_ndc = vsm_projected_world.xyz / vsm_projected_world.w;
     const f32 vsm_projected_depth = vsm_projected_ndc.z;
     const bool is_in_shadow = vsm_sample < (vsm_projected_depth + 0.001);
     return is_in_shadow ? 0.0 : 1.0;
+    // return sun_offset_world_pos;
 }
 
 void main() 
 {
-    const f32 depth = texture(daxa_sampler2D(_depth, pc.nearest_sampler_id), uv).r;
+    // const f32 depth = texture(daxa_sampler2D(_depth, pc.nearest_sampler_id), uv).r;
+    const f32 depth = texelFetch(daxa_texture2D(_depth), i32vec2(gl_FragCoord.xy), 0).r;
 
     // scale uvs to be in the range [-1, 1]
     const f32vec2 remap_uv = (uv * 2.0) - 1.0;
@@ -276,7 +281,7 @@ void main()
     const f32vec3 vsm_debug_color = get_vsm_debug_page_color(uv, depth);
     // TODO(msakmary) Improve accuracy by doing integer offset math instead of passing
     // world pos as float
-    const f32 vsm_shadow = get_vsm_shadow(uv, depth, world_position);
+    const f32 vsm_shadow = get_vsm_shadow(uv, depth, offset_world_position);
 
     const f32vec4 albedo = texture(daxa_sampler2D(_g_albedo, pc.nearest_sampler_id), uv);
     const f32vec3 normal = texture(daxa_sampler2D(_g_normals, pc.nearest_sampler_id), uv).xyz;
@@ -293,5 +298,6 @@ void main()
                 //  clamp(pow(shadow, 2), 0.0, 1.0) *
                  f32vec4(transmittance_to_sun, 1.0) *
                  deref(_globals).sun_brightness * sun_color + ambient;
-    out_color.xyz *= vsm_shadow;
+    // out_color.xyz = f32vec3(fract(world_position));
+    out_color.xyz *= vsm_debug_color;
 }
