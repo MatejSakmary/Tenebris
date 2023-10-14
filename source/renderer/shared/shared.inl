@@ -224,6 +224,7 @@ DAXA_DECL_BUFFER_PTR(AverageLuminance)
 // =============== VSM ===============================
 struct VSMClipProjection
 {
+    daxa_f32vec2 depth_page_offset;
     daxa_i32vec2 page_offset;
     daxa_i32vec3 offset;
     daxa_f32mat4x4 projection_view;

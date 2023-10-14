@@ -254,7 +254,7 @@ auto Camera::get_camera_position() const -> f32vec3
     return f32vec3{position.x, position.y, position.z};
 }
 
-auto Camera::align_clip_to_player(Camera const * player_camera, f32vec3 sun_offset, std::span<FrustumVertex, 128> vertices_space) -> i32vec2
+auto Camera::align_clip_to_player(Camera const * player_camera, f32vec3 sun_offset, std::span<FrustumVertex, 128> vertices_space) -> ClipAlignInfo
 {
     const f32vec3 foffset_player_position = player_camera->get_camera_position(); 
 
@@ -343,21 +343,24 @@ auto Camera::align_clip_to_player(Camera const * player_camera, f32vec3 sun_offs
     const auto page_x_depth_offset = ((projection * view) * glm::vec4(x_offset_vector, 1.0)).z - origin_shift;
     const auto page_y_depth_offset = ((projection * view) * glm::vec4(y_offset_vector, 1.0)).z - origin_shift;
 
-    for(i32 u = 0; u < 4; u++)
+    const f32 page_uv_size = ndc_page_size / 2.0;
+    for(i32 page_tex_u = 0; page_tex_u < 4; page_tex_u++)
     {
-        for(int v = 0; v < 4; v++)
+        for(int page_tex_v = 0; page_tex_v < 4; page_tex_v++)
         {
-            const auto page_corner_uv = glm::vec2(u, v);
+            const auto corner_virtual_uv = page_uv_size * glm::vec2(page_tex_u, page_tex_v);
+            const auto page_center_virtual_uv_offset = glm::vec2(page_uv_size * 0.5f);
+            const auto virtual_uv = corner_virtual_uv + page_center_virtual_uv_offset;
 
-            const f32 depth = (3.0f - page_corner_uv.x) * page_x_depth_offset + (3.0f - page_corner_uv.y) * page_y_depth_offset;
+            const auto page_index = glm::ivec2(virtual_uv * f32(VSM_PAGE_TABLE_RESOLUTION));
 
-            const auto page_center_uv_offset = glm::vec2(0.5);
-            const auto page_center_uv = page_corner_uv + page_center_uv_offset;
+            const f32 depth = 
+                ((VSM_PAGE_TABLE_RESOLUTION - 1) - page_index.x) * page_x_depth_offset +
+                ((VSM_PAGE_TABLE_RESOLUTION - 1) - page_index.y) * page_y_depth_offset;
+            const auto virtual_page_ndc = (virtual_uv * 2.0f) - glm::vec2(1.0f);
 
-            const auto page_scaled_ndc_position = glm::vec2(page_center_uv - glm::vec2(2.0));
-
-            const auto sun_ndc_position = glm::vec4(page_scaled_ndc_position * ndc_page_size, -depth, 1.0); 
-            const auto offset_new_position = inverse(projection * view) * sun_ndc_position;
+            const auto page_ndc_position = glm::vec4(virtual_page_ndc, -depth, 1.0); 
+            const auto offset_new_position = inverse(projection * view) * page_ndc_position;
             const auto _new_position = glm::vec3(
                 offset_new_position.x - offset.x + ortho_info.near * sun_offset.x,
                 offset_new_position.y - offset.y + ortho_info.near * sun_offset.y,
@@ -366,7 +369,7 @@ auto Camera::align_clip_to_player(Camera const * player_camera, f32vec3 sun_offs
             proj_info = modified_info;
             set_position(f32vec3{_new_position.x, _new_position.y, _new_position.z});
             write_frustum_vertices({
-                .vertices_dst = std::span<FrustumVertex, 8>{&vertices_space[(u * 4 + v) * 8], 8}
+                .vertices_dst = std::span<FrustumVertex, 8>{&vertices_space[(page_tex_u * 4 + page_tex_v) * 8], 8}
             });
 
             proj_info = ortho_info;
@@ -377,9 +380,11 @@ auto Camera::align_clip_to_player(Camera const * player_camera, f32vec3 sun_offs
 
     proj_info = ortho_info;
     set_position(f32vec3{new_position.x, new_position.y, new_position.z});
-    return i32vec2{
-        // Because sun is looking at our position the X coordinate offset is mirrored
-        -static_cast<i32>(ndc_page_scaled_aligned_player_position.x),
-        -static_cast<i32>(ndc_page_scaled_aligned_player_position.y)
+    return ClipAlignInfo{
+        .per_page_depth_offset = f32vec2{page_x_depth_offset, page_y_depth_offset},
+        .page_offset = i32vec2{
+            -static_cast<i32>(ndc_page_scaled_aligned_player_position.x),
+            -static_cast<i32>(ndc_page_scaled_aligned_player_position.y)
+        }
     };
 }

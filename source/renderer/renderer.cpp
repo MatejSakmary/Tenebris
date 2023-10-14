@@ -1329,23 +1329,26 @@ void Renderer::draw(DrawInfo const & info)
         const f32vec3 to_sun_camera_offset = globals->sun_direction;
         const f32 clip_page_world_size = curr_clip_texel_world_size * VSM_PAGE_SIZE;
 
-        const auto page_offset = context.sun_camera.align_clip_to_player(
+        const auto align_page_info = context.sun_camera.align_clip_to_player(
             &info.main_camera, to_sun_camera_offset, 
-            std::span<FrustumVertex, 128>{&context.frustum_vertices[8 * context.debug_frustum_cpu_count], 128});
+            std::span<FrustumVertex, 128>{&context.frustum_vertices[8 * context.debug_frustum_cpu_count], 128}
+        );
+
         for(int i = 0; i < 16; i++)
         {
             context.frustum_colors[context.debug_frustum_cpu_count + i].color = f32vec3{0.0, 0.0, 1.0};
         }
         context.debug_frustum_cpu_count += 16;
 
-        const auto clear_offset = page_offset - context.vsm_last_frame_offset.at(clip_level);
-        context.vsm_last_frame_offset.at(clip_level) = page_offset;
+        const auto clear_offset = align_page_info.page_offset - context.vsm_last_frame_offset.at(clip_level);
+        context.vsm_last_frame_offset.at(clip_level) = align_page_info.page_offset;
         context.vsm_free_wrapped_pages_info.at(clip_level).clear_offset = clear_offset;
 
         context.vsm_sun_projections.at(clip_level) = VSMClipProjection{
+            .depth_page_offset = align_page_info.per_page_depth_offset,
             .page_offset = i32vec2{
-                page_offset.x % VSM_PAGE_TABLE_RESOLUTION,
-                page_offset.y % VSM_PAGE_TABLE_RESOLUTION
+                align_page_info.page_offset.x % VSM_PAGE_TABLE_RESOLUTION,
+                align_page_info.page_offset.y % VSM_PAGE_TABLE_RESOLUTION
             },
             .offset = context.sun_camera.offset,
             .projection_view = context.sun_camera.get_projection_view_matrix(),
