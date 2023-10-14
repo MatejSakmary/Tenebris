@@ -43,7 +43,7 @@ void main()
 #else
         i32vec3 offset;
         f32mat4x4 view;
-        if(pc.use_secondary_camera == 1)
+        if(deref(_globals).use_debug_camera)
         {
             offset = deref(_globals).secondary_offset;
             view = deref(_globals).secondary_view;

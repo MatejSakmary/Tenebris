@@ -126,12 +126,6 @@ void main()
     const f32vec2 virtual_uv = gl_FragCoord.xy / VSM_TEXTURE_RESOLUTION;
     ClipInfo info = ClipInfo(i32(in_clip_level), virtual_uv);
 
-    const i32vec2 non_wrapped_page_coords = i32vec2(virtual_uv * VSM_PAGE_TABLE_RESOLUTION);
-    const i32vec2 inverted_page_coords = i32vec2((VSM_PAGE_TABLE_RESOLUTION - 1) - non_wrapped_page_coords);
-    const f32vec2 per_inv_page_depth_offset = deref(_vsm_sun_projections[info.clip_level]).depth_page_offset;
-    const f32 depth_offset = 
-        inverted_page_coords.x * per_inv_page_depth_offset.x +
-        inverted_page_coords.y * per_inv_page_depth_offset.y;
 
     const i32vec3 wrapped_coords = vsm_clip_info_to_wrapped_coords(info);
     const u32 vsm_page_entry = imageLoad(daxa_uimage2DArray(_vsm_page_table), wrapped_coords).r;
@@ -144,7 +138,7 @@ void main()
         imageAtomicMin(
             daxa_access(r32uiImage, pc.u32_vsm_memory_view),
             physical_texel_coords,
-            floatBitsToUint(clamp(gl_FragCoord.z + depth_offset, 0.0, 1.0))
+            floatBitsToUint(get_page_offset_depth(info, gl_FragCoord.z))
         );
     } 
 }

@@ -324,7 +324,7 @@ auto Camera::align_clip_to_player(Camera const * player_camera, f32vec3 sun_offs
         ndc_page_scaled_aligned_player_position.y * on_plane_ndc_v_in_world
     );
 
-    const auto scaled_sun_offset = 1000.0f * glm::vec3(sun_offset.x, sun_offset.y, sun_offset.z);
+    const auto scaled_sun_offset = 3000.0f * glm::vec3(sun_offset.x, sun_offset.y, sun_offset.z);
     const auto new_position = new_on_plane_position + scaled_sun_offset;
 
     const auto modified_info = OrthographicInfo{

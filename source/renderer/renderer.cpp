@@ -1315,7 +1315,7 @@ void Renderer::draw(DrawInfo const & info)
         .top    =  1000.0f,
         .bottom = -1000.0f,
         .near   =  100.0f,
-        .far    =  10'000.0f
+        .far    =  4'000.0f
     };
     f32 curr_clip_texel_world_size = (curr_clip_projection.right - curr_clip_projection.left) / VSM_TEXTURE_RESOLUTION;
     globals->vsm_sun_offset = context.sun_camera.offset;
@@ -1338,7 +1338,10 @@ void Renderer::draw(DrawInfo const & info)
         {
             context.frustum_colors[context.debug_frustum_cpu_count + i].color = f32vec3{0.0, 0.0, 1.0};
         }
-        context.debug_frustum_cpu_count += 16;
+        if(globals->use_debug_camera)
+        {
+            context.debug_frustum_cpu_count += 16;
+        }
 
         const auto clear_offset = align_page_info.page_offset - context.vsm_last_frame_offset.at(clip_level);
         context.vsm_last_frame_offset.at(clip_level) = align_page_info.page_offset;

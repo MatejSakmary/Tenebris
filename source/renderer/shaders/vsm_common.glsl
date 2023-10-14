@@ -45,6 +45,17 @@ struct ClipInfo
     f32vec2 sun_depth_uv;
 };
 
+f32 get_page_offset_depth(ClipInfo info, f32 current_depth)
+{
+    const i32vec2 non_wrapped_page_coords = i32vec2(info.sun_depth_uv * VSM_PAGE_TABLE_RESOLUTION);
+    const i32vec2 inverted_page_coords = i32vec2((VSM_PAGE_TABLE_RESOLUTION - 1) - non_wrapped_page_coords);
+    const f32vec2 per_inv_page_depth_offset = deref(_vsm_sun_projections[info.clip_level]).depth_page_offset;
+    const f32 depth_offset = 
+        inverted_page_coords.x * per_inv_page_depth_offset.x +
+        inverted_page_coords.y * per_inv_page_depth_offset.y;
+    return clamp(current_depth + depth_offset, 0.0, 1.0);
+}
+
 f32vec3 camera_offset_world_space_from_uv(f32vec2 screen_space_uv, f32 depth, f32mat4x4 inv_projection_view)
 {
     const f32vec2 remap_uv = (screen_space_uv * 2.0) - 1.0;

@@ -153,6 +153,24 @@ f32vec3 get_vsm_debug_page_color(f32vec2 uv, f32 depth)
     return color;
 }
 
+u32 good_rand_hash(u32 x) {
+    x += (x << 10u);
+    x ^= (x >> 6u);
+    x += (x << 3u);
+    x ^= (x >> 11u);
+    x += (x << 15u);
+    return x;
+}
+f32 good_rand_float_construct(u32 m) {
+    const u32 ieee_mantissa = 0x007FFFFFu;
+    const u32 ieee_one = 0x3F800000u;
+    m &= ieee_mantissa;
+    m |= ieee_one;
+    f32 f = uintBitsToFloat(m);
+    return f - 1.0;
+}
+f32 good_rand(f32 x) { return good_rand_float_construct(good_rand_hash(floatBitsToUint(x))); }
+
 f32 get_vsm_shadow(f32vec2 uv, f32 depth, f32vec3 offset_world_position)
 {
     const f32mat4x4 inv_projection_view = deref(_globals).inv_view_projection;
@@ -185,11 +203,13 @@ f32 get_vsm_shadow(f32vec2 uv, f32 depth, f32vec3 offset_world_position)
 
     const f32vec3 sun_offset_world_pos = offset_world_position + main_to_sun_offset;
     const f32vec4 vsm_projected_world = vsm_shadow_projection_view * f32vec4(sun_offset_world_pos, 1.0);
-    const f32vec3 vsm_projected_ndc = vsm_projected_world.xyz / vsm_projected_world.w;
-    const f32 vsm_projected_depth = vsm_projected_ndc.z;
-    const bool is_in_shadow = vsm_sample < (vsm_projected_depth + 0.001);
+    const f32 vsm_projected_depth = vsm_projected_world.z / vsm_projected_world.w;
+    const f32 page_offset_depth = get_page_offset_depth(clip_info, vsm_projected_depth);
+    const bool is_in_shadow = vsm_sample < (page_offset_depth - 0.004);
+    // return vsm_sample - (page_offset_depth + 0.01);
     return is_in_shadow ? 0.0 : 1.0;
-    // return sun_offset_world_pos;
+    // return f32(physical_texel_coords.y % VSM_PAGE_SIZE) / 128.0;
+    // return good_rand(floor(10000 * page_offset_depth));
 }
 
 void main() 
@@ -298,6 +318,7 @@ void main()
                 //  clamp(pow(shadow, 2), 0.0, 1.0) *
                  f32vec4(transmittance_to_sun, 1.0) *
                  deref(_globals).sun_brightness * sun_color + ambient;
+    // out_color = f32vec4(f32vec3(vsm_shadow), 1.0);
     // out_color.xyz = f32vec3(fract(world_position));
-    out_color.xyz *= vsm_debug_color;
+    // out_color.xyz *= vsm_debug_color;
 }
