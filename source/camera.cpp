@@ -254,7 +254,11 @@ auto Camera::get_camera_position() const -> f32vec3
     return f32vec3{position.x, position.y, position.z};
 }
 
-auto Camera::align_clip_to_player(Camera const * player_camera, f32vec3 sun_offset, std::span<FrustumVertex, 128> vertices_space) -> ClipAlignInfo
+auto Camera::align_clip_to_player(
+        Camera const * player_camera,
+        f32vec3 sun_offset,
+        std::span<FrustumVertex, VSM_PAGE_TABLE_RESOLUTION * VSM_PAGE_TABLE_RESOLUTION * 8> vertices_space
+    ) -> ClipAlignInfo
 {
     const f32vec3 foffset_player_position = player_camera->get_camera_position(); 
 
@@ -293,7 +297,7 @@ auto Camera::align_clip_to_player(Camera const * player_camera, f32vec3 sun_offs
         std::ceil(ndc_page_scaled_player_position.y)
     );
 
-    const auto ortho_info = std::get<OrthographicInfo>(proj_info);
+    /*const*/ auto ortho_info = std::get<OrthographicInfo>(proj_info);
 
     const auto near_offset_ndc_u_in_world = glm::inverse(projection * view) * glm::vec4(ndc_page_size, 0.0, 0.0, 1.0);
     const auto near_offset_ndc_v_in_world = glm::inverse(projection * view) * glm::vec4(0.0, ndc_page_size, 0.0, 1.0);
@@ -324,14 +328,17 @@ auto Camera::align_clip_to_player(Camera const * player_camera, f32vec3 sun_offs
         ndc_page_scaled_aligned_player_position.y * on_plane_ndc_v_in_world
     );
 
-    const auto scaled_sun_offset = 3000.0f * glm::vec3(sun_offset.x, sun_offset.y, sun_offset.z);
+    
+    // const auto scaled_sun_offset = (ortho_info.top - ortho_info.bottom) * (1.0f/sun_offset.z) * glm::vec3(sun_offset.x, sun_offset.y, sun_offset.z);
+    const auto sun_height_offset = static_cast<i32>(glm::floor(glm_player_position.z / (sun_offset.z)) + 3000);
+    const auto scaled_sun_offset = static_cast<f32>(sun_height_offset) * glm::vec3(sun_offset.x, sun_offset.y, sun_offset.z);
     const auto new_position = new_on_plane_position + scaled_sun_offset;
 
     const auto modified_info = OrthographicInfo{
-        .left   = ortho_info.left   / 4.0f,
-        .right  = ortho_info.right  / 4.0f,
-        .top    = ortho_info.top    / 4.0f,
-        .bottom = ortho_info.bottom / 4.0f,
+        .left   = ortho_info.left   / VSM_PAGE_TABLE_RESOLUTION,
+        .right  = ortho_info.right  / VSM_PAGE_TABLE_RESOLUTION,
+        .top    = ortho_info.top    / VSM_PAGE_TABLE_RESOLUTION,
+        .bottom = ortho_info.bottom / VSM_PAGE_TABLE_RESOLUTION,
         .near   = ortho_info.near,
         .far    = ortho_info.far,
     };
@@ -340,44 +347,52 @@ auto Camera::align_clip_to_player(Camera const * player_camera, f32vec3 sun_offs
     recalculate_matrices();
 
     const auto origin_shift = (projection * view * glm::vec4(0.0, 0.0, 0.0, 1.0)).z;
+    const auto per_height_unit_depth_offset = 
+        ((projection * view) * glm::vec4(sun_offset.x * 1000.0f, sun_offset.y * 1000.0f, sun_offset.z * 1000.0f, 1.0)).z - origin_shift;
     const auto page_x_depth_offset = ((projection * view) * glm::vec4(x_offset_vector, 1.0)).z - origin_shift;
     const auto page_y_depth_offset = ((projection * view) * glm::vec4(y_offset_vector, 1.0)).z - origin_shift;
 
     const f32 page_uv_size = ndc_page_size / 2.0;
-    for(i32 page_tex_u = 0; page_tex_u < 4; page_tex_u++)
-    {
-        for(int page_tex_v = 0; page_tex_v < 4; page_tex_v++)
-        {
-            const auto corner_virtual_uv = page_uv_size * glm::vec2(page_tex_u, page_tex_v);
-            const auto page_center_virtual_uv_offset = glm::vec2(page_uv_size * 0.5f);
-            const auto virtual_uv = corner_virtual_uv + page_center_virtual_uv_offset;
+    f32 _far_plane = 0.0f;
+    // for(i32 page_tex_u = 0; page_tex_u < VSM_PAGE_TABLE_RESOLUTION; page_tex_u++)
+    // {
+    //     for(int page_tex_v = 0; page_tex_v < VSM_PAGE_TABLE_RESOLUTION; page_tex_v++)
+    //     {
+    //         const auto corner_virtual_uv = page_uv_size * glm::vec2(page_tex_u, page_tex_v);
+    //         const auto page_center_virtual_uv_offset = glm::vec2(page_uv_size * 0.5f);
+    //         const auto virtual_uv = corner_virtual_uv + page_center_virtual_uv_offset;
 
-            const auto page_index = glm::ivec2(virtual_uv * f32(VSM_PAGE_TABLE_RESOLUTION));
+    //         const auto page_index = glm::ivec2(virtual_uv * f32(VSM_PAGE_TABLE_RESOLUTION));
 
-            const f32 depth = 
-                ((VSM_PAGE_TABLE_RESOLUTION - 1) - page_index.x) * page_x_depth_offset +
-                ((VSM_PAGE_TABLE_RESOLUTION - 1) - page_index.y) * page_y_depth_offset;
-            const auto virtual_page_ndc = (virtual_uv * 2.0f) - glm::vec2(1.0f);
+    //         const f32 depth = 
+    //             ((VSM_PAGE_TABLE_RESOLUTION - 1) - page_index.x) * page_x_depth_offset +
+    //             ((VSM_PAGE_TABLE_RESOLUTION - 1) - page_index.y) * page_y_depth_offset;
+    //         const auto virtual_page_ndc = (virtual_uv * 2.0f) - glm::vec2(1.0f);
 
-            const auto page_ndc_position = glm::vec4(virtual_page_ndc, -depth, 1.0); 
-            const auto offset_new_position = inverse(projection * view) * page_ndc_position;
-            const auto _new_position = glm::vec3(
-                offset_new_position.x - offset.x + ortho_info.near * sun_offset.x,
-                offset_new_position.y - offset.y + ortho_info.near * sun_offset.y,
-                offset_new_position.z - offset.z + ortho_info.near * sun_offset.z);
+    //         const auto page_ndc_position = glm::vec4(virtual_page_ndc, -depth, 1.0); 
+    //         const auto offset_new_position = inverse(projection * view) * page_ndc_position;
+    //         const auto _new_position = glm::vec3(
+    //             offset_new_position.x - offset.x + ortho_info.near * sun_offset.x,
+    //             offset_new_position.y - offset.y + ortho_info.near * sun_offset.y,
+    //             offset_new_position.z - offset.z + ortho_info.near * sun_offset.z);
+    //         if(page_tex_u == (VSM_PAGE_TABLE_RESOLUTION/2) && page_tex_v == 0)
+    //         {
+    //             _far_plane = glm::length(new_position - _new_position);
+    //         }
 
-            proj_info = modified_info;
-            set_position(f32vec3{_new_position.x, _new_position.y, _new_position.z});
-            write_frustum_vertices({
-                .vertices_dst = std::span<FrustumVertex, 8>{&vertices_space[(page_tex_u * 4 + page_tex_v) * 8], 8}
-            });
+    //         proj_info = modified_info;
+    //         set_position(f32vec3{_new_position.x, _new_position.y, _new_position.z});
+    //         write_frustum_vertices({
+    //             .vertices_dst = std::span<FrustumVertex, 8>{&vertices_space[(page_tex_u * VSM_PAGE_TABLE_RESOLUTION + page_tex_v) * 8], 8}
+    //         });
 
-            proj_info = ortho_info;
-            set_position(f32vec3{new_position.x, new_position.y, new_position.z});
-            recalculate_matrices();
-        }
-    }
+    //         proj_info = ortho_info;
+    //         set_position(f32vec3{new_position.x, new_position.y, new_position.z});
+    //         recalculate_matrices();
+    //     }
+    // }
 
+    // ortho_info.far += _far_plane;
     proj_info = ortho_info;
     set_position(f32vec3{new_position.x, new_position.y, new_position.z});
     return ClipAlignInfo{
@@ -385,6 +400,8 @@ auto Camera::align_clip_to_player(Camera const * player_camera, f32vec3 sun_offs
         .page_offset = i32vec2{
             -static_cast<i32>(ndc_page_scaled_aligned_player_position.x),
             -static_cast<i32>(ndc_page_scaled_aligned_player_position.y)
-        }
+        },
+        .sun_height_offset = sun_height_offset,
+        .per_height_unit_depth_offset = per_height_unit_depth_offset
     };
 }

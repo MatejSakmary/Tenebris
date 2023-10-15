@@ -261,7 +261,7 @@ void main()
     f32vec3 tonemapped_color = exposed_color;
 #elif TONEMAPPING == TONY_MC_MAPFACE
     const f32 exposure = computeExposure(deref(_average_luminance).luminance);
-    const f32vec3 exposed_color = hdr_color * exposure;
+    const f32vec3 exposed_color = hdr_color * 0.1/*exposure*/;
     f32vec3 tonemapped_color = tony_mc_mapface(exposed_color);
 #elif TONEMAPPING == SCUFFED_ACES
     f32vec3 xyY = rgb_to_xyY(hdr_color);

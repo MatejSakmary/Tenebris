@@ -45,6 +45,7 @@ struct ClipInfo
     f32vec2 sun_depth_uv;
 };
 
+
 f32 get_page_offset_depth(ClipInfo info, f32 current_depth)
 {
     const i32vec2 non_wrapped_page_coords = i32vec2(info.sun_depth_uv * VSM_PAGE_TABLE_RESOLUTION);

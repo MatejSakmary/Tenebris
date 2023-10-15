@@ -38,6 +38,7 @@ struct Context
         daxa::TaskImage tonemapping_lut;
 
         daxa::TaskImage vsm_page_table;
+        daxa::TaskImage vsm_page_height_offset;
         daxa::TaskImage vsm_debug_page_table;
         daxa::TaskImage vsm_memory;
         daxa::TaskImage vsm_meta_memory_table;

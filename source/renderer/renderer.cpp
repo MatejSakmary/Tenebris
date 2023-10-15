@@ -269,6 +269,25 @@ void Renderer::create_persistent_resources()
         },
         .name = "vsm page table"
     });
+
+    context.images.vsm_page_height_offset = daxa::TaskImage({
+        .initial_images = {
+            .images = std::array{
+                context.device.create_image(daxa::ImageInfo{
+                    .format = daxa::Format::R32_SINT,
+                    .size = { VSM_PAGE_TABLE_RESOLUTION, VSM_PAGE_TABLE_RESOLUTION, 1 },
+                    .array_layer_count = VSM_CLIP_LEVELS,
+                    .usage = 
+                        daxa::ImageUsageFlagBits::SHADER_STORAGE |
+                        daxa::ImageUsageFlagBits::SHADER_SAMPLED |
+                        daxa::ImageUsageFlagBits::TRANSFER_DST,
+                    .name = "vsm page table height offsets image"
+                })
+            },
+        },
+        .name = "vsm page table height offsets"
+    });
+
     context.images.vsm_debug_page_table = daxa::TaskImage({
         .initial_images = {
             .images = std::array{
@@ -435,6 +454,7 @@ void Renderer::initialize_main_tasklist()
     context.main_task_list.task_list.use_persistent_image(context.images.vsm_memory);
     context.main_task_list.task_list.use_persistent_image(context.images.vsm_meta_memory_table);
     context.main_task_list.task_list.use_persistent_image(context.images.vsm_debug_meta_memory_table);
+    context.main_task_list.task_list.use_persistent_image(context.images.vsm_page_height_offset);
     context.main_task_list.task_list.use_persistent_image(context.images.vsm_page_table);
     context.main_task_list.task_list.use_persistent_image(context.images.vsm_debug_page_table);
 
@@ -762,8 +782,7 @@ void Renderer::initialize_main_tasklist()
             ._free_wrapped_pages_info = tl.buffers.vsm_free_wrapped_pages_info,
             ._vsm_sun_projections = tl.buffers.vsm_sun_projection_matrices,
             ._vsm_page_table = context.images.vsm_page_table.view().view(
-                {.base_array_layer = 0, .layer_count = VSM_CLIP_LEVELS}
-            ),
+                {.base_array_layer = 0, .layer_count = VSM_CLIP_LEVELS}),
             ._vsm_meta_memory_table = context.images.vsm_meta_memory_table.view()
         }},
         &context
@@ -913,9 +932,11 @@ void Renderer::initialize_main_tasklist()
             ._vsm_free_pages_buffer = tl.buffers.vsm_free_page_buffer,
             ._vsm_not_visited_pages_buffer = tl.buffers.vsm_not_visited_page_buffer,
             ._vsm_find_free_pages_header = tl.buffers.vsm_find_free_pages_header,
+            ._vsm_sun_projections = tl.buffers.vsm_sun_projection_matrices,
             ._vsm_page_table = context.images.vsm_page_table.view().view(
-                {.base_array_layer = 0, .layer_count = VSM_CLIP_LEVELS}
-            ),
+                {.base_array_layer = 0, .layer_count = VSM_CLIP_LEVELS}),
+            ._vsm_page_height_offset = context.images.vsm_page_height_offset.view().view(
+                {.base_array_layer = 0, .layer_count = VSM_CLIP_LEVELS}),
             ._vsm_meta_memory_table = context.images.vsm_meta_memory_table.view(),
         }},
         &context
@@ -928,8 +949,7 @@ void Renderer::initialize_main_tasklist()
             ._vsm_allocation_buffer = tl.buffers.vsm_allocation_requests,
             ._vsm_clear_indirect = tl.buffers.vsm_clear_indirect,
             ._vsm_page_table = context.images.vsm_page_table.view().view(
-                {.base_array_layer = 0, .layer_count = VSM_CLIP_LEVELS}
-            ),
+                {.base_array_layer = 0, .layer_count = VSM_CLIP_LEVELS}),
             ._vsm_memory = context.images.vsm_memory
         }},
         &context
@@ -1028,8 +1048,9 @@ void Renderer::initialize_main_tasklist()
             ._skyview = tl.images.skyview_lut,
             ._depth = tl.images.depth,
             ._vsm_page_table = context.images.vsm_page_table.view().view(
-                {.base_array_layer = 0, .layer_count = VSM_CLIP_LEVELS}
-            ),
+                {.base_array_layer = 0, .layer_count = VSM_CLIP_LEVELS}),
+            ._vsm_page_height_offset = context.images.vsm_page_height_offset.view().view(
+                {.base_array_layer = 0, .layer_count = VSM_CLIP_LEVELS}),
             ._vsm_physical_memory = context.images.vsm_memory.view()
         }},
         &context
@@ -1301,22 +1322,22 @@ void Renderer::draw(DrawInfo const & info)
         -globals->sun_direction.y,
         -globals->sun_direction.z
     });
-    // OrthographicInfo curr_clip_projection = OrthographicInfo {
-    //     .left   = -100.0f,
-    //     .right  =  100.0f,
-    //     .top    =  100.0f,
-    //     .bottom = -100.0f,
-    //     .near   =  10.0f,
-    //     .far    =  10'000.0f
-    // };
     OrthographicInfo curr_clip_projection = OrthographicInfo {
         .left   = -1000.0f,
         .right  =  1000.0f,
         .top    =  1000.0f,
         .bottom = -1000.0f,
-        .near   =  100.0f,
-        .far    =  4'000.0f
+        .near   =  10.00f,
+        .far    =  10'000.0f
     };
+    // OrthographicInfo curr_clip_projection = OrthographicInfo {
+    //     .left   = -10.0f,
+    //     .right  =  10.0f,
+    //     .top    =  10.0f,
+    //     .bottom = -10.0f,
+    //     .near   =  1.0f,
+    //     .far    =  100.0f
+    // };
     f32 curr_clip_texel_world_size = (curr_clip_projection.right - curr_clip_projection.left) / VSM_TEXTURE_RESOLUTION;
     globals->vsm_sun_offset = context.sun_camera.offset;
     globals->vsm_clip0_texel_world_size = curr_clip_texel_world_size;
@@ -1331,16 +1352,19 @@ void Renderer::draw(DrawInfo const & info)
 
         const auto align_page_info = context.sun_camera.align_clip_to_player(
             &info.main_camera, to_sun_camera_offset, 
-            std::span<FrustumVertex, 128>{&context.frustum_vertices[8 * context.debug_frustum_cpu_count], 128}
+            std::span<FrustumVertex, VSM_PAGE_TABLE_RESOLUTION * VSM_PAGE_TABLE_RESOLUTION * 8>{
+                &context.frustum_vertices[8 * context.debug_frustum_cpu_count],
+                VSM_PAGE_TABLE_RESOLUTION * VSM_PAGE_TABLE_RESOLUTION * 8
+            }
         );
 
-        for(int i = 0; i < 16; i++)
+        for(int i = 0; i < VSM_PAGE_TABLE_RESOLUTION * VSM_PAGE_TABLE_RESOLUTION; i++)
         {
             context.frustum_colors[context.debug_frustum_cpu_count + i].color = f32vec3{0.0, 0.0, 1.0};
         }
         if(globals->use_debug_camera)
         {
-            context.debug_frustum_cpu_count += 16;
+            context.debug_frustum_cpu_count += VSM_PAGE_TABLE_RESOLUTION * VSM_PAGE_TABLE_RESOLUTION;
         }
 
         const auto clear_offset = align_page_info.page_offset - context.vsm_last_frame_offset.at(clip_level);
@@ -1348,12 +1372,16 @@ void Renderer::draw(DrawInfo const & info)
         context.vsm_free_wrapped_pages_info.at(clip_level).clear_offset = clear_offset;
 
         context.vsm_sun_projections.at(clip_level) = VSMClipProjection{
+            .camera_height_offset = align_page_info.sun_height_offset,
+            .per_height_unit_depth_offset = align_page_info.per_height_unit_depth_offset,
             .depth_page_offset = align_page_info.per_page_depth_offset,
             .page_offset = i32vec2{
                 align_page_info.page_offset.x % VSM_PAGE_TABLE_RESOLUTION,
                 align_page_info.page_offset.y % VSM_PAGE_TABLE_RESOLUTION
             },
             .offset = context.sun_camera.offset,
+            .view = context.sun_camera.get_view_matrix(),
+            .projection = context.sun_camera.get_projection_matrix(),
             .projection_view = context.sun_camera.get_projection_view_matrix(),
             .inv_projection_view = context.sun_camera.get_inv_view_proj_matrix()
         };
@@ -1441,6 +1469,7 @@ Renderer::~Renderer()
     destroy_image_if_valid(context.images.tonemapping_lut);
     destroy_image_if_valid(context.images.vsm_debug_page_table);
     destroy_image_if_valid(context.images.vsm_page_table);
+    destroy_image_if_valid(context.images.vsm_page_height_offset);
     destroy_image_if_valid(context.images.vsm_memory);
     destroy_image_if_valid(context.images.vsm_meta_memory_table);
     destroy_image_if_valid(context.images.vsm_debug_meta_memory_table);

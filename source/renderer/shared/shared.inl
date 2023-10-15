@@ -3,19 +3,20 @@
 #include <daxa/daxa.inl>
 
 
-#define MAX_FRUSTUM_COUNT 32
 #define FRUSTUM_VERTEX_COUNT 8
 #define NUM_CASCADES 4
 #define SHADOWMAP_RESOLUTION 1024
 #define UNIT_SCALE 0.001
 #define HISTOGRAM_BIN_COUNT 256
 
-#define VSM_TEXTURE_RESOLUTION 512
-#define VSM_MEMORY_RESOLUTION 1024
+#define VSM_TEXTURE_RESOLUTION 4096
+#define VSM_MEMORY_RESOLUTION 4096
 #define VSM_PAGE_SIZE 128
 #define VSM_CLIP_LEVELS 1
 #define VSM_PAGE_TABLE_RESOLUTION (VSM_TEXTURE_RESOLUTION / VSM_PAGE_SIZE)
 #define VSM_META_MEMORY_RESOLUTION (VSM_MEMORY_RESOLUTION / VSM_PAGE_SIZE)
+
+#define MAX_FRUSTUM_COUNT (VSM_PAGE_TABLE_RESOLUTION * VSM_PAGE_TABLE_RESOLUTION + 8)
 // How many pixels in debug texture does a single page table entry span
 // for example a value of 4 means a single page entry will span 4x4 pixels in the debug texture
 #define VSM_DEBUG_PAGING_TABLE_SCALE 16
@@ -224,9 +225,13 @@ DAXA_DECL_BUFFER_PTR(AverageLuminance)
 // =============== VSM ===============================
 struct VSMClipProjection
 {
+    daxa_i32 camera_height_offset;
+    daxa_f32 per_height_unit_depth_offset;
     daxa_f32vec2 depth_page_offset;
     daxa_i32vec2 page_offset;
     daxa_i32vec3 offset;
+    daxa_f32mat4x4 view;
+    daxa_f32mat4x4 projection;
     daxa_f32mat4x4 projection_view;
     daxa_f32mat4x4 inv_projection_view;
 };

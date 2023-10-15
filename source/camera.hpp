@@ -77,6 +77,8 @@ struct ClipAlignInfo
 {
     f32vec2 per_page_depth_offset;
     i32vec2 page_offset;
+    i32 sun_height_offset;
+    f32 per_height_unit_depth_offset;
 };
 
 struct Camera
@@ -100,7 +102,11 @@ struct Camera
 
     [[nodiscard]] auto get_shadowmap_view_matrix(f32vec3 const & sun_direction, i32vec3 const & offset) -> f32mat4x4;
     [[nodiscard]] auto get_frustum_info() -> CameraFrustumInfo;
-    auto align_clip_to_player(Camera const * player_camera, f32vec3 sun_offset, std::span<FrustumVertex, 128> vertices_space) -> ClipAlignInfo;
+    auto align_clip_to_player(
+        Camera const * player_camera,
+        f32vec3 sun_offset,
+        std::span<FrustumVertex, VSM_PAGE_TABLE_RESOLUTION * VSM_PAGE_TABLE_RESOLUTION * 8> vertices_space
+    ) -> ClipAlignInfo;
     void write_frustum_vertices(WriteVerticesInfo const & info);
 
     private:

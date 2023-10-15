@@ -32,10 +32,12 @@ void main()
     if(id < header.free_buffer_counter)
     {
         const i32vec2 free_memory_page_coords = deref(_vsm_free_pages_buffer[id]).coords;
+        const i32 current_camera_height_offset = deref(_vsm_sun_projections[alloc_request_page_coords.z]).camera_height_offset;
         
         u32 new_vsm_page_entry = pack_meta_coords_to_vsm_entry(free_memory_page_coords);
         new_vsm_page_entry |= allocated_mask();
         imageStore(daxa_uimage2DArray(_vsm_page_table), alloc_request_page_coords, u32vec4(new_vsm_page_entry));
+        imageStore(daxa_iimage2DArray(_vsm_page_height_offset), alloc_request_page_coords, i32vec4(current_camera_height_offset));
 
         u32 new_meta_memory_page_entry = pack_vsm_coords_to_meta_entry(alloc_request_page_coords);
         new_meta_memory_page_entry |= meta_memory_allocated_mask();
@@ -48,12 +50,14 @@ void main()
         // Reset previously owning vsm page
         const u32 meta_entry = imageLoad(daxa_uimage2D(_vsm_meta_memory_table), not_visited_memory_page_coords).r;
         const i32vec3 owning_vsm_coords = get_vsm_coords_from_meta_entry(meta_entry);
+        const i32 current_camera_height_offset = deref(_vsm_sun_projections[alloc_request_page_coords.z]).camera_height_offset;
         imageStore(daxa_uimage2DArray(_vsm_page_table), owning_vsm_coords, u32vec4(0));
         
         // Perform the allocation
         u32 new_vsm_page_entry = pack_meta_coords_to_vsm_entry(not_visited_memory_page_coords);
         new_vsm_page_entry |= allocated_mask();
         imageStore(daxa_uimage2DArray(_vsm_page_table), alloc_request_page_coords, u32vec4(new_vsm_page_entry));
+        imageStore(daxa_iimage2DArray(_vsm_page_height_offset), alloc_request_page_coords, i32vec4(current_camera_height_offset));
 
         u32 new_meta_memory_page_entry = pack_vsm_coords_to_meta_entry(alloc_request_page_coords);
         new_meta_memory_page_entry |= meta_memory_allocated_mask();

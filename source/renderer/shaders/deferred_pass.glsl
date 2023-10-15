@@ -153,6 +153,14 @@ f32vec3 get_vsm_debug_page_color(f32vec2 uv, f32 depth)
     return color;
 }
 
+i32 get_height_depth_offset(i32vec3 vsm_page_texel_coords)
+{
+    const i32 page_draw_camera_height = texelFetch(daxa_itexture2DArray(_vsm_page_height_offset), vsm_page_texel_coords, 0).r;
+    const i32 current_camera_height = deref(_vsm_sun_projections[vsm_page_texel_coords.z]).camera_height_offset;
+    const i32 height_difference = current_camera_height - page_draw_camera_height;
+    return height_difference;
+}
+
 u32 good_rand_hash(u32 x) {
     x += (x << 10u);
     x ^= (x >> 6u);
@@ -195,22 +203,37 @@ f32 get_vsm_shadow(f32vec2 uv, f32 depth, f32vec3 offset_world_position)
     const i32vec2 physical_texel_coords = virtual_uv_to_physical_texel(clip_info.sun_depth_uv, physical_page_coords);
     const f32 vsm_sample = texelFetch(daxa_texture2D(_vsm_physical_memory), physical_texel_coords, 0).r;
 
-    const f32mat4x4 vsm_shadow_projection_view = deref(_vsm_sun_projections[clip_info.clip_level]).projection_view;
+    const f32mat4x4 vsm_shadow_view = deref(_vsm_sun_projections[clip_info.clip_level]).view;
+    const f32mat4x4 vsm_shadow_projection = deref(_vsm_sun_projections[clip_info.clip_level]).projection;
 
     const i32vec3 sun_camera_offset = deref(_vsm_sun_projections[clip_info.clip_level]).offset;
     const i32vec3 main_camera_offset = deref(_globals).offset;
     const i32vec3 main_to_sun_offset = sun_camera_offset - main_camera_offset;
 
     const f32vec3 sun_offset_world_pos = offset_world_position + main_to_sun_offset;
-    const f32vec4 vsm_projected_world = vsm_shadow_projection_view * f32vec4(sun_offset_world_pos, 1.0);
+    const f32vec3 view_projected_world_pos = (vsm_shadow_view * f32vec4(sun_offset_world_pos, 1.0)).xyz;
+
+    const i32 height_offset = get_height_depth_offset(vsm_page_texel_coords);
+
+    const f32 fp_remainder = fract(view_projected_world_pos.z);
+    const i32 int_part = i32(floor(view_projected_world_pos.z));
+    const i32 modified_view_depth = int_part + height_offset;
+    
+    const f32vec3 offset_view_pos = f32vec3(view_projected_world_pos.xy, f32(modified_view_depth) + fp_remainder);
+
+    const f32vec4 vsm_projected_world = vsm_shadow_projection * f32vec4(offset_view_pos, 1.0);
     const f32 vsm_projected_depth = vsm_projected_world.z / vsm_projected_world.w;
-    const f32 page_offset_depth = get_page_offset_depth(clip_info, vsm_projected_depth);
-    const bool is_in_shadow = vsm_sample < (page_offset_depth - 0.004);
-    // return vsm_sample - (page_offset_depth + 0.01);
+
+    const f32 page_offset_projected_depth = get_page_offset_depth(clip_info, vsm_projected_depth);
+    const f32 final_projected_depth = page_offset_projected_depth;
+    // return good_rand(floor(1000.0 * final_projected_depth));
+    // return final_projected_depth - vsm_sample;
+    const bool is_in_shadow = vsm_sample < (final_projected_depth);
     return is_in_shadow ? 0.0 : 1.0;
     // return f32(physical_texel_coords.y % VSM_PAGE_SIZE) / 128.0;
     // return good_rand(floor(10000 * page_offset_depth));
 }
+
 
 void main() 
 {
@@ -311,14 +334,15 @@ void main()
 
     const f32 sun_norm_dot = dot(normal, deref(_globals).sun_direction);
     out_color = pow(albedo, f32vec4(f32vec3(2.4), 1.0));
-    f32vec4 ambient = f32vec4(deref(_globals).sun_brightness * sun_color.xyz * get_far_sky_color(normal), 1.0); 
+    f32vec4 ambient = f32vec4(deref(_globals).sun_brightness * sun_color.xyz * get_far_sky_color(normal) * 0.5, 1.0); 
 
-    out_color *= //clamp(sun_norm_dot, 0.0, 1.0) * 
+    out_color *= clamp(sun_norm_dot, 0.0, 1.0) * 
                 vsm_shadow * 
                 //  clamp(pow(shadow, 2), 0.0, 1.0) *
                  f32vec4(transmittance_to_sun, 1.0) *
                  deref(_globals).sun_brightness * sun_color + ambient;
-    // out_color = f32vec4(f32vec3(vsm_shadow), 1.0);
+    // out_color = vsm_shadow > 0.0 ? f32vec4(0.0, 0.0, vsm_shadow, 1.0) : f32vec4(-vsm_shadow, 0.0, 0.0, 1.0);
+    // out_color = f32vec4(vsm_shadow, vsm_shadow, vsm_shadow, 1.0);
     // out_color.xyz = f32vec3(fract(world_position));
     // out_color.xyz *= vsm_debug_color;
 }
