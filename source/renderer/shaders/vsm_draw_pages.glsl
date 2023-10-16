@@ -72,6 +72,15 @@ void main()
 
         gl_TessLevelInner[0] = max(gl_TessLevelOuter[0], gl_TessLevelOuter[2]);
         gl_TessLevelInner[1] = max(gl_TessLevelOuter[1], gl_TessLevelOuter[3]);
+
+        // gl_TessLevelOuter[0] = (in_clip_level[gl_InvocationID] + 1) * 2;
+        // gl_TessLevelOuter[1] = (in_clip_level[gl_InvocationID] + 1) * 2;
+        // gl_TessLevelOuter[2] = (in_clip_level[gl_InvocationID] + 1) * 2;
+        // gl_TessLevelOuter[3] = (in_clip_level[gl_InvocationID] + 1) * 2;
+
+        // gl_TessLevelInner[0] = (in_clip_level[gl_InvocationID] + 1) * 2;
+        // gl_TessLevelInner[1] = (in_clip_level[gl_InvocationID] + 1) * 2;
+
     }
     gl_out[gl_InvocationID].gl_Position = gl_in[gl_InvocationID].gl_Position;
     out_clip_level = in_clip_level[gl_InvocationID];

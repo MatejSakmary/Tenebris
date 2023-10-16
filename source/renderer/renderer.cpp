@@ -1322,22 +1322,23 @@ void Renderer::draw(DrawInfo const & info)
         -globals->sun_direction.y,
         -globals->sun_direction.z
     });
-    OrthographicInfo curr_clip_projection = OrthographicInfo {
-        .left   = -1000.0f,
-        .right  =  1000.0f,
-        .top    =  1000.0f,
-        .bottom = -1000.0f,
-        .near   =  10.00f,
-        .far    =  10'000.0f
-    };
     // OrthographicInfo curr_clip_projection = OrthographicInfo {
-    //     .left   = -10.0f,
-    //     .right  =  10.0f,
-    //     .top    =  10.0f,
-    //     .bottom = -10.0f,
-    //     .near   =  1.0f,
-    //     .far    =  100.0f
+    //     .left   = -1000.0f,
+    //     .right  =  1000.0f,
+    //     .top    =  1000.0f,
+    //     .bottom = -1000.0f,
+    //     .near   =  10.00f,
+    //     .far    =  10'000.0f
     // };
+    OrthographicInfo curr_clip_projection = OrthographicInfo {
+        .left   = -10.0f,
+        .right  =  10.0f,
+        .top    =  10.0f,
+        .bottom = -10.0f,
+        .near   =  1.0f,
+        .far    =  100.0f
+    };
+    i32 sun_offset_factor = 50; 
     f32 curr_clip_texel_world_size = (curr_clip_projection.right - curr_clip_projection.left) / VSM_TEXTURE_RESOLUTION;
     globals->vsm_sun_offset = context.sun_camera.offset;
     globals->vsm_clip0_texel_world_size = curr_clip_texel_world_size;
@@ -1349,22 +1350,30 @@ void Renderer::draw(DrawInfo const & info)
         context.sun_camera.update_front_vector(0.0f, 0.0f);
         const f32vec3 to_sun_camera_offset = globals->sun_direction;
         const f32 clip_page_world_size = curr_clip_texel_world_size * VSM_PAGE_SIZE;
+        const bool should_draw_debug_clip = 
+            (clip_level == globals->vsm_debug_clip_level) && globals->force_view_clip_level;
 
         const auto align_page_info = context.sun_camera.align_clip_to_player(
-            &info.main_camera, to_sun_camera_offset, 
+            &info.main_camera,
+            to_sun_camera_offset, 
             std::span<FrustumVertex, VSM_PAGE_TABLE_RESOLUTION * VSM_PAGE_TABLE_RESOLUTION * 8>{
                 &context.frustum_vertices[8 * context.debug_frustum_cpu_count],
                 VSM_PAGE_TABLE_RESOLUTION * VSM_PAGE_TABLE_RESOLUTION * 8
-            }
+            },
+            should_draw_debug_clip,
+            sun_offset_factor
         );
 
-        for(int i = 0; i < VSM_PAGE_TABLE_RESOLUTION * VSM_PAGE_TABLE_RESOLUTION; i++)
+        if(should_draw_debug_clip)
         {
-            context.frustum_colors[context.debug_frustum_cpu_count + i].color = f32vec3{0.0, 0.0, 1.0};
-        }
-        if(globals->use_debug_camera)
-        {
-            context.debug_frustum_cpu_count += VSM_PAGE_TABLE_RESOLUTION * VSM_PAGE_TABLE_RESOLUTION;
+            for(int i = 0; i < VSM_PAGE_TABLE_RESOLUTION * VSM_PAGE_TABLE_RESOLUTION; i++)
+            {
+                context.frustum_colors[context.debug_frustum_cpu_count + i].color = f32vec3{0.0, 0.0, 1.0};
+            }
+            if(globals->use_debug_camera)
+            {
+                context.debug_frustum_cpu_count += VSM_PAGE_TABLE_RESOLUTION * VSM_PAGE_TABLE_RESOLUTION;
+            }
         }
 
         const auto clear_offset = align_page_info.page_offset - context.vsm_last_frame_offset.at(clip_level);
@@ -1399,6 +1408,9 @@ void Renderer::draw(DrawInfo const & info)
         curr_clip_projection.right *= 2;
         curr_clip_projection.top *= 2;
         curr_clip_projection.bottom *= 2;
+        curr_clip_projection.near *= 2;
+        curr_clip_projection.far *= 2;
+        sun_offset_factor *= 2;
         curr_clip_texel_world_size *= 2;
     }
 

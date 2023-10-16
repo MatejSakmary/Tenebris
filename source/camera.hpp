@@ -105,7 +105,9 @@ struct Camera
     auto align_clip_to_player(
         Camera const * player_camera,
         f32vec3 sun_offset,
-        std::span<FrustumVertex, VSM_PAGE_TABLE_RESOLUTION * VSM_PAGE_TABLE_RESOLUTION * 8> vertices_space
+        std::span<FrustumVertex, VSM_PAGE_TABLE_RESOLUTION * VSM_PAGE_TABLE_RESOLUTION * 8> vertices_space,
+        bool view_page_frusti,
+        i32 sun_offset_factor
     ) -> ClipAlignInfo;
     void write_frustum_vertices(WriteVerticesInfo const & info);
 

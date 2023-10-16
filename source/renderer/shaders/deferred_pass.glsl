@@ -215,7 +215,9 @@ f32 get_vsm_shadow(f32vec2 uv, f32 depth, f32vec3 offset_world_position)
 
     const i32 height_offset = get_height_depth_offset(vsm_page_texel_coords);
 
-    const f32 fp_remainder = fract(view_projected_world_pos.z);
+    // avoid acne
+    const f32 view_space_offset = 0.02 * pow(2, clip_info.clip_level);
+    const f32 fp_remainder = fract(view_projected_world_pos.z) + view_space_offset;
     const i32 int_part = i32(floor(view_projected_world_pos.z));
     const i32 modified_view_depth = int_part + height_offset;
     
@@ -228,7 +230,8 @@ f32 get_vsm_shadow(f32vec2 uv, f32 depth, f32vec3 offset_world_position)
     const f32 final_projected_depth = page_offset_projected_depth;
     // return good_rand(floor(1000.0 * final_projected_depth));
     // return final_projected_depth - vsm_sample;
-    const bool is_in_shadow = vsm_sample < (final_projected_depth);
+    // const f32 depth_offset = 0.002 / pow(2, clip_info.clip_level);
+    const bool is_in_shadow = vsm_sample < final_projected_depth;
     return is_in_shadow ? 0.0 : 1.0;
     // return f32(physical_texel_coords.y % VSM_PAGE_SIZE) / 128.0;
     // return good_rand(floor(10000 * page_offset_depth));
@@ -326,8 +329,8 @@ void main()
     // world pos as float
     const f32 vsm_shadow = get_vsm_shadow(uv, depth, offset_world_position);
 
-    const f32vec4 albedo = texture(daxa_sampler2D(_g_albedo, pc.nearest_sampler_id), uv);
-    const f32vec3 normal = texture(daxa_sampler2D(_g_normals, pc.nearest_sampler_id), uv).xyz;
+    const f32vec4 albedo = texture(daxa_sampler2D(_g_albedo, pc.linear_sampler_id), uv);
+    const f32vec3 normal = texture(daxa_sampler2D(_g_normals, pc.linear_sampler_id), uv).xyz;
 
     const f32vec3 sun_direction = deref(_globals).sun_direction;
     f32vec3 transmittance_to_sun = get_far_sky_color(sun_direction);
