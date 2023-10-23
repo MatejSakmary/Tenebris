@@ -7,8 +7,8 @@
 
 struct HeightToNormalPC
 {
-    u32vec2 texture_size;
-    SamplerId point_sampler;
+    daxa_u32vec2 texture_size;
+    daxa_SamplerId point_sampler;
 };
 
 DAXA_DECL_TASK_USES_BEGIN(HeightToNormalTaskBase, DAXA_UNIFORM_BUFFER_SLOT0)
@@ -33,19 +33,19 @@ struct HeightToNormalTask : HeightToNormalTaskBase
 {
     std::shared_ptr<daxa::ComputePipeline> height_to_normal = {};
     daxa::Device device = {};
-    SamplerId nearest_sampler = {};
+    daxa_SamplerId nearest_sampler = {};
 
-    static constexpr u32 threadsX = 8;
-    static constexpr u32 threadsY = 4;
+    static constexpr daxa_u32 threadsX = 8;
+    static constexpr daxa_u32 threadsY = 4;
 
     void callback(daxa::TaskInterface ti)
     {
         auto cmd_list = ti.get_command_list();
 
-        auto image_dimensions = device.info_image(uses._height_texture.image()).size;
+        auto image_dimensions = device.info_image(uses._height_texture.image()).value().size;
         cmd_list.set_uniform_buffer(ti.uses.get_uniform_buffer_info());
         cmd_list.push_constant(HeightToNormalPC{
-            .texture_size = u32vec2{image_dimensions.x, image_dimensions.y},
+            .texture_size = daxa_u32vec2{image_dimensions.x, image_dimensions.y},
             .point_sampler = nearest_sampler
         });
         cmd_list.set_pipeline(*(height_to_normal));

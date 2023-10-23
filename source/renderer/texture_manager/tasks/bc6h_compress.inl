@@ -7,9 +7,9 @@
 
 struct BC6HCompressPC
 {
-    u32vec2 TextureSizeInBlocks;
-    f32vec2 TextureSizeRcp;
-    SamplerId point_sampler;
+    daxa_u32vec2 TextureSizeInBlocks;
+    daxa_f32vec2 TextureSizeRcp;
+    daxa_SamplerId point_sampler;
 };
 
 DAXA_DECL_TASK_USES_BEGIN(BC6HCompressTaskBase, DAXA_UNIFORM_BUFFER_SLOT0)
@@ -34,26 +34,26 @@ struct BC6HCompressTask : BC6HCompressTaskBase
 {
     std::shared_ptr<daxa::ComputePipeline> compress = {};
     daxa::Device device = {};
-    SamplerId nearest_sampler = {};
+    daxa_SamplerId nearest_sampler = {};
 
-	static constexpr u32 threadsX = 8;
-	static constexpr u32 threadsY = 8;
-    static constexpr u32 BC_BLOCK_SIZE = 4;
-    static constexpr u32 divx = threadsX * BC_BLOCK_SIZE;
-    static constexpr u32 divy = threadsY * BC_BLOCK_SIZE;
+	static constexpr daxa_u32 threadsX = 8;
+	static constexpr daxa_u32 threadsY = 8;
+    static constexpr daxa_u32 BC_BLOCK_SIZE = 4;
+    static constexpr daxa_u32 divx = threadsX * BC_BLOCK_SIZE;
+    static constexpr daxa_u32 divy = threadsY * BC_BLOCK_SIZE;
 
     void callback(daxa::TaskInterface ti)
     {
         auto cmd_list = ti.get_command_list();
 
-        auto image_dimensions = device.info_image(uses._src_texture.image()).size;
+        auto image_dimensions = device.info_image(uses._src_texture.image()).value().size;
         cmd_list.set_uniform_buffer(ti.uses.get_uniform_buffer_info());
         cmd_list.push_constant(BC6HCompressPC{
-            .TextureSizeInBlocks = u32vec2{
+            .TextureSizeInBlocks = daxa_u32vec2{
                 (image_dimensions.x + BC_BLOCK_SIZE - 1) / BC_BLOCK_SIZE,
                 (image_dimensions.y + BC_BLOCK_SIZE - 1) / BC_BLOCK_SIZE,
             },
-            .TextureSizeRcp = f32vec2{1.0f / image_dimensions.x, 1.0f / image_dimensions.y},
+            .TextureSizeRcp = daxa_f32vec2{1.0f / image_dimensions.x, 1.0f / image_dimensions.y},
             .point_sampler = nearest_sampler
         });
         cmd_list.set_pipeline(*(compress));

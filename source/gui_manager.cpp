@@ -56,7 +56,7 @@ void GuiManager::on_update()
     ImGui::Begin("General settings");
     auto camera_position = camera->get_camera_position();
 
-    ImGui::InputFloat3("New camera pos: ", reinterpret_cast<f32*>(&new_camera_position));
+    ImGui::InputFloat3("New camera pos: ", reinterpret_cast<daxa_f32*>(&new_camera_position));
     if(ImGui::Button("Set Camera Params", {150, 20})) { camera->set_position(new_camera_position);}
     bool use_debug = globals.use_debug_camera == 1;
     ImGui::Checkbox("Use debug camera", &use_debug);
@@ -136,7 +136,7 @@ void GuiManager::on_update()
     ImGui::End();
 
     ImGui::Begin("Terrain params");
-    ImGui::SliderFloat2("Terrain Scale", reinterpret_cast<f32*>(&globals.terrain_scale), 1.0f, 1000.0f);
+    ImGui::SliderFloat2("Terrain Scale", reinterpret_cast<daxa_f32*>(&globals.terrain_scale), 1.0f, 1000.0f);
     ImGui::SliderFloat("Terrain midpoint", &globals.terrain_midpoint, 0.0f, 1.0f);
     ImGui::SliderFloat("Terrain height scale", &globals.terrain_height_scale, 0.1f, 100.0f);
     ImGui::SliderFloat("Delta", &globals.terrain_delta, 1.0f, 10.0f);
@@ -154,9 +154,9 @@ void GuiManager::on_update()
 
     globals.sun_direction =
     {
-        f32(glm::cos(glm::radians(sun_angle.x)) * glm::sin(glm::radians(sun_angle.y))),
-        f32(glm::sin(glm::radians(sun_angle.x)) * glm::sin(glm::radians(sun_angle.y))),
-        f32(glm::cos(glm::radians(sun_angle.y)))
+        daxa_f32(glm::cos(glm::radians(sun_angle.x)) * glm::sin(glm::radians(sun_angle.y))),
+        daxa_f32(glm::sin(glm::radians(sun_angle.x)) * glm::sin(glm::radians(sun_angle.y))),
+        daxa_f32(glm::cos(glm::radians(sun_angle.y)))
     };
 
     ImGui::SliderFloat("Atmosphere bottom", &globals.atmosphere_bottom, 1.0f, 20000.0f);
@@ -170,7 +170,7 @@ void GuiManager::on_update()
 
 #if VSM_DEBUG_VIZ_PASS == 1 
     ImGui::Begin("Clip page offsets");
-    for(i32 clip_level = 0; clip_level < VSM_CLIP_LEVELS; clip_level++)
+    for(daxa_i32 clip_level = 0; clip_level < VSM_CLIP_LEVELS; clip_level++)
     {
         ImGui::Text("Clip %d", clip_level);
         ImGui::Text("\t In VSM offset is x: %d y: %d",
@@ -190,7 +190,7 @@ void GuiManager::on_update()
 
     ImGui::SliderInt("VSM Clip Level", &globals.vsm_debug_clip_level, 0, VSM_CLIP_LEVELS - 1);
     ImGui::Image(
-        daxa::ImGuiRenderer::create_image_context({
+        info.renderer->context.imgui_renderer.create_texture_id({
             .image_view_id = info.renderer->context.images.vsm_debug_page_table.get_state().images[0].default_view(),
             .sampler_id = info.renderer->context.nearest_sampler
         }),
@@ -200,7 +200,7 @@ void GuiManager::on_update()
 
     ImGui::Begin("VSM Meta Memory Texture");
     ImGui::Image(
-        daxa::ImGuiRenderer::create_image_context({
+        info.renderer->context.imgui_renderer.create_texture_id({
             .image_view_id = info.renderer->context.images.vsm_debug_meta_memory_table.get_state().images[0].default_view(),
             .sampler_id = info.renderer->context.nearest_sampler
         }),
@@ -286,9 +286,9 @@ void GuiManager::load(std::string path, bool constructor_load)
 
     globals.sun_direction =
     {
-        f32(glm::cos(glm::radians(sun_angle.x)) * glm::sin(glm::radians(sun_angle.y))),
-        f32(glm::sin(glm::radians(sun_angle.x)) * glm::sin(glm::radians(sun_angle.y))),
-        f32(glm::cos(glm::radians(sun_angle.y)))
+        daxa_f32(glm::cos(glm::radians(sun_angle.x)) * glm::sin(glm::radians(sun_angle.y))),
+        daxa_f32(glm::sin(glm::radians(sun_angle.x)) * glm::sin(glm::radians(sun_angle.y))),
+        daxa_f32(glm::cos(glm::radians(sun_angle.y)))
     };
     
     (*info.camera)->set_position(globals.camera_position);

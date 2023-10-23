@@ -37,11 +37,6 @@ inline auto get_deferred_pass_pipeline() -> daxa::RasterPipelineCompileInfo {
         .vertex_shader_info = daxa::ShaderCompileInfo{ .source = daxa::ShaderFile{"screen_triangle.glsl"} },
         .fragment_shader_info = daxa::ShaderCompileInfo{ .source = daxa::ShaderFile{"deferred_pass.glsl"} },
         .color_attachments = {{.format = daxa::Format::R16G16B16A16_SFLOAT}},
-        .depth_test = 
-        { 
-            .enable_depth_test = false,
-            .enable_depth_write = false,
-        },
         .raster = 
         { 
             .polygon_mode = daxa::PolygonMode::FILL,
@@ -59,7 +54,7 @@ struct DeferredPassTask : DeferredPassTaskBase
         auto cmd_list = ti.get_command_list();
 
         auto swapchain_resolution = context->swapchain.get_surface_extent();
-        auto esm_resolution = context->device.info_image(uses._esm.image()).size;
+        auto esm_resolution = context->device.info_image(uses._esm.image()).value().size;
 
         cmd_list.set_uniform_buffer(ti.uses.get_uniform_buffer_info());
         cmd_list.begin_renderpass({
@@ -76,7 +71,7 @@ struct DeferredPassTask : DeferredPassTaskBase
             .linear_sampler_id = context->linear_sampler,
             .nearest_sampler_id = context->nearest_sampler,
             .esm_resolution = {esm_resolution.x, esm_resolution.y},
-            .offscreen_resolution = u32vec2{swapchain_resolution.x, swapchain_resolution.y},
+            .offscreen_resolution = daxa_u32vec2{swapchain_resolution.x, swapchain_resolution.y},
         });
         cmd_list.draw({.vertex_count = 3});
         cmd_list.end_renderpass();

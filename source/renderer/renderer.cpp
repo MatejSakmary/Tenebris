@@ -151,7 +151,7 @@ void Renderer::create_persistent_resources()
             .buffers = std::array{
                 context.device.create_buffer(daxa::BufferInfo{
                     .size = sizeof(Globals),
-                    .allocate_info = daxa::AutoAllocInfo(daxa::MemoryFlagBits::DEDICATED_MEMORY),
+                    .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
                     .name = "atmosphere parameters",
                 })
             },
@@ -163,11 +163,11 @@ void Renderer::create_persistent_resources()
         .initial_buffers = {
             .buffers = std::array{
                 context.device.create_buffer(daxa::BufferInfo{
-                    .size = static_cast<u32>(sizeof(Histogram) * HISTOGRAM_BIN_COUNT * 2),
-                    .allocate_info = daxa::AutoAllocInfo(
+                    .size = static_cast<daxa_u32>(sizeof(Histogram) * HISTOGRAM_BIN_COUNT * 2),
+                    .allocate_info = 
                         daxa::MemoryFlagBits::DEDICATED_MEMORY |
                         daxa::MemoryFlagBits::HOST_ACCESS_RANDOM
-                    ),
+                    ,
                     .name = "histogram readback buffer",
                 })
             },
@@ -181,7 +181,7 @@ void Renderer::create_persistent_resources()
             .buffers = std::array{
                 context.device.create_buffer(daxa::BufferInfo{
                     .size = sizeof(FrustumIndex) * DebugDrawFrustumTask::index_count,
-                    .allocate_info = daxa::AutoAllocInfo(daxa::MemoryFlagBits::DEDICATED_MEMORY),
+                    .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
                     .name = "debug frustum indices",
                 })
             },
@@ -194,7 +194,7 @@ void Renderer::create_persistent_resources()
             .buffers = std::array{
                 context.device.create_buffer(daxa::BufferInfo{
                     .size = sizeof(AverageLuminance),
-                    .allocate_info = daxa::AutoAllocInfo(daxa::MemoryFlagBits::DEDICATED_MEMORY),
+                    .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
                     .name = "average luminance buffer"
                 })
             },
@@ -337,45 +337,45 @@ void Renderer::create_persistent_resources()
             auto cmd_list = ti.get_command_list();
             {
                 {
-                    u32 size = sizeof(FrustumIndex) * DebugDrawFrustumTask::index_count;
+                    daxa_u32 size = sizeof(FrustumIndex) * DebugDrawFrustumTask::index_count;
                     auto staging_mem_result = ti.get_allocator().allocate(size);
                     DBG_ASSERT_TRUE_M(
                         staging_mem_result.has_value(),
                         "[Renderer::create_presistent_resources()] Failed to create frustum indices staging buffer"
                     );
                     auto staging_mem = staging_mem_result.value();
-                    std::vector<u32> indices = { 
+                    std::vector<daxa_u32> indices = { 
                         0, 1, 2, 3, 4, 5, 0, 3, 0xFFFFFFFF,
                         6, 5, 4, 7, 2, 1, 6, 7, 0xFFFFFFFF
                     }; 
                     memcpy(staging_mem.host_address, indices.data(), size);
                     cmd_list.copy_buffer_to_buffer({
-                        .src_buffer = ti.get_allocator().get_buffer(),
-                        .src_offset = staging_mem.buffer_offset,
+                        .src_buffer = ti.get_allocator().buffer(),
                         .dst_buffer = ti.uses[context.buffers.frustum_indices].buffer(),
+                        .src_offset = staging_mem.buffer_offset,
                         .size = size
                     });
                 }
                 {
-                    u32 size = sizeof(AverageLuminance);
+                    daxa_u32 size = sizeof(AverageLuminance);
                     auto staging_mem_result = ti.get_allocator().allocate(size);
                     DBG_ASSERT_TRUE_M(
                         staging_mem_result.has_value(),
                         "[Renderer::create_presistent_resources()] Failed to create average luminance staging buffer"
                     );
                     auto staging_mem = staging_mem_result.value();
-                    f32 inital_value = -1000.0;
+                    daxa_f32 inital_value = -1000.0;
                     memcpy(staging_mem.host_address, &inital_value, size);
                     cmd_list.copy_buffer_to_buffer({
-                        .src_buffer = ti.get_allocator().get_buffer(),
-                        .src_offset = staging_mem.buffer_offset,
+                        .src_buffer = ti.get_allocator().buffer(),
                         .dst_buffer = ti.uses[context.buffers.average_luminance].buffer(),
+                        .src_offset = staging_mem.buffer_offset,
                         .size = size
                     });
                 }
                 {
                     cmd_list.clear_image({
-                        .clear_value = std::array<u32, 4>{0u, 0u, 0u, 0u},
+                        .clear_value = std::array<daxa_u32, 4>{0u, 0u, 0u, 0u},
                         .dst_image = ti.uses[vsm_array_view].image(),
                         .dst_slice = daxa::ImageMipArraySlice{
                             .base_array_layer = 0,
@@ -407,6 +407,7 @@ void Renderer::load_textures()
 
     manager->load_texture({
         .filepath = "assets/tonemapping_luts/tony_mc_mapface_f32.dds",
+        // .filepath = "C:/Developement/Tenebris/assets/tonemapping_luts/tony_mc_mapface_f32.dds",
         .dest_image = context.images.tonemapping_lut
     });
 
@@ -462,12 +463,12 @@ void Renderer::initialize_main_tasklist()
 
     auto & tl = context.main_task_list;
 
-    u32vec2 limits_size;
-    u32vec2 wg_size = AnalyzeDepthbufferTask::wg_total_reads_per_axis;
+    daxa_u32vec2 limits_size;
+    daxa_u32vec2 wg_size = AnalyzeDepthbufferTask::wg_total_reads_per_axis;
     limits_size.x = (extent.x + wg_size.x - 1) / wg_size.x;
     limits_size.y = (extent.y + wg_size.y - 1) / wg_size.y;
     tl.buffers.depth_limits = tl.task_list.create_transient_buffer({
-        .size = static_cast<u32>(sizeof(DepthLimits) * limits_size.x * limits_size.y),
+        .size = static_cast<daxa_u32>(sizeof(DepthLimits) * limits_size.x * limits_size.y),
         .name = "depth limits"
     });
 
@@ -500,24 +501,24 @@ void Renderer::initialize_main_tasklist()
     });
 
     tl.buffers.shadowmap_data = tl.task_list.create_transient_buffer({
-        .size = static_cast<u32>(sizeof(ShadowmapCascadeData) * NUM_CASCADES),
+        .size = static_cast<daxa_u32>(sizeof(ShadowmapCascadeData) * NUM_CASCADES),
         .name = "shadowmap matrix data"
     });
     #pragma endregion
 
     #pragma region debug_frustum_draw_resources
     tl.buffers.frustum_vertices = tl.task_list.create_transient_buffer({
-        .size = static_cast<u32>(sizeof(FrustumVertex) * FRUSTUM_VERTEX_COUNT * MAX_FRUSTUM_COUNT),
+        .size = static_cast<daxa_u32>(sizeof(FrustumVertex) * FRUSTUM_VERTEX_COUNT * MAX_FRUSTUM_COUNT),
         .name = "debug frustum vertices"
     });
 
     tl.buffers.frustum_colors = tl.task_list.create_transient_buffer({
-        .size = static_cast<u32>(sizeof(FrustumColor) * MAX_FRUSTUM_COUNT),
+        .size = static_cast<daxa_u32>(sizeof(FrustumColor) * MAX_FRUSTUM_COUNT),
         .name = "debug frustum colors"
     });
 
     tl.buffers.frustum_indirect = tl.task_list.create_transient_buffer({
-        .size = static_cast<u32>(sizeof(DrawIndexedIndirectStruct)),
+        .size = static_cast<daxa_u32>(sizeof(DrawIndexedIndirectStruct)),
         .name = "debug frustum indirect struct"
     });
     #pragma endregion
@@ -530,52 +531,52 @@ void Renderer::initialize_main_tasklist()
     });
 
     tl.buffers.vsm_free_wrapped_pages_info = tl.task_list.create_transient_buffer({
-        .size = static_cast<u32>(sizeof(FreeWrappedPagesInfo) * VSM_CLIP_LEVELS),
+        .size = static_cast<daxa_u32>(sizeof(FreeWrappedPagesInfo) * VSM_CLIP_LEVELS),
         .name = "vsm free wrapped pages info"
     });
 
     tl.buffers.vsm_allocation_count = tl.task_list.create_transient_buffer({
-        .size = static_cast<u32>(sizeof(AllocationCount)),
+        .size = static_cast<daxa_u32>(sizeof(AllocationCount)),
         .name = "vsm allocation count"
     });
 
     tl.buffers.vsm_allocation_requests = tl.task_list.create_transient_buffer({
-        .size = static_cast<u32>(sizeof(AllocationRequest) * MAX_NUM_VSM_ALLOC_REQUEST),
+        .size = static_cast<daxa_u32>(sizeof(AllocationRequest) * MAX_NUM_VSM_ALLOC_REQUEST),
         .name = "vsm allocation buffer"
     });
 
     tl.buffers.vsm_allocate_indirect = tl.task_list.create_transient_buffer({
-        .size = static_cast<u32>(sizeof(DispatchIndirectStruct)),
+        .size = static_cast<daxa_u32>(sizeof(DispatchIndirectStruct)),
         .name = "vsm allocate indirect"
     });
 
     tl.buffers.vsm_clear_indirect = tl.task_list.create_transient_buffer({
-        .size = static_cast<u32>(sizeof(DispatchIndirectStruct)),
+        .size = static_cast<daxa_u32>(sizeof(DispatchIndirectStruct)),
         .name = "vsm clear indirect"
     });
 
     tl.buffers.vsm_clear_dirty_bit_indirect = tl.task_list.create_transient_buffer({
-        .size = static_cast<u32>(sizeof(DispatchIndirectStruct)),
+        .size = static_cast<daxa_u32>(sizeof(DispatchIndirectStruct)),
         .name = "vsm clear dirty bit indirect"
     });
 
     tl.buffers.vsm_free_page_buffer = tl.task_list.create_transient_buffer({
-        .size = static_cast<u32>(sizeof(PageCoordBuffer) * (MAX_NUM_VSM_ALLOC_REQUEST)),
+        .size = static_cast<daxa_u32>(sizeof(PageCoordBuffer) * (MAX_NUM_VSM_ALLOC_REQUEST)),
         .name = "vsm free page buffer"
     });
 
     tl.buffers.vsm_not_visited_page_buffer = tl.task_list.create_transient_buffer({
-        .size = static_cast<u32>(sizeof(PageCoordBuffer) * (MAX_NUM_VSM_ALLOC_REQUEST)),
+        .size = static_cast<daxa_u32>(sizeof(PageCoordBuffer) * (MAX_NUM_VSM_ALLOC_REQUEST)),
         .name = "vsm not visited buffer"
     });
 
     tl.buffers.vsm_find_free_pages_header = tl.task_list.create_transient_buffer({
-        .size = static_cast<u32>(sizeof(FindFreePagesHeader)),
+        .size = static_cast<daxa_u32>(sizeof(FindFreePagesHeader)),
         .name = "find free pages header"
     });
 
     tl.buffers.vsm_sun_projection_matrices = tl.task_list.create_transient_buffer({
-        .size = static_cast<u32>(sizeof(VSMClipProjection) * VSM_CLIP_LEVELS),
+        .size = static_cast<daxa_u32>(sizeof(VSMClipProjection) * VSM_CLIP_LEVELS),
         .name = "sun projection matrices"
     });
     #pragma endregion
@@ -660,15 +661,15 @@ void Renderer::initialize_main_tasklist()
                     auto staging_mem = staging_mem_result.value();
                     memcpy(staging_mem.host_address, cpu_buffer, size);
                     cmd_list.copy_buffer_to_buffer({
-                        .src_buffer = ti.get_allocator().get_buffer(),
-                        .src_offset = staging_mem.buffer_offset,
+                        .src_buffer = ti.get_allocator().buffer(),
                         .dst_buffer = gpu_buffer,
+                        .src_offset = staging_mem.buffer_offset,
                         .size = size
                     });
                 };
                 // Clear vsm debug page table
                 cmd_list.clear_image({
-                    .clear_value = daxa::ClearValue(std::array{0.0f, 0.0f, 0.0f, 1.0f}),
+                    .clear_value = daxa::ClearValue{std::array{0.0f, 0.0f, 0.0f, 1.0f}},
                     .dst_image = ti.uses[context.images.vsm_debug_page_table].image()
                 });
                 // Globals
@@ -699,7 +700,7 @@ void Renderer::initialize_main_tasklist()
                     sizeof(DrawIndexedIndirectStruct)
                 );
                 // Histogram
-                std::array<u32, HISTOGRAM_BIN_COUNT> reset_bin_values {};
+                std::array<daxa_u32, HISTOGRAM_BIN_COUNT> reset_bin_values {};
                 upload_cpu_to_gpu(
                     ti.uses[tl.buffers.luminance_histogram].buffer(),
                     reset_bin_values.data(),
@@ -988,6 +989,7 @@ void Renderer::initialize_main_tasklist()
     });
     #pragma endregion
 
+/*
     #pragma region prepare_shadowmap_matrices
     tl.task_list.add_task(PrepareShadowmapMatricesTask{{
         .uses = {
@@ -1033,7 +1035,7 @@ void Renderer::initialize_main_tasklist()
         &context
     });
     #pragma endregion
-
+*/
     #pragma region deferred_pass
     tl.task_list.add_task(DeferredPassTask{{
         .uses = {
@@ -1077,13 +1079,13 @@ void Renderer::initialize_main_tasklist()
         .task = [&, this](daxa::TaskInterface ti)
         {
             auto cmd_list = ti.get_command_list();
-            const u32 size = static_cast<u32>(sizeof(Histogram)) * HISTOGRAM_BIN_COUNT;
+            const daxa_u32 size = static_cast<daxa_u32>(sizeof(Histogram)) * HISTOGRAM_BIN_COUNT;
             const bool is_frame_even = globals->frame_index % 2 == 0;
 
             cmd_list.copy_buffer_to_buffer({
                 .src_buffer = ti.uses[tl.buffers.luminance_histogram].buffer(),
-                .src_offset = 0,
                 .dst_buffer = ti.uses[context.buffers.histogram_readback].buffer(),
+                .src_offset = 0,
                 .dst_offset = is_frame_even ? 0u : sizeof(Histogram) * HISTOGRAM_BIN_COUNT,
                 .size = size
             });
@@ -1203,15 +1205,15 @@ void Renderer::upload_planet_geometry(PlanetGeometry const & geometry)
     destroy_if_valid(context.buffers.terrain_vertices);
     destroy_if_valid(context.buffers.terrain_indices);
     context.terrain_index_size = geometry.indices.size();
-    u32 vertices_size = geometry.vertices.size() * sizeof(f32vec2);
-    u32 indices_size = geometry.indices.size() * sizeof(u32);
-    u32 total_size = vertices_size + indices_size;
+    daxa_u32 vertices_size = geometry.vertices.size() * sizeof(daxa_f32vec2);
+    daxa_u32 indices_size = geometry.indices.size() * sizeof(daxa_u32);
+    daxa_u32 total_size = vertices_size + indices_size;
 
     context.buffers.terrain_vertices.set_buffers({
         .buffers = std::array{
             context.device.create_buffer({
                 .size = vertices_size,
-                .allocate_info = daxa::AutoAllocInfo{daxa::MemoryFlagBits::DEDICATED_MEMORY},
+                .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
                 .name = "vertices buffer"
             })
         }
@@ -1221,7 +1223,7 @@ void Renderer::upload_planet_geometry(PlanetGeometry const & geometry)
         .buffers = std::array{
             context.device.create_buffer({
                 .size = indices_size,
-                .allocate_info = daxa::AutoAllocInfo{daxa::MemoryFlagBits::DEDICATED_MEMORY},
+                .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
                 .name = "indices buffer"
             })
         }
@@ -1253,9 +1255,9 @@ void Renderer::upload_planet_geometry(PlanetGeometry const & geometry)
                 auto vert_staging_mem = vert_staging_mem_res.value();
                 memcpy(vert_staging_mem.host_address, geometry.vertices.data(), vertices_size);
                 cmd_list.copy_buffer_to_buffer({
-                    .src_buffer = ti.get_allocator().get_buffer(),
-                    .src_offset = vert_staging_mem.buffer_offset,
+                    .src_buffer = ti.get_allocator().buffer(),
                     .dst_buffer = ti.uses[context.buffers.terrain_vertices].buffer(),
+                    .src_offset = vert_staging_mem.buffer_offset,
                     .size = vertices_size
                 });
             }
@@ -1268,9 +1270,9 @@ void Renderer::upload_planet_geometry(PlanetGeometry const & geometry)
                 auto index_staging_mem = index_staging_mem_res.value();
                 memcpy(index_staging_mem.host_address, geometry.indices.data(), indices_size);
                 cmd_list.copy_buffer_to_buffer({
-                    .src_buffer = ti.get_allocator().get_buffer(),
-                    .src_offset = index_staging_mem.buffer_offset,
+                    .src_buffer = ti.get_allocator().buffer(),
                     .dst_buffer = ti.uses[context.buffers.terrain_indices].buffer(),
+                    .src_offset = index_staging_mem.buffer_offset,
                     .size = indices_size
                 });
             }
@@ -1310,14 +1312,14 @@ void Renderer::draw(DrawInfo const & info)
         secondary_camera->write_frustum_vertices({
             std::span<FrustumVertex, 8>{&context.frustum_vertices[8 * context.debug_frustum_cpu_count], 8 }
         });
-        context.frustum_colors[context.debug_frustum_cpu_count].color = f32vec3{1.0, 1.0, 1.0};
+        context.frustum_colors[context.debug_frustum_cpu_count].color = daxa_f32vec3{1.0, 1.0, 1.0};
         context.debug_frustum_cpu_count += 1;
     }
 
     // Setup VSM Clip projection matrices
 
     // context.sun_camera.set_position( (globals->sun_direction * -1000.0f) + camera_fp_offset);
-    context.sun_camera.set_front(f32vec3{
+    context.sun_camera.set_front(daxa_f32vec3{
         -globals->sun_direction.x,
         -globals->sun_direction.y,
         -globals->sun_direction.z
@@ -1338,18 +1340,18 @@ void Renderer::draw(DrawInfo const & info)
         .near   =  1.0f,
         .far    =  100.0f
     };
-    i32 sun_offset_factor = 50; 
-    f32 curr_clip_texel_world_size = (curr_clip_projection.right - curr_clip_projection.left) / VSM_TEXTURE_RESOLUTION;
+    daxa_i32 sun_offset_factor = 50; 
+    daxa_f32 curr_clip_texel_world_size = (curr_clip_projection.right - curr_clip_projection.left) / VSM_TEXTURE_RESOLUTION;
     globals->vsm_sun_offset = context.sun_camera.offset;
     globals->vsm_clip0_texel_world_size = curr_clip_texel_world_size;
     context.main_task_list.conditionals.at(MainConditionals::USE_DEBUG_CAMERA) = globals->use_debug_camera;
 
-    for(i32 clip_level = 0; clip_level < VSM_CLIP_LEVELS; clip_level++)
+    for(daxa_i32 clip_level = 0; clip_level < VSM_CLIP_LEVELS; clip_level++)
     {
         context.sun_camera.proj_info = curr_clip_projection;
         context.sun_camera.update_front_vector(0.0f, 0.0f);
-        const f32vec3 to_sun_camera_offset = globals->sun_direction;
-        const f32 clip_page_world_size = curr_clip_texel_world_size * VSM_PAGE_SIZE;
+        const daxa_f32vec3 to_sun_camera_offset = globals->sun_direction;
+        const daxa_f32 clip_page_world_size = curr_clip_texel_world_size * VSM_PAGE_SIZE;
         const bool should_draw_debug_clip = 
             (clip_level == globals->vsm_debug_clip_level) && globals->force_view_clip_level;
 
@@ -1368,7 +1370,7 @@ void Renderer::draw(DrawInfo const & info)
         {
             for(int i = 0; i < VSM_PAGE_TABLE_RESOLUTION * VSM_PAGE_TABLE_RESOLUTION; i++)
             {
-                context.frustum_colors[context.debug_frustum_cpu_count + i].color = f32vec3{0.0, 0.0, 1.0};
+                context.frustum_colors[context.debug_frustum_cpu_count + i].color = daxa_f32vec3{0.0, 0.0, 1.0};
             }
             if(globals->use_debug_camera)
             {
@@ -1376,7 +1378,10 @@ void Renderer::draw(DrawInfo const & info)
             }
         }
 
-        const auto clear_offset = align_page_info.page_offset - context.vsm_last_frame_offset.at(clip_level);
+        const auto clear_offset = daxa_i32vec2(
+            align_page_info.page_offset.x - context.vsm_last_frame_offset.at(clip_level).x,
+            align_page_info.page_offset.y - context.vsm_last_frame_offset.at(clip_level).y
+        );
         context.vsm_last_frame_offset.at(clip_level) = align_page_info.page_offset;
         context.vsm_free_wrapped_pages_info.at(clip_level).clear_offset = clear_offset;
 
@@ -1384,7 +1389,7 @@ void Renderer::draw(DrawInfo const & info)
             .camera_height_offset = align_page_info.sun_height_offset,
             .per_height_unit_depth_offset = align_page_info.per_height_unit_depth_offset,
             .depth_page_offset = align_page_info.per_page_depth_offset,
-            .page_offset = i32vec2{
+            .page_offset = daxa_i32vec2{
                 align_page_info.page_offset.x % VSM_PAGE_TABLE_RESOLUTION,
                 align_page_info.page_offset.y % VSM_PAGE_TABLE_RESOLUTION
             },
@@ -1400,7 +1405,7 @@ void Renderer::draw(DrawInfo const & info)
             context.sun_camera.write_frustum_vertices({
                 std::span<FrustumVertex, 8>{&context.frustum_vertices[8 * context.debug_frustum_cpu_count], 8 }
             });
-            context.frustum_colors[context.debug_frustum_cpu_count].color = f32vec3{1.0, 1.0, 0.2};
+            context.frustum_colors[context.debug_frustum_cpu_count].color = daxa_f32vec3{1.0, 1.0, 0.2};
             context.debug_frustum_cpu_count += 1;
         }
 
@@ -1434,19 +1439,20 @@ void Renderer::draw(DrawInfo const & info)
 
     auto * histogram_host_pointer = context.device.get_host_address_as<Histogram>(context.buffers.histogram_readback.get_state().buffers[0]);
     const bool was_last_frame_even = ((globals->frame_index - 1) % 2) == 0;
-    const u32 offset = was_last_frame_even ? 0 : HISTOGRAM_BIN_COUNT;
+    const daxa_u32 offset = was_last_frame_even ? 0 : HISTOGRAM_BIN_COUNT;
     memcpy(context.cpu_histogram.data(), histogram_host_pointer + offset, sizeof(Histogram) * HISTOGRAM_BIN_COUNT);
 
     globals->frame_index++;
 
     auto result = context.pipeline_manager.reload_all();
-    if(std::holds_alternative<daxa::PipelineReloadSuccess>(result)) 
+    if(daxa::holds_alternative<daxa::PipelineReloadSuccess>(result)) 
     {
         DEBUG_OUT("[Renderer::draw()] Shaders recompiled successfully");
-    } else if (std::holds_alternative<daxa::PipelineReloadError>(result)) 
+    } else if (daxa::holds_alternative<daxa::PipelineReloadError>(result)) 
     {
-        DEBUG_OUT(std::get<daxa::PipelineReloadError>(result).message);
+        DEBUG_OUT(daxa::get<daxa::PipelineReloadError>(result).message);
     }
+    context.device.collect_garbage();
 }
 
 Renderer::~Renderer()

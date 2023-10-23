@@ -27,7 +27,6 @@ inline auto get_post_process_pipeline(const Context & context) -> daxa::RasterPi
         .vertex_shader_info = daxa::ShaderCompileInfo{ .source = daxa::ShaderFile{"screen_triangle.glsl"} },
         .fragment_shader_info = daxa::ShaderCompileInfo{ .source = daxa::ShaderFile{"post_process.glsl"} },
         .color_attachments = {{.format = context.swapchain.get_format()}},
-        .depth_test = { .enable_depth_test = false },
         .raster = { 
             .polygon_mode = daxa::PolygonMode::FILL,
             .face_culling = daxa::FaceCullFlagBits::BACK_BIT,
@@ -50,7 +49,7 @@ struct PostProcessTask : PostProcessTaskBase
             .color_attachments = {{
                 .image_view = {uses._swapchain.view()},
                 .load_op = daxa::AttachmentLoadOp::CLEAR,
-                .clear_value = std::array<f32, 4>{1.0, 1.0, 0.0, 1.0}
+                .clear_value = std::array<daxa_f32, 4>{1.0, 1.0, 0.0, 1.0}
             }},
             .depth_attachment = {},
             .render_area = {.x = 0, .y = 0, .width = dimensions.x , .height = dimensions.y}

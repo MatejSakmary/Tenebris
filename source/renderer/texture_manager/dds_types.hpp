@@ -150,8 +150,8 @@ static constexpr inline auto dxgi_to_daxa_format(DXGI_FORMAT dxgi_format) -> dax
 }
 
 #define MAKE_FOUR_CHARACTER_CODE(char1, char2, char3, char4)                                                                               \
-    static_cast<u32>(char1) | (static_cast<u32>(char2) << 8) | (static_cast<u32>(char3) << 16) |                            \
-        (static_cast<u32>(char4) << 24)
+    static_cast<daxa_u32>(char1) | (static_cast<daxa_u32>(char2) << 8) | (static_cast<daxa_u32>(char3) << 16) |                            \
+        (static_cast<daxa_u32>(char4) << 24)
 
 enum DdsMagicNumber {
     DDS = MAKE_FOUR_CHARACTER_CODE('D', 'D', 'S', ' '),
@@ -175,7 +175,7 @@ enum DdsMagicNumber {
     DX10 = MAKE_FOUR_CHARACTER_CODE('D', 'X', '1', '0'), // Any DXGI format
 };
 
-enum HeaderFlags : u32 {
+enum HeaderFlags : daxa_u32 {
     Caps = 0x1,
     Height = 0x2,
     Width = 0x4,
@@ -187,7 +187,7 @@ enum HeaderFlags : u32 {
     LinearSize = 0x00080000,
 };
 
-enum Caps2Flags : u32 {
+enum Caps2Flags : daxa_u32 {
     Cubemap = 0x200,
 };
 
@@ -196,10 +196,10 @@ enum Caps2Flags : u32 {
 /** An additional header for DX10 */
 struct Dx10Header {
     DXGI_FORMAT dxgiFormat;
-    i32 resourceDimension;
-    u32 miscFlags;
-    u32 arraySize;
-    u32 miscFlags2;
+    daxa_i32 resourceDimension;
+    daxa_u32 miscFlags;
+    daxa_u32 arraySize;
+    daxa_u32 miscFlags2;
 };
 
 enum class PixelFormatFlags : uint32_t {
@@ -220,31 +220,31 @@ inline PixelFormatFlags operator&(PixelFormatFlags a, PixelFormatFlags b) {
 
 struct FilePixelFormat 
 {
-    u32 size;
+    daxa_u32 size;
     PixelFormatFlags flags;
-    u32 fourCC;
-    u32 bitCount;
-    u32 rBitMask;
-    u32 gBitMask;
-    u32 bBitMask;
-    u32 aBitMask;
+    daxa_u32 fourCC;
+    daxa_u32 bitCount;
+    daxa_u32 rBitMask;
+    daxa_u32 gBitMask;
+    daxa_u32 bBitMask;
+    daxa_u32 aBitMask;
 };
 
 struct DDSHeader
 {
 
-    u32 size;
+    daxa_u32 size;
     HeaderFlags flags;
-    u32 height;
-    u32 width;
-    u32 pitch;
-    u32 depth;
-    u32 mipmapCount;
-    u32 reserved[11];
+    daxa_u32 height;
+    daxa_u32 width;
+    daxa_u32 pitch;
+    daxa_u32 depth;
+    daxa_u32 mipmapCount;
+    daxa_u32 reserved[11];
     FilePixelFormat pixelFormat;
-    u32 caps1;
-    u32 caps2;
-    u32 caps3;
-    u32 caps4;
-    u32 reserved2;
+    daxa_u32 caps1;
+    daxa_u32 caps2;
+    daxa_u32 caps3;
+    daxa_u32 caps4;
+    daxa_u32 reserved2;
 };

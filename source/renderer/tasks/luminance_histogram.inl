@@ -7,7 +7,7 @@
 
 struct LuminanceHistogramPC
 {
-    u32vec2 resolution;
+    daxa_u32vec2 resolution;
 };
 
 DAXA_DECL_TASK_USES_BEGIN(LuminanceHistogramTaskBase, DAXA_UNIFORM_BUFFER_SLOT0)
@@ -28,14 +28,14 @@ inline auto get_luminance_histogram_pipeline() -> daxa::ComputePipelineCompileIn
 
 struct LuminanceHistogramTask : LuminanceHistogramTaskBase
 {
-    static constexpr u32vec2 workgroup_size = {32u, 32u};
+    static constexpr daxa_u32vec2 workgroup_size = {32u, 32u};
     Context * context = {};
     void callback(daxa::TaskInterface ti)
     {
         auto cmd_list = ti.get_command_list();
 
-        auto resolution = context->device.info_image(uses._offscreen.image()).size;
-        u32vec2 dispatch_size = u32vec2{
+        auto resolution = context->device.info_image(uses._offscreen.image()).value().size;
+        daxa_u32vec2 dispatch_size = daxa_u32vec2{
             (resolution.x + workgroup_size.x - 1) / workgroup_size.x,
             (resolution.y + workgroup_size.y - 1) / workgroup_size.y
         };

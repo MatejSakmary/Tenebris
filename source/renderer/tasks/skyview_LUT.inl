@@ -39,7 +39,7 @@ struct ComputeSkyViewTask : ComputeSkyViewTaskBase
     {
         auto cmd_list = ti.get_command_list();
 
-        auto skyview_dimensions = context->device.info_image(uses._skyview_LUT.image()).size;
+        auto skyview_dimensions = context->device.info_image(uses._skyview_LUT.image()).value().size;
 
         cmd_list.set_uniform_buffer(ti.uses.get_uniform_buffer_info());
         cmd_list.set_pipeline(*(context->pipelines.skyview));

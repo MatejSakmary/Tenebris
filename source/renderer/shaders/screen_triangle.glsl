@@ -1,12 +1,11 @@
-#define DAXA_ENABLE_SHADER_NO_NAMESPACE 1
 #include <shared/shared.inl>
 
-layout (location = 0) out f32vec2 out_uv;
+layout (location = 0) out daxa_f32vec2 out_uv;
 
-f32vec2 vertices[3] = f32vec2[](
-    f32vec2( 1.0, -3.0),
-    f32vec2( 1.0,  1.0),
-    f32vec2(-3.0,  1.0)
+daxa_f32vec2 vertices[3] = daxa_f32vec2[](
+    daxa_f32vec2( 1.0, -3.0),
+    daxa_f32vec2( 1.0,  1.0),
+    daxa_f32vec2(-3.0,  1.0)
 );
 
 void main()

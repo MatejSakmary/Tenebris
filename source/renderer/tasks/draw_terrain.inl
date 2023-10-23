@@ -37,9 +37,8 @@ inline auto get_draw_terrain_pipeline(bool wireframe) -> daxa::RasterPipelineCom
             {.format = daxa::Format::R16G16B16A16_SFLOAT}, // g_albedo
             {.format = daxa::Format::R16G16B16A16_SFLOAT}, // g_normals
         },
-        .depth_test = { 
+        .depth_test = daxa::DepthTestInfo{ 
             .depth_attachment_format = daxa::Format::D32_SFLOAT,
-            .enable_depth_test = true,
             .enable_depth_write = true,
             .depth_test_compare_op = daxa::CompareOp::GREATER_OR_EQUAL,
         },
@@ -74,12 +73,14 @@ struct DrawTerrainTask : DrawTerrainTaskBase
                 {
                     .image_view = {uses._g_albedo.view()},
                     .load_op = daxa::AttachmentLoadOp::CLEAR,
-                    .clear_value = std::array<f32, 4>{0.0, 0.0, 0.0, 1.0}
+                    .store_op = daxa::AttachmentStoreOp::STORE,
+                    .clear_value = std::array<daxa_f32, 4>{0.0, 0.0, 0.0, 1.0}
                 },
                 {
                     .image_view = {uses._g_normals.view()},
                     .load_op = daxa::AttachmentLoadOp::CLEAR,
-                    .clear_value = std::array<f32, 4>{0.0, 0.0, 0.0, 1.0}
+                    .store_op = daxa::AttachmentStoreOp::STORE,
+                    .clear_value = std::array<daxa_f32, 4>{0.0, 0.0, 0.0, 1.0}
                 },
             },
             .depth_attachment = 
@@ -88,20 +89,24 @@ struct DrawTerrainTask : DrawTerrainTaskBase
                 .layout = daxa::ImageLayout::ATTACHMENT_OPTIMAL,
                 .load_op = daxa::AttachmentLoadOp::CLEAR,
                 .store_op = daxa::AttachmentStoreOp::STORE,
-                .clear_value = daxa::ClearValue{daxa::DepthValue{0.0f, 0}},
+                .clear_value = daxa::DepthValue{0.0f, 0},
             }},
             .render_area = {.x = 0, .y = 0, .width = dimensions.x , .height = dimensions.y}
         });
         if(*wireframe) { cmd_list.set_pipeline(*(context->pipelines.draw_terrain_wireframe)); }
         else           { cmd_list.set_pipeline(*(context->pipelines.draw_terrain_solid));     }
 
-        cmd_list.set_index_buffer(uses._indices.buffer(), 0, sizeof(u32));
+        cmd_list.set_index_buffer(daxa::SetIndexBufferInfo{
+            .id = uses._indices.buffer(), 
+            .offset =  0u,
+            .index_type = daxa::IndexType::uint32
+        });
         cmd_list.push_constant(DrawTerrainPC{ 
             .linear_sampler_id = context->linear_sampler,
             .nearest_sampler_id = context->nearest_sampler,
             .use_secondary_camera = use_secondary_camera ? 1u : 0u,
         });
-        cmd_list.draw_indexed({.index_count = static_cast<u32>(context->terrain_index_size)});
+        cmd_list.draw_indexed({.index_count = static_cast<daxa_u32>(context->terrain_index_size)});
         cmd_list.end_renderpass();
     }
 };

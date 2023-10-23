@@ -7,7 +7,7 @@
 
 struct AdaptAverageLuminancePC
 {
-    u32vec2 resolution;
+    daxa_u32vec2 resolution;
 };
 
 DAXA_DECL_TASK_USES_BEGIN(AdaptAverageLuminanceTaskBase, DAXA_UNIFORM_BUFFER_SLOT0)
@@ -28,7 +28,7 @@ inline auto get_adapt_average_luminance_pipeline() -> daxa::ComputePipelineCompi
 
 struct AdaptAverageLuminanceTask : AdaptAverageLuminanceTaskBase
 {
-    static constexpr u32vec2 workgroup_size = {16u, 16u};
+    static constexpr daxa_u32vec2 workgroup_size = {16u, 16u};
     Context * context;
 
     void callback(daxa::TaskInterface ti)

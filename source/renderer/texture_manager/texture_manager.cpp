@@ -38,15 +38,15 @@ TextureManager::TextureManager(TextureManagerInfo const & c_info) : info{c_info}
         {
             auto cmd_list = ti.get_command_list();
 
-            auto image_info = info.device.info_image(ti.uses[load_dst_hdr_texture].image());
+            auto image_info = info.device.info_image(ti.uses[load_dst_hdr_texture].image()).value();
             cmd_list.copy_buffer_to_image({
                 .buffer = this->loaded_raw_data_buffer_id,
                 .buffer_offset = 0,
                 .image = ti.uses[load_dst_hdr_texture].image(),
                 .image_extent = {
-                    static_cast<u32>(image_info.size.x),
-                    static_cast<u32>(image_info.size.y),
-                    static_cast<u32>(image_info.size.z)
+                    static_cast<daxa_u32>(image_info.size.x),
+                    static_cast<daxa_u32>(image_info.size.y),
+                    static_cast<daxa_u32>(image_info.size.z)
                 }
             });
         },
@@ -63,7 +63,7 @@ TextureManager::TextureManager(TextureManagerInfo const & c_info) : info{c_info}
     height_to_normal_task_graph = daxa::TaskGraph({
         .device = info.device,
         .permutation_condition_count = 0,
-        .name = "texture manager height to normals task graph"
+        .name = "tex_man height to normals task graph"
     });
 
     height_to_normal_task_graph.use_persistent_image(normal_src_hdr_texture);
@@ -90,7 +90,7 @@ TextureManager::TextureManager(TextureManagerInfo const & c_info) : info{c_info}
     compress_texture_task_graph = daxa::TaskGraph({
         .device = info.device,
         .permutation_condition_count = 0,
-        .name = "texture manager compress texture task graph"
+        .name = "tex_man compress texture task graph"
     });
 
     compress_texture_task_graph.use_persistent_image(compress_src_hdr_texture);
@@ -116,7 +116,7 @@ TextureManager::TextureManager(TextureManagerInfo const & c_info) : info{c_info}
         {
             auto cmd_list = ti.get_command_list();
             {
-                auto image_info = info.device.info_image(ti.uses[uint_compress_texture].image());
+                auto image_info = info.device.info_image(ti.uses[uint_compress_texture].image()).value();
                 cmd_list.copy_image_to_image({
                     .src_image = ti.uses[uint_compress_texture].image(),
                     .dst_image = ti.uses[compress_dst_bc6h_texture].image(),
@@ -171,7 +171,7 @@ void TextureManager::load_texture(const LoadTextureInfo &load_info)
     auto actual_wait_time = stopwatch.elapsed_time<unsigned int, std::chrono::milliseconds>();
     DEBUG_OUT("[TextureManager::loat_texture_data()] Load of " + load_info.filepath + " took " << actual_wait_time << " ms");
 
-    u32 const image_dimensions = 
+    daxa_u32 const image_dimensions = 
         std::min(image_info.resolution.z - 1, 1) + 
         std::min(image_info.resolution.y - 1, 1) +
         std::min(image_info.resolution.x - 1, 1);
@@ -184,15 +184,15 @@ void TextureManager::load_texture(const LoadTextureInfo &load_info)
                     .dimensions = image_dimensions,
                     .format = image_info.format,
                     .size = {
-                        static_cast<u32>(image_info.resolution.x),
-                        static_cast<u32>(image_info.resolution.y),
-                        static_cast<u32>(image_info.resolution.z)
+                        static_cast<daxa_u32>(image_info.resolution.x),
+                        static_cast<daxa_u32>(image_info.resolution.y),
+                        static_cast<daxa_u32>(image_info.resolution.z)
                     },
                     // TODO(msakmary) The usages should probably be exposed to the user
                     .usage = daxa::ImageUsageFlagBits::SHADER_SAMPLED | 
                              daxa::ImageUsageFlagBits::SHADER_STORAGE |
                              daxa::ImageUsageFlagBits::TRANSFER_DST,
-                    .allocate_info = daxa::AutoAllocInfo{daxa::MemoryFlagBits::DEDICATED_MEMORY},
+                    .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
                     .name = "raw texture"
                 })
             }
@@ -211,7 +211,7 @@ void TextureManager::load_texture(const LoadTextureInfo &load_info)
 
 void TextureManager::normals_from_heightmap(const NormalsFromHeightInfo & normals_info)
 {
-    auto texture_dimensions = info.device.info_image(normals_info.height_texture.get_state().images[0]).size;
+    auto texture_dimensions = info.device.info_image(normals_info.height_texture.get_state().images[0]).value().size;
     normals_info.height_texture.swap_images(normal_src_hdr_texture);
 
     normal_dst_hdr_texture.set_images({
@@ -219,9 +219,9 @@ void TextureManager::normals_from_heightmap(const NormalsFromHeightInfo & normal
             std::array{
                 info.device.create_image({
                     .format = daxa::Format::R32G32B32A32_SFLOAT,
-                    .size = {static_cast<u32>(texture_dimensions.x), static_cast<u32>(texture_dimensions.y), 1},
+                    .size = {static_cast<daxa_u32>(texture_dimensions.x), static_cast<daxa_u32>(texture_dimensions.y), 1},
                     .usage = daxa::ImageUsageFlagBits::SHADER_SAMPLED | daxa::ImageUsageFlagBits::SHADER_STORAGE,
-                    .allocate_info = daxa::AutoAllocInfo{daxa::MemoryFlagBits::DEDICATED_MEMORY},
+                    .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
                     .name = "normal dst map hdr"
                 })
             }
@@ -240,10 +240,10 @@ void TextureManager::normals_from_heightmap(const NormalsFromHeightInfo & normal
 
 void TextureManager::compress_hdr_texture(const CompressTextureInfo & compress_info)
 {
-    auto texture_dimensions = info.device.info_image(compress_info.raw_texture.get_state().images[0]).size;
+    auto texture_dimensions = info.device.info_image(compress_info.raw_texture.get_state().images[0]).value().size;
 
-	u32 width_round = (texture_dimensions.x + BC6HCompressTask::BC_BLOCK_SIZE - 1) / BC6HCompressTask::BC_BLOCK_SIZE;
-	u32 height_round = (texture_dimensions.y + BC6HCompressTask::BC_BLOCK_SIZE - 1) / BC6HCompressTask::BC_BLOCK_SIZE;
+	daxa_u32 width_round = (texture_dimensions.x + BC6HCompressTask::BC_BLOCK_SIZE - 1) / BC6HCompressTask::BC_BLOCK_SIZE;
+	daxa_u32 height_round = (texture_dimensions.y + BC6HCompressTask::BC_BLOCK_SIZE - 1) / BC6HCompressTask::BC_BLOCK_SIZE;
 
     compress_info.raw_texture.swap_images(compress_src_hdr_texture);
 
@@ -254,7 +254,7 @@ void TextureManager::compress_hdr_texture(const CompressTextureInfo & compress_i
                     .format = daxa::Format::R32G32B32A32_UINT,
                     .size = {width_round, height_round, 1},
                     .usage = daxa::ImageUsageFlagBits::TRANSFER_SRC | daxa::ImageUsageFlagBits::SHADER_STORAGE,
-                    .allocate_info = daxa::AutoAllocInfo{daxa::MemoryFlagBits::DEDICATED_MEMORY},
+                    .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
                     .name = "uint compress texture"
                 })
             }
@@ -266,9 +266,9 @@ void TextureManager::compress_hdr_texture(const CompressTextureInfo & compress_i
             std::array{
                 info.device.create_image({
                     .format = daxa::Format::BC6H_UFLOAT_BLOCK,
-                    .size = {static_cast<u32>(texture_dimensions.x), static_cast<u32>(texture_dimensions.y), 1},
+                    .size = {static_cast<daxa_u32>(texture_dimensions.x), static_cast<daxa_u32>(texture_dimensions.y), 1},
                     .usage = daxa::ImageUsageFlagBits::TRANSFER_DST | daxa::ImageUsageFlagBits::SHADER_SAMPLED,
-                    .allocate_info = daxa::AutoAllocInfo{daxa::MemoryFlagBits::DEDICATED_MEMORY},
+                    .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
                     .name = "diffuse map bc6h"
                 })
             }

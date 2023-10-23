@@ -33,11 +33,11 @@ struct GuiManager
         GuiManagerInfo info;
         std::string curr_path;
 
-        f32vec2 sun_angle;
-        u32vec2 trans_lut_dim;
-        u32vec2 mult_lut_dim;
-        u32vec2 sky_lut_dim;
-        f32vec3 new_camera_position{0.0f, 0.0f, 0.0f};
-        f32 min_luminance;
-        f32 max_luminance;
+        daxa_f32vec2 sun_angle;
+        daxa_u32vec2 trans_lut_dim;
+        daxa_u32vec2 mult_lut_dim;
+        daxa_u32vec2 sky_lut_dim;
+        daxa_f32vec3 new_camera_position{0.0f, 0.0f, 0.0f};
+        daxa_f32 min_luminance;
+        daxa_f32 max_luminance;
 };

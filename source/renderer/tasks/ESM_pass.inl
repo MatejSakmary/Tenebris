@@ -7,8 +7,8 @@
 
 struct ESMShadowPC
 {
-    u32vec2 offset;
-    u32 cascade_index;
+    daxa_u32vec2 offset;
+    daxa_u32 cascade_index;
 };
 
 #define WORKGROUP_SIZE 64
@@ -52,9 +52,9 @@ struct ESMFirstPassTask : ESMFirstPassTaskBase
         cmd_list.set_pipeline(*(context->pipelines.first_esm_pass));
 
         const auto resolution_multiplier = TerrainShadowmapTask::resolution_table[NUM_CASCADES - 1];
-        for(u32 i = 0; i < NUM_CASCADES; i++ )
+        for(daxa_u32 i = 0; i < NUM_CASCADES; i++ )
         {
-            u32vec2 offset;
+            daxa_u32vec2 offset;
             offset.x = i % resolution_multiplier.x;
             offset.y = i / resolution_multiplier.x;
 
@@ -82,7 +82,7 @@ struct ESMSecondPassTask : ESMSecondPassTaskBase
         cmd_list.set_uniform_buffer(ti.uses.get_uniform_buffer_info());
         cmd_list.set_pipeline(*(context->pipelines.second_esm_pass));
 
-        for(u32 i = 0; i < NUM_CASCADES; i++ )
+        for(daxa_u32 i = 0; i < NUM_CASCADES; i++ )
         {
             cmd_list.push_constant(ESMShadowPC{ .offset = {}, .cascade_index = i });
             cmd_list.dispatch(SHADOWMAP_RESOLUTION, SHADOWMAP_RESOLUTION / WORKGROUP_SIZE);

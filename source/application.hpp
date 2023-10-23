@@ -9,7 +9,7 @@ using namespace daxa::types;
 #include "window.hpp"
 #include "camera.hpp"
 
-static constexpr i32vec2 INIT_WINDOW_DIMENSIONS = {1920, 1080};
+static constexpr daxa_i32vec2 INIT_WINDOW_DIMENSIONS = {1920, 1080};
 
 union KeyTable
 {
@@ -31,13 +31,13 @@ struct Application
 {
     struct AppState
     {
-        f64 last_frame_time = 0.0;
-        f64 delta_time = 0.0;
+        daxa_f64 last_frame_time = 0.0;
+        daxa_f64 delta_time = 0.0;
 
         bool minimized = false;
         bool fly_cam = false;
         bool first_input = true;
-        f32vec2 last_mouse_pos;
+        daxa_f32vec2 last_mouse_pos;
 
         KeyTable key_table;
     };
@@ -61,8 +61,8 @@ struct Application
         void ui_update();
         void process_input();
 
-        void mouse_callback(f64 x, f64 y);
-        void mouse_button_callback(i32 button, i32 action, i32 mods);
-        void key_callback(i32 key, i32 code, i32 action, i32 mods);
-        void window_resize_callback(i32 width, i32 height);
+        void mouse_callback(daxa_f64 x, daxa_f64 y);
+        void mouse_button_callback(daxa_i32 button, daxa_i32 action, daxa_i32 mods);
+        void key_callback(daxa_i32 key, daxa_i32 code, daxa_i32 action, daxa_i32 mods);
+        void window_resize_callback(daxa_i32 width, daxa_i32 height);
 };

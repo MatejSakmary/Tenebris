@@ -23,9 +23,8 @@ inline auto get_debug_draw_frustum_pipeline(Context const & context) -> daxa::Ra
         .vertex_shader_info = daxa::ShaderCompileInfo{ .source = daxa::ShaderFile{"debug_draw_frustum.glsl"}, },
         .fragment_shader_info = daxa::ShaderCompileInfo{ .source = daxa::ShaderFile{"debug_draw_frustum.glsl"}, },
         .color_attachments = { {.format = context.swapchain.get_format()},},
-        .depth_test = { 
+        .depth_test = daxa::DepthTestInfo{ 
             .depth_attachment_format = daxa::Format::D32_SFLOAT,
-            .enable_depth_test = true,
             .enable_depth_write = true,
             .depth_test_compare_op = daxa::CompareOp::GREATER_OR_EQUAL,
         },
@@ -40,7 +39,7 @@ inline auto get_debug_draw_frustum_pipeline(Context const & context) -> daxa::Ra
 
 struct DebugDrawFrustumTask : DebugDrawFrustumTaskBase
 {
-    static constexpr u32 index_count = 18u;
+    static constexpr daxa_u32 index_count = 18u;
     
     Context * context = {};
     void callback(daxa::TaskInterface ti)
@@ -70,7 +69,11 @@ struct DebugDrawFrustumTask : DebugDrawFrustumTaskBase
 
         cmd_list.set_pipeline(*(context->pipelines.debug_draw_frustum)); 
 
-        cmd_list.set_index_buffer(uses._frustum_indices.buffer(), 0, sizeof(u32));
+        cmd_list.set_index_buffer({
+            .id = uses._frustum_indices.buffer(),
+            .offset = 0u,
+            .index_type = daxa::IndexType::uint32
+        });
         cmd_list.draw_indirect({
             .draw_command_buffer = uses._frustum_indirect.buffer(),
             .is_indexed = true

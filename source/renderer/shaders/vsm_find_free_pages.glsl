@@ -1,4 +1,3 @@
-#define DAXA_ENABLE_SHADER_NO_NAMESPACE 1
 #define DAXA_ENABLE_IMAGE_OVERLOADS_BASIC 1
 #include <shared/shared.inl>
 #include "vsm_common.glsl"
@@ -9,42 +8,42 @@
 
 struct BufferReserveInfo
 {
-    u32 reserved_count;
-    u32 reserved_offset;
-    u32 order;
+    daxa_u32 reserved_count;
+    daxa_u32 reserved_offset;
+    daxa_u32 order;
     bool condition;
 };
 
 BufferReserveInfo count_pages_and_reserve_buffer_slots(
     bool count_free_pages,
     daxa_BufferPtr(FindFreePagesHeader) header,
-    u32 meta_entry
+    daxa_u32 meta_entry
 )
 {
     bool condition;
     if(count_free_pages) { condition = !get_meta_memory_is_allocated(meta_entry); }
     else                 { condition =  get_meta_memory_is_allocated(meta_entry) && (!get_meta_memory_is_visited(meta_entry)); }
 
-    const u32vec4 condition_mask = subgroupBallot(condition);
-    const u32 order = subgroupBallotExclusiveBitCount(condition_mask);
+    const daxa_u32vec4 condition_mask = subgroupBallot(condition);
+    const daxa_u32 order = subgroupBallotExclusiveBitCount(condition_mask);
 
-    u32 broadcast_value = 0;
+    daxa_u32 broadcast_value = 0;
     // Last thread will attempt to allocate all the pages
     if(gl_SubgroupInvocationID == 31)
     {
         // Because we did ExlusiveSum earlier we also need to recheck this threads result
         // as it was not included in the sum
-        const u32 page_count = order + i32(condition);
+        const daxa_u32 page_count = order + daxa_i32(condition);
 
-        u32 previous_counter_value;
+        daxa_u32 previous_counter_value;
         if(count_free_pages) { previous_counter_value = atomicAdd(deref(header).free_buffer_counter, page_count); } 
         else                 { previous_counter_value = atomicAdd(deref(header).not_visited_buffer_counter, page_count); }
 
-        u32 reserve_count = 0;
-        u32 counter_overflow = 0;
+        daxa_u32 reserve_count = 0;
+        daxa_u32 counter_overflow = 0;
         if(previous_counter_value < MAX_NUM_VSM_ALLOC_REQUEST)
         {
-            const u32 counter_capacity = MAX_NUM_VSM_ALLOC_REQUEST - previous_counter_value;
+            const daxa_u32 counter_capacity = MAX_NUM_VSM_ALLOC_REQUEST - previous_counter_value;
             reserve_count = min(page_count, counter_capacity);
             counter_overflow = page_count - reserve_count;
         } else {
@@ -62,7 +61,7 @@ BufferReserveInfo count_pages_and_reserve_buffer_slots(
         broadcast_value |= (reserve_count & n_mask(16));
     }
 
-    u32 reserved_info = subgroupBroadcast(broadcast_value, 31);
+    daxa_u32 reserved_info = subgroupBroadcast(broadcast_value, 31);
     return BufferReserveInfo(
         reserved_info & n_mask(16), // reserved_count
         reserved_info >> 16,        // reserved_offset
@@ -74,13 +73,13 @@ BufferReserveInfo count_pages_and_reserve_buffer_slots(
 layout (local_size_x = VSM_FIND_FREE_PAGES_LOCAL_SIZE_X, local_size_y = 1, local_size_z = 1) in;
 void main()
 {
-    const i32 linear_thread_index = i32(gl_WorkGroupID.x * VSM_FIND_FREE_PAGES_LOCAL_SIZE_X + gl_LocalInvocationID.x);
-    const i32vec2 thread_coords = i32vec2(
+    const daxa_i32 linear_thread_index = daxa_i32(gl_WorkGroupID.x * VSM_FIND_FREE_PAGES_LOCAL_SIZE_X + gl_LocalInvocationID.x);
+    const daxa_i32vec2 thread_coords = daxa_i32vec2(
         linear_thread_index % VSM_META_MEMORY_RESOLUTION,
         linear_thread_index / VSM_META_MEMORY_RESOLUTION
     );
 
-    const u32 meta_entry = imageLoad(daxa_uimage2D(_vsm_meta_memory_table), thread_coords).r;
+    const daxa_u32 meta_entry = imageLoad(daxa_uimage2D(_vsm_meta_memory_table), thread_coords).r;
 
     BufferReserveInfo info = count_pages_and_reserve_buffer_slots(true, _vsm_find_free_pages_header, meta_entry);
     bool fits_into_reserved_slots = info.order < info.reserved_count;
@@ -103,12 +102,12 @@ void main()
 #if VSM_DEBUG_VIZ_PASS == 0
     if(!info.condition)
     {
-        const i32vec3 vsm_coords = get_vsm_coords_from_meta_entry(meta_entry);
-        imageStore(daxa_uimage2D(_vsm_meta_memory_table), thread_coords, u32vec4(meta_entry & (~meta_memory_visited_mask())));
+        const daxa_i32vec3 vsm_coords = get_vsm_coords_from_meta_entry(meta_entry);
+        imageStore(daxa_uimage2D(_vsm_meta_memory_table), thread_coords, daxa_u32vec4(meta_entry & (~meta_memory_visited_mask())));
 
-        const u32 vsm_entry = imageLoad(daxa_uimage2DArray(_vsm_page_table), vsm_coords).r;
-        const u32 visited_reset_vsm_entry = vsm_entry & (~visited_marked_mask());
-        imageStore(daxa_uimage2DArray(_vsm_page_table), vsm_coords, u32vec4(visited_reset_vsm_entry));
+        const daxa_u32 vsm_entry = imageLoad(daxa_uimage2DArray(_vsm_page_table), vsm_coords).r;
+        const daxa_u32 visited_reset_vsm_entry = vsm_entry & (~visited_marked_mask());
+        imageStore(daxa_uimage2DArray(_vsm_page_table), vsm_coords, daxa_u32vec4(visited_reset_vsm_entry));
     }
 #endif // DEBUG_VIZ_PASS
 }

@@ -17,7 +17,7 @@ using namespace std::literals;
 
 struct Context
 {
-    static constexpr u32 frames_in_flight = 2;
+    static constexpr daxa_u32 frames_in_flight = 2;
     struct Buffers
     {
         daxa::TaskBuffer globals;
@@ -152,15 +152,15 @@ struct Context
     daxa::SamplerId llce_sampler;
     daxa::ImGuiRenderer imgui_renderer;
 
-    u32 terrain_index_size;
+    daxa_u32 terrain_index_size;
 
-    u32 debug_frustum_cpu_count;
+    daxa_u32 debug_frustum_cpu_count;
     std::array<Histogram, HISTOGRAM_BIN_COUNT> cpu_histogram;
     std::array<FrustumVertex, 8 * MAX_FRUSTUM_COUNT> frustum_vertices;
     std::array<FrustumColor, MAX_FRUSTUM_COUNT> frustum_colors;
     std::array<VSMClipProjection, VSM_CLIP_LEVELS> vsm_sun_projections;
     std::array<FreeWrappedPagesInfo, VSM_CLIP_LEVELS> vsm_free_wrapped_pages_info;
-    std::array<i32vec2, VSM_CLIP_LEVELS> vsm_last_frame_offset;
+    std::array<daxa_i32vec2, VSM_CLIP_LEVELS> vsm_last_frame_offset;
 };
 
 using MainConditionals = Context::MainTaskList::Conditionals;

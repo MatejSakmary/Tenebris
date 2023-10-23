@@ -8,8 +8,8 @@ using namespace daxa::types;
 
 struct PlanetGeometry
 {
-    std::vector<f32vec2> vertices;
-    std::vector<u32> indices;
+    std::vector<daxa_f32vec2> vertices;
+    std::vector<daxa_u32> indices;
 };
 
 auto generate_planet() -> PlanetGeometry;

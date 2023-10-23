@@ -32,7 +32,7 @@ auto load_dds_data(std::string const & filepath, daxa::Device device) -> LoadedI
     }
         
     // Magic + Header
-    static constexpr uint32_t MAGIC_PLUS_HEADER_SIZE = sizeof(u32) + sizeof(DDSHeader);
+    static constexpr uint32_t MAGIC_PLUS_HEADER_SIZE = sizeof(daxa_u32) + sizeof(DDSHeader);
     static constexpr uint32_t ADDITIONAL_HEADER_SIZE = sizeof(Dx10Header);
     std::array<uint8_t, std::max(MAGIC_PLUS_HEADER_SIZE, ADDITIONAL_HEADER_SIZE)> read_buffer;
 
@@ -40,7 +40,7 @@ auto load_dds_data(std::string const & filepath, daxa::Device device) -> LoadedI
     filestream.seekg(0);
     filestream.read(reinterpret_cast<char*>(read_buffer.data()), MAGIC_PLUS_HEADER_SIZE);
 
-    u32 const dds_magic = *(reinterpret_cast<u32*>(read_buffer.data()));
+    daxa_u32 const dds_magic = *(reinterpret_cast<daxa_u32*>(read_buffer.data()));
     DDSHeader header = *(reinterpret_cast<const DDSHeader*>(read_buffer.data() + sizeof(uint32_t)));
 
     // Validate header. A DWORD (magic number) containing the four character code value 'DDS ' (0x20534444).
@@ -52,7 +52,7 @@ auto load_dds_data(std::string const & filepath, daxa::Device device) -> LoadedI
     }
 
     bool has_additional_header = has_bit(header.pixelFormat.flags , PixelFormatFlags::FourCC ) &&
-                                 has_bit(header.pixelFormat.fourCC, static_cast<u32>(DdsMagicNumber::DX10));
+                                 has_bit(header.pixelFormat.fourCC, static_cast<daxa_u32>(DdsMagicNumber::DX10));
     Dx10Header additional_header;
     if(has_additional_header)
     {
@@ -117,27 +117,26 @@ auto load_dds_data(std::string const & filepath, daxa::Device device) -> LoadedI
         );
     }
 
-    u32 const data_size = static_cast<u32>(file_size) - (MAGIC_PLUS_HEADER_SIZE + ADDITIONAL_HEADER_SIZE);
+    daxa_u32 const data_size = static_cast<daxa_u32>(file_size) - (MAGIC_PLUS_HEADER_SIZE + ADDITIONAL_HEADER_SIZE);
 
     DBG_ASSERT_TRUE_M(header.depth != 0, "TODO(msakmary) set this properly even for 2D images");
     daxa::ImageInfo tmp_info = 
     {
-        .dimensions = static_cast<u32>(additional_header.resourceDimension),
+        .dimensions = static_cast<daxa_u32>(additional_header.resourceDimension),
         .format = format,
         .size = {header.width, header.height, header.depth},
         .usage = daxa::ImageUsageFlagBits::TRANSFER_DST   | 
                  daxa::ImageUsageFlagBits::SHADER_SAMPLED |
                  daxa::ImageUsageFlagBits::SHADER_STORAGE,
-        .allocate_info = daxa::AutoAllocInfo{},
-        .name = "Fake image to figure out dds memory requirements"
+        .name = "dds mem req tmp image"
     };
     auto const memory_requirements = device.get_memory_requirements(tmp_info);
     DBG_ASSERT_TRUE_M(memory_requirements.size == data_size, "TODO(msakmary) bug or compressed texture?");
 
     auto staging_buffer_id = device.create_buffer({
-        .size = static_cast<u32>(memory_requirements.size),
-        .allocate_info = daxa::AutoAllocInfo{daxa::MemoryFlagBits::HOST_ACCESS_RANDOM},
-        .name = "staging buffer for dds image " + filepath
+        .size = static_cast<daxa_u32>(memory_requirements.size),
+        .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+        .name = "dds image staging buffer"
     });
 
     auto staging_buffer_ptr = device.get_host_address_as<char>(staging_buffer_id);
@@ -147,9 +146,9 @@ auto load_dds_data(std::string const & filepath, daxa::Device device) -> LoadedI
         .format = format,
         .staging_buffer_id = staging_buffer_id, 
         .resolution = {
-            static_cast<i32>(header.width),
-            static_cast<i32>(header.height),
-            static_cast<i32>(header.depth)
+            static_cast<daxa_i32>(header.width),
+            static_cast<daxa_i32>(header.height),
+            static_cast<daxa_i32>(header.depth)
         }
     };
 }

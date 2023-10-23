@@ -38,7 +38,7 @@ struct ComputeMultiscatteringTask : ComputeMultiscatteringTaskBase
     {
         auto cmd_list = ti.get_command_list();
 
-        auto multiscattering_dimensions = context->device.info_image(uses._multiscattering_LUT.image()).size;
+        auto multiscattering_dimensions = context->device.info_image(uses._multiscattering_LUT.image()).value().size;
         cmd_list.set_uniform_buffer(ti.uses.get_uniform_buffer_info());
         cmd_list.set_pipeline(*(context->pipelines.multiscattering));
         cmd_list.push_constant(MultiscatteringPC{

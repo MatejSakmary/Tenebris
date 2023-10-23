@@ -28,7 +28,7 @@ struct ComputeTransmittanceTask : ComputeTransmittanceTaskBase
     {
         auto cmd_list = ti.get_command_list();
 
-        auto image_dimensions = context->device.info_image(uses._transmittance_LUT.image()).size;
+        auto image_dimensions = context->device.info_image(uses._transmittance_LUT.image()).value().size;
         cmd_list.set_uniform_buffer(ti.uses.get_uniform_buffer_info());
         cmd_list.set_pipeline(*(context->pipelines.transmittance));
         cmd_list.dispatch(((image_dimensions.x + 7)/8), ((image_dimensions.y + 3)/4));

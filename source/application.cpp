@@ -2,14 +2,14 @@
 
 #include "renderer/context.hpp"
 
-void Application::mouse_callback(f64 x, f64 y)
+void Application::mouse_callback(daxa_f64 x, daxa_f64 y)
 {
-    f32 x_offset;
-    f32 y_offset;
+    daxa_f32 x_offset;
+    daxa_f32 y_offset;
     if(!state.first_input)
     {
-        x_offset = f32(x) - state.last_mouse_pos.x;
-        y_offset = f32(y) - state.last_mouse_pos.y;
+        x_offset = daxa_f32(x) - state.last_mouse_pos.x;
+        y_offset = daxa_f32(y) - state.last_mouse_pos.y;
     } else {
         x_offset = 0.0f;
         y_offset = 0.0f;
@@ -18,17 +18,17 @@ void Application::mouse_callback(f64 x, f64 y)
 
     if(state.fly_cam)
     {
-        state.last_mouse_pos = {f32(x), f32(y)};
+        state.last_mouse_pos = {daxa_f32(x), daxa_f32(y)};
         active_camera->update_front_vector(x_offset, y_offset);
     }
 }
 
-void Application::mouse_button_callback(i32 button, i32 action, i32 mods)
+void Application::mouse_button_callback(daxa_i32 button, daxa_i32 action, daxa_i32 mods)
 {
 
 }
 
-void Application::window_resize_callback(i32 width, i32 height)
+void Application::window_resize_callback(daxa_i32 width, daxa_i32 height)
 {
     state.minimized = (width == 0 || height == 0);
     if(!state.minimized)
@@ -37,16 +37,16 @@ void Application::window_resize_callback(i32 width, i32 height)
         if(std::holds_alternative<PerspectiveInfo>(active_camera->proj_info))
         {
             auto & projection_info = std::get<PerspectiveInfo>(active_camera->proj_info);
-            projection_info.aspect_ratio = f32(width) / f32(height);
+            projection_info.aspect_ratio = daxa_f32(width) / daxa_f32(height);
         }
     }
 }
 
-void Application::key_callback(i32 key, i32 code, i32 action, i32 mods)
+void Application::key_callback(daxa_i32 key, daxa_i32 code, daxa_i32 action, daxa_i32 mods)
 {
     if(action == GLFW_PRESS || action == GLFW_RELEASE)
     {
-        auto update_state = [](i32 action) -> unsigned int
+        auto update_state = [](daxa_i32 action) -> unsigned int
         {
             if(action == GLFW_PRESS) return 1;
             return 0;
@@ -88,13 +88,13 @@ void update_input()
 Application::Application() : 
     window(INIT_WINDOW_DIMENSIONS,
     WindowVTable {
-        .mouse_pos_callback = [this](const f64 x, const f64 y)
+        .mouse_pos_callback = [this](const daxa_f64 x, const daxa_f64 y)
             {this->mouse_callback(x, y);},
-        .mouse_button_callback = [this](const i32 button, const i32 action, const i32 mods)
+        .mouse_button_callback = [this](const daxa_i32 button, const daxa_i32 action, const daxa_i32 mods)
             {this->mouse_button_callback(button, action, mods);},
-        .key_callback = [this](const i32 key, const i32 code, const i32 action, const i32 mods)
+        .key_callback = [this](const daxa_i32 key, const daxa_i32 code, const daxa_i32 action, const daxa_i32 mods)
             {this->key_callback(key, code, action, mods);},
-        .window_resized_callback = [this](const i32 width, const i32 height)
+        .window_resized_callback = [this](const daxa_i32 width, const daxa_i32 height)
             {this->window_resize_callback(width, height);},
     }),
     state{ .minimized = false },
@@ -102,7 +102,7 @@ Application::Application() :
         .front = {0.0, 1.0, 0.0},
         .up = {0.0, 0.0, 1.0}, 
         .projection_info = PerspectiveInfo{
-            .aspect_ratio = f32(INIT_WINDOW_DIMENSIONS.x)/f32(INIT_WINDOW_DIMENSIONS.y),
+            .aspect_ratio = daxa_f32(INIT_WINDOW_DIMENSIONS.x)/daxa_f32(INIT_WINDOW_DIMENSIONS.y),
             .fov = glm::radians(70.0f),
             .near_plane = 0.01f,
         }
@@ -112,7 +112,7 @@ Application::Application() :
         .front = {0.0, 1.0, 0.0},
         .up = {0.0, 0.0, 1.0}, 
         .projection_info = PerspectiveInfo{
-            .aspect_ratio = f32(INIT_WINDOW_DIMENSIONS.x)/f32(INIT_WINDOW_DIMENSIONS.y),
+            .aspect_ratio = daxa_f32(INIT_WINDOW_DIMENSIONS.x)/daxa_f32(INIT_WINDOW_DIMENSIONS.y),
             .fov = glm::radians(70.0f),
             .near_plane = 10.0f,
         }
@@ -127,7 +127,7 @@ Application::Application() :
 
 void Application::process_input()
 {
-    f64 this_frame_time = glfwGetTime();
+    daxa_f64 this_frame_time = glfwGetTime();
     state.delta_time =  this_frame_time - state.last_frame_time;
     state.last_frame_time = this_frame_time;
 

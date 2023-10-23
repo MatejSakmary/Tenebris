@@ -7,9 +7,9 @@
 
 struct AnalyzeDepthPC
 {
-    u32vec2 depth_dimensions;
+    daxa_u32vec2 depth_dimensions;
     daxa_SamplerId linear_sampler;
-    u32 prev_thread_count;
+    daxa_u32 prev_thread_count;
 };
 
 DAXA_DECL_TASK_USES_BEGIN(AnalyzeDepthbufferTaskBase, DAXA_UNIFORM_BUFFER_SLOT0)
@@ -44,11 +44,14 @@ inline auto get_analyze_depthbuffer_pipeline(bool first_pass) -> daxa::ComputePi
 
 struct AnalyzeDepthbufferTask : AnalyzeDepthbufferTaskBase
 {
-    static constexpr u32vec2 workgroup_size = {32u, 32u};
+    static constexpr daxa_u32vec2 workgroup_size = {32u, 32u};
     // Each thread will read a 2x2 block
-    static constexpr u32vec2 thread_read_count = {2u, 2u};
+    static constexpr daxa_u32vec2 thread_read_count = {2u, 2u};
     // How many pixels each workgroup will read on each axis
-    static constexpr u32vec2 wg_total_reads_per_axis = workgroup_size * thread_read_count;
+    static constexpr daxa_u32vec2 wg_total_reads_per_axis = daxa_u32vec2(
+        workgroup_size.x * thread_read_count.x,
+        workgroup_size.y * thread_read_count.y
+    );
 
     Context * context = {};
     void callback(daxa::TaskInterface ti)
@@ -56,8 +59,8 @@ struct AnalyzeDepthbufferTask : AnalyzeDepthbufferTaskBase
         auto cmd_list = ti.get_command_list();
 
         // Each thread will read a 2x2 block
-        auto image_dimensions = context->device.info_image(uses._depth.image()).size;
-        u32vec2 first_pass_dispatch_size = u32vec2{
+        auto image_dimensions = context->device.info_image(uses._depth.image()).value().size;
+        daxa_u32vec2 first_pass_dispatch_size = daxa_u32vec2{
             (image_dimensions.x + wg_total_reads_per_axis.x - 1) / wg_total_reads_per_axis.x,
             (image_dimensions.y + wg_total_reads_per_axis.y - 1) / wg_total_reads_per_axis.y
         };
@@ -70,10 +73,10 @@ struct AnalyzeDepthbufferTask : AnalyzeDepthbufferTaskBase
         cmd_list.set_pipeline(*(context->pipelines.analyze_depthbuffer_first_pass));
         cmd_list.dispatch(first_pass_dispatch_size.x, first_pass_dispatch_size.y);
 
-        u32 const threads_in_block = workgroup_size.x * workgroup_size.y;
-        u32 const wg_total_reads = threads_in_block * thread_read_count.x * thread_read_count.y;
-        u32 prev_pass_num_threads = first_pass_dispatch_size.x * first_pass_dispatch_size.y;
-        u32 second_pass_dispatch_size = 0;
+        daxa_u32 const threads_in_block = workgroup_size.x * workgroup_size.y;
+        daxa_u32 const wg_total_reads = threads_in_block * thread_read_count.x * thread_read_count.y;
+        daxa_u32 prev_pass_num_threads = first_pass_dispatch_size.x * first_pass_dispatch_size.y;
+        daxa_u32 second_pass_dispatch_size = 0;
         while(second_pass_dispatch_size != 1)
         {
             second_pass_dispatch_size = (prev_pass_num_threads + wg_total_reads - 1) / wg_total_reads;

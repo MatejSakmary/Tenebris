@@ -8,7 +8,7 @@
 struct DrawTerrainShadowmapPC
 {
     daxa_SamplerId linear_sampler_id;
-    u32 cascade_level;
+    daxa_u32 cascade_level;
 };
 
 DAXA_DECL_TASK_USES_BEGIN(TerrainShadowmapTaskBase, DAXA_UNIFORM_BUFFER_SLOT0)
@@ -29,9 +29,8 @@ inline auto get_terrain_shadowmap_pipeline() -> daxa::RasterPipelineCompileInfo 
         .tesselation_control_shader_info = daxa::ShaderCompileInfo{ .source = daxa::ShaderFile{"draw_terrain.glsl"}, .compile_options = options },
         .tesselation_evaluation_shader_info = daxa::ShaderCompileInfo{ .source = daxa::ShaderFile{"draw_terrain.glsl"}, .compile_options = options },
         .fragment_shader_info = daxa::ShaderCompileInfo{ .source = daxa::ShaderFile{"draw_terrain.glsl"}, .compile_options = options },
-        .depth_test = {
+        .depth_test = daxa::DepthTestInfo{
             .depth_attachment_format = daxa::Format::D32_SFLOAT,
-            .enable_depth_test = true,
             .enable_depth_write = true,
         },
         .raster = { 
@@ -53,9 +52,9 @@ struct TerrainShadowmapTask : TerrainShadowmapTaskBase
 
     // TODO(msakmary) Make this a function - iteratively increase the dimensions of the smaller dimension
     // untill the image fits
-    static constexpr std::array<u32vec2, 8> resolution_table{
-        u32vec2{1u,1u}, u32vec2{2u,1u}, u32vec2{2u,2u}, u32vec2{2u,2u},
-        u32vec2{3u,2u}, u32vec2{3u,2u}, u32vec2{3u,3u}, u32vec2{3u,3u},
+    static constexpr std::array<daxa_u32vec2, 8> resolution_table{
+        daxa_u32vec2{1u,1u}, daxa_u32vec2{2u,1u}, daxa_u32vec2{2u,2u}, daxa_u32vec2{2u,2u},
+        daxa_u32vec2{3u,2u}, daxa_u32vec2{3u,2u}, daxa_u32vec2{3u,3u}, daxa_u32vec2{3u,3u},
     };
 
     void callback(daxa::TaskInterface ti)
@@ -64,7 +63,7 @@ struct TerrainShadowmapTask : TerrainShadowmapTaskBase
         auto cmd_list = ti.get_command_list();
 
         cmd_list.set_uniform_buffer(ti.uses.get_uniform_buffer_info());
-        auto dimensions = context->device.info_image(uses._shadowmap_cascades.image()).size;
+        auto dimensions = context->device.info_image(uses._shadowmap_cascades.image()).value().size;
 
         const auto resolution_multiplier = resolution_table[NUM_CASCADES - 1];
         cmd_list.begin_renderpass({
@@ -85,16 +84,20 @@ struct TerrainShadowmapTask : TerrainShadowmapTaskBase
         });
 
         cmd_list.set_pipeline(*(context->pipelines.draw_terrain_shadowmap));
-        cmd_list.set_index_buffer(uses._indices.buffer(), 0, sizeof(u32));
+        cmd_list.set_index_buffer({
+            .id = uses._indices.buffer(),
+            .offset = 0u,
+            .index_type = daxa::IndexType::uint32
+        });
 
-        for(u32 i = 0; i < NUM_CASCADES; i++ )
+        for(daxa_u32 i = 0; i < NUM_CASCADES; i++ )
         {
-            u32vec2 offset;
+            daxa_u32vec2 offset;
             offset.x = i % resolution_multiplier.x;
             offset.y = i / resolution_multiplier.x;
             cmd_list.set_viewport({
-                .x = static_cast<f32>(offset.x * SHADOWMAP_RESOLUTION),
-                .y = static_cast<f32>(offset.y * SHADOWMAP_RESOLUTION),
+                .x = static_cast<daxa_f32>(offset.x * SHADOWMAP_RESOLUTION),
+                .y = static_cast<daxa_f32>(offset.y * SHADOWMAP_RESOLUTION),
                 .width = SHADOWMAP_RESOLUTION,
                 .height = SHADOWMAP_RESOLUTION,
                 .min_depth = 0.0f,
@@ -104,7 +107,7 @@ struct TerrainShadowmapTask : TerrainShadowmapTaskBase
                 .linear_sampler_id = context->linear_sampler,
                 .cascade_level = i
             });
-            cmd_list.draw_indexed({ .index_count = static_cast<u32>(context->terrain_index_size)});
+            cmd_list.draw_indexed({ .index_count = static_cast<daxa_u32>(context->terrain_index_size)});
         }
 
         cmd_list.end_renderpass();

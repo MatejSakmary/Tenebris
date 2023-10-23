@@ -28,8 +28,8 @@ inline auto get_vsm_find_free_pages_pipeline() -> daxa::ComputePipelineCompileIn
 struct VSMFindFreePagesTask : VSMFindFreePagesTaskBase
 {
     Context * context = {};
-    static constexpr i32 meta_memory_pix_count = VSM_META_MEMORY_RESOLUTION * VSM_META_MEMORY_RESOLUTION;
-    static constexpr i32 dispatch_x_size = 
+    static constexpr daxa_i32 meta_memory_pix_count = VSM_META_MEMORY_RESOLUTION * VSM_META_MEMORY_RESOLUTION;
+    static constexpr daxa_i32 dispatch_x_size = 
         (meta_memory_pix_count + VSM_FIND_FREE_PAGES_LOCAL_SIZE_X - 1) / VSM_FIND_FREE_PAGES_LOCAL_SIZE_X;
 
     void callback(daxa::TaskInterface ti)
