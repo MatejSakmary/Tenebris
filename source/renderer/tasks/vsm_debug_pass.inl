@@ -44,7 +44,7 @@ struct VSMDebugVirtualPageTableTask : VSMDebugVirtualPageTableTaskBase
     Context * context = {};
     void callback(daxa::TaskInterface ti)
     {
-        auto cmd_list = ti.get_command_list();
+        auto & cmd_list = ti.get_recorder();
 
         cmd_list.set_uniform_buffer(ti.uses.get_uniform_buffer_info());
         cmd_list.set_pipeline(*(context->pipelines.vsm_debug_page_table));
@@ -63,7 +63,7 @@ struct VSMDebugMetaTableTask : VSMDebugMetaTableTaskBase
     Context * context = {};
     void callback(daxa::TaskInterface ti)
     {
-        auto cmd_list = ti.get_command_list();
+        auto & cmd_list = ti.get_recorder();
 
         cmd_list.set_uniform_buffer(ti.uses.get_uniform_buffer_info());
         cmd_list.set_pipeline(*(context->pipelines.vsm_debug_meta_memory_table));

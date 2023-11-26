@@ -62,12 +62,12 @@ struct DrawTerrainTask : DrawTerrainTaskBase
 
     void callback(daxa::TaskInterface ti)
     {
-        auto cmd_list = ti.get_command_list();
+        auto & cmd_list = ti.get_recorder();
 
         auto dimensions = context->swapchain.get_surface_extent();
 
         cmd_list.set_uniform_buffer(ti.uses.get_uniform_buffer_info());
-        cmd_list.begin_renderpass({
+        auto render_cmd_list = std::move(cmd_list).begin_renderpass({
             .color_attachments = 
             {
                 {
@@ -93,21 +93,21 @@ struct DrawTerrainTask : DrawTerrainTaskBase
             }},
             .render_area = {.x = 0, .y = 0, .width = dimensions.x , .height = dimensions.y}
         });
-        if(*wireframe) { cmd_list.set_pipeline(*(context->pipelines.draw_terrain_wireframe)); }
-        else           { cmd_list.set_pipeline(*(context->pipelines.draw_terrain_solid));     }
+        if(*wireframe) { render_cmd_list.set_pipeline(*(context->pipelines.draw_terrain_wireframe)); }
+        else           { render_cmd_list.set_pipeline(*(context->pipelines.draw_terrain_solid));     }
 
-        cmd_list.set_index_buffer(daxa::SetIndexBufferInfo{
+        render_cmd_list.set_index_buffer(daxa::SetIndexBufferInfo{
             .id = uses._indices.buffer(), 
             .offset =  0u,
             .index_type = daxa::IndexType::uint32
         });
-        cmd_list.push_constant(DrawTerrainPC{ 
+        render_cmd_list.push_constant(DrawTerrainPC{ 
             .linear_sampler_id = context->linear_sampler,
             .nearest_sampler_id = context->nearest_sampler,
             .use_secondary_camera = use_secondary_camera ? 1u : 0u,
         });
-        cmd_list.draw_indexed({.index_count = static_cast<daxa_u32>(context->terrain_index_size)});
-        cmd_list.end_renderpass();
+        render_cmd_list.draw_indexed({.index_count = static_cast<daxa_u32>(context->terrain_index_size)});
+        cmd_list = std::move(render_cmd_list).end_renderpass();
     }
 };
 #endif

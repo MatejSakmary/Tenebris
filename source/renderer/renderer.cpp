@@ -334,7 +334,7 @@ void Renderer::create_persistent_resources()
         },
         .task = [&, this](daxa::TaskInterface ti)
         {
-            auto cmd_list = ti.get_command_list();
+            auto & cmd_list = ti.get_recorder();
             {
                 {
                     daxa_u32 size = sizeof(FrustumIndex) * DebugDrawFrustumTask::index_count;
@@ -648,7 +648,7 @@ void Renderer::initialize_main_tasklist()
         },
         .task = [&, this](daxa::TaskInterface ti)
         {
-            auto cmd_list = ti.get_command_list();
+            auto & cmd_list = ti.get_recorder();
             {
                 auto upload_cpu_to_gpu = [&](BufferId gpu_buffer, void* cpu_buffer, size_t size)
                 {
@@ -989,7 +989,6 @@ void Renderer::initialize_main_tasklist()
     });
     #pragma endregion
 
-/*
     #pragma region prepare_shadowmap_matrices
     tl.task_list.add_task(PrepareShadowmapMatricesTask{{
         .uses = {
@@ -1035,7 +1034,7 @@ void Renderer::initialize_main_tasklist()
         &context
     });
     #pragma endregion
-*/
+
     #pragma region deferred_pass
     tl.task_list.add_task(DeferredPassTask{{
         .uses = {
@@ -1078,7 +1077,7 @@ void Renderer::initialize_main_tasklist()
         },
         .task = [&, this](daxa::TaskInterface ti)
         {
-            auto cmd_list = ti.get_command_list();
+            auto & cmd_list = ti.get_recorder();
             const daxa_u32 size = static_cast<daxa_u32>(sizeof(Histogram)) * HISTOGRAM_BIN_COUNT;
             const bool is_frame_even = globals->frame_index % 2 == 0;
 
@@ -1244,7 +1243,7 @@ void Renderer::upload_planet_geometry(PlanetGeometry const & geometry)
         },
         .task = [=, this](daxa::TaskInterface ti)
         {
-            auto cmd_list = ti.get_command_list();
+            auto & cmd_list = ti.get_recorder();
 
             {
                 auto vert_staging_mem_res = ti.get_allocator().allocate(vertices_size);
@@ -1387,7 +1386,6 @@ void Renderer::draw(DrawInfo const & info)
 
         context.vsm_sun_projections.at(clip_level) = VSMClipProjection{
             .camera_height_offset = align_page_info.sun_height_offset,
-            .per_height_unit_depth_offset = align_page_info.per_height_unit_depth_offset,
             .depth_page_offset = align_page_info.per_page_depth_offset,
             .page_offset = daxa_i32vec2{
                 align_page_info.page_offset.x % VSM_PAGE_TABLE_RESOLUTION,
@@ -1437,7 +1435,7 @@ void Renderer::draw(DrawInfo const & info)
         context.main_task_list.conditionals.size()
     }});
 
-    auto * histogram_host_pointer = context.device.get_host_address_as<Histogram>(context.buffers.histogram_readback.get_state().buffers[0]);
+    auto * histogram_host_pointer = context.device.get_host_address_as<Histogram>(context.buffers.histogram_readback.get_state().buffers[0]).value();
     const bool was_last_frame_even = ((globals->frame_index - 1) % 2) == 0;
     const daxa_u32 offset = was_last_frame_even ? 0 : HISTOGRAM_BIN_COUNT;
     memcpy(context.cpu_histogram.data(), histogram_host_pointer + offset, sizeof(Histogram) * HISTOGRAM_BIN_COUNT);

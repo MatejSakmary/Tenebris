@@ -18,22 +18,6 @@ shared daxa_u32 shared_histogram[HISTOGRAM_BIN_COUNT];
 
 void main()
 {
-#if defined(DEBUG)
-    daxa_u32 bin_sum = 0;
-    daxa_u32 weighed_sum = 0;
-    for(daxa_i32 i = 0; i < 256; i++)
-    {
-        bin_sum += deref(_histogram[i]).bin_count;
-        // weighed_sum += clamp(deref(_histogram[i]).bin_count, 0, 10000) * i;
-        weighed_sum += deref(_histogram[i]).bin_count * i;
-    }
-    shared_histogram[0] = weighed_sum;
-    const daxa_u32 bin_count = deref(_histogram[0]).bin_count;
-    if(pc.resolution.x * pc.resolution.y != bin_sum)
-    {
-        debugPrintfEXT("bin_sum should be %d but is %d\n", pc.resolution.x * pc.resolution.y, bin_sum);
-    }
-#else
     const daxa_u32 bin_count = deref(_histogram[gl_LocalInvocationIndex]).bin_count;
     // store weighed luminance
     shared_histogram[gl_LocalInvocationIndex] = bin_count * gl_LocalInvocationIndex;
@@ -59,7 +43,6 @@ void main()
         memoryBarrierShared();
         barrier();
     }
-#endif
 
     if(gl_LocalInvocationIndex == 0)
     {

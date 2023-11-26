@@ -26,7 +26,7 @@ struct ComputeTransmittanceTask : ComputeTransmittanceTaskBase
     Context *context = {};
     void callback(daxa::TaskInterface ti)
     {
-        auto cmd_list = ti.get_command_list();
+        auto & cmd_list = ti.get_recorder();
 
         auto image_dimensions = context->device.info_image(uses._transmittance_LUT.image()).value().size;
         cmd_list.set_uniform_buffer(ti.uses.get_uniform_buffer_info());

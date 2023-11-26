@@ -11,6 +11,10 @@ daxa_f32 cornette_shanks_mie_phase_function(daxa_f32 g, daxa_f32 cos_theta)
     daxa_f32 k = 3.0 / (8.0 * PI) * (1.0 - g * g) / (2.0 + g * g);
     return k * (1.0 + cos_theta * cos_theta) / pow(1.0 + g * g - 2.0 * g * -cos_theta, 1.5);
 }
+#define TAU 2 * PI
+daxa_f32 klein_nishina_phase(daxa_f32 cos_theta, daxa_f32 e) {
+    return e / (TAU * (e * (1.0 - cos_theta) + 1.0) * log(2.0 * e + 1.0));
+}
 
 daxa_f32 rayleigh_phase(daxa_f32 cos_theta)
 {
@@ -29,7 +33,7 @@ daxa_f32vec3 get_multiple_scattering(daxa_f32vec3 world_position, daxa_f32 view_
     uv = daxa_f32vec2(from_unit_to_subuv(uv.x, deref(_globals).mult_lut_dim.x),
                  from_unit_to_subuv(uv.y, deref(_globals).mult_lut_dim.y));
 
-    return texture(daxa_sampler2D(_multiscattering_LUT, pc.sampler_id), uv).rgb;
+    return texture(daxa_sampler2D(_multiscattering_LUT, pc.wrong_sampler_id), uv).rgb;
 }
 
 daxa_f32vec3 integrate_scattered_luminance(daxa_f32vec3 world_position, 
@@ -60,7 +64,8 @@ daxa_f32vec3 integrate_scattered_luminance(daxa_f32vec3 world_position,
     }
 
     daxa_f32 cos_theta = dot(sun_direction, world_direction);
-    daxa_f32 mie_phase_value = cornette_shanks_mie_phase_function(deref(_globals).mie_phase_function_g, -cos_theta);
+    daxa_f32 mie_phase_value = klein_nishina_phase(cos_theta, 2800.0);
+    // daxa_f32 mie_phase_value = cornette_shanks_mie_phase_function(deref(_globals).mie_phase_function_g, -cos_theta);
     daxa_f32 rayleigh_phase_value = rayleigh_phase(cos_theta);
 
     daxa_f32vec3 accum_transmittance = daxa_f32vec3(1.0, 1.0, 1.0);
@@ -92,7 +97,7 @@ daxa_f32vec3 integrate_scattered_luminance(daxa_f32vec3 world_position,
 
         /* uv coordinates later used to sample transmittance texture */
         daxa_f32vec2 trans_texture_uv = transmittance_lut_to_uv(transmittance_lut_params, deref(_globals).atmosphere_bottom, deref(_globals).atmosphere_top);
-        daxa_f32vec3 transmittance_to_sun = texture(daxa_sampler2D(_transmittance_LUT, pc.sampler_id), trans_texture_uv).rgb;
+        daxa_f32vec3 transmittance_to_sun = texture(daxa_sampler2D(_transmittance_LUT, pc.wrong_sampler_id), trans_texture_uv).rgb;
 
         daxa_f32vec3 phase_times_scattering = medium_scattering.mie * mie_phase_value + medium_scattering.ray * rayleigh_phase_value;
 
@@ -103,8 +108,9 @@ daxa_f32vec3 integrate_scattered_luminance(daxa_f32vec3 world_position,
         daxa_f32vec3 multiscattered_luminance = get_multiple_scattering(new_position, dot(sun_direction, up_vector)); 
 
         /* Light arriving from the sun to this point */
-        daxa_f32vec3 sun_light = in_earth_shadow * transmittance_to_sun * phase_times_scattering +
-            multiscattered_luminance * (medium_scattering.ray + medium_scattering.mie);
+        daxa_f32vec3 sun_light = 
+            ((in_earth_shadow * transmittance_to_sun * phase_times_scattering) + 
+            (multiscattered_luminance * (medium_scattering.ray + medium_scattering.mie)));// * deref(_globals).sun_brightness;
 
         /* TODO: This probably should be a texture lookup*/
         daxa_f32vec3 trans_increase_over_integration_step = exp(-(medium_extinction * d_int_step));
@@ -161,6 +167,6 @@ void main()
         imageStore(daxa_image2D(_skyview_LUT), daxa_i32vec2(gl_GlobalInvocationID.xy), daxa_f32vec4(0.0, 0.0, 0.0, 1.0));
         return;
     }
-    daxa_f32vec3 luminance = integrate_scattered_luminance(world_position, world_direction, local_sun_direction, 30);
+    daxa_f32vec3 luminance = integrate_scattered_luminance(world_position, world_direction, local_sun_direction, 50);
     imageStore(daxa_image2D(_skyview_LUT), daxa_i32vec2(gl_GlobalInvocationID.xy), daxa_f32vec4(luminance, 1.0));
 }

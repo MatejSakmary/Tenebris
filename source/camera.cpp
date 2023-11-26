@@ -376,8 +376,6 @@ auto Camera::align_clip_to_player(
     recalculate_matrices();
 
     const auto origin_shift = (projection * view * glm::vec4(0.0, 0.0, 0.0, 1.0)).z;
-    const auto per_height_unit_depth_offset = 
-        ((projection * view) * glm::vec4(sun_offset.x * 1000.0f, sun_offset.y * 1000.0f, sun_offset.z * 1000.0f, 1.0)).z - origin_shift;
     const auto page_x_depth_offset = ((projection * view) * glm::vec4(x_offset_vector, 1.0)).z - origin_shift;
     const auto page_y_depth_offset = ((projection * view) * glm::vec4(y_offset_vector, 1.0)).z - origin_shift;
 
@@ -428,6 +426,5 @@ auto Camera::align_clip_to_player(
             -static_cast<daxa_i32>(ndc_page_scaled_aligned_player_position.y)
         },
         .sun_height_offset = sun_height_offset,
-        .per_height_unit_depth_offset = per_height_unit_depth_offset
     };
 }

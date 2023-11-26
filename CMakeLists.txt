@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(tenebris)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_executable( ${PROJECT_NAME} 
     "source/main.cpp"
@@ -12,9 +13,6 @@ add_executable( ${PROJECT_NAME}
     "source/renderer/texture_manager/texture_manager.cpp"
     "source/renderer/texture_manager/load_format_exr.cpp"
     "source/renderer/texture_manager/load_format_dds.cpp")
-
-set(CDT_USE_AS_COMPILED_LIBRARY "ON")
-add_subdirectory("external/CDT")
 
 find_package(daxa CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
@@ -44,7 +42,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     OpenEXR::OpenEXR
     glm::glm
     glfw
-    CDT::CDT
 )
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     target_link_libraries(${PROJECT_NAME} PRIVATE Dwmapi)

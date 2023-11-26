@@ -119,7 +119,7 @@ auto load_texture_data(CreateStagingBufferInfo & info) -> daxa::BufferId
         .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
         .name = info.name
     });
-    auto * buffer_ptr = info.device.get_host_address_as<Elem>(new_buffer_id);
+    auto * buffer_ptr = info.device.get_host_address_as<Elem>(new_buffer_id).value();
     FrameBuffer frame_buffer;
 
     std::array<int, 4> positions{-1, -1, -1, -1};

@@ -1,5 +1,4 @@
 #include "planet_generator.hpp"
-#include <CDT.h>
 
 auto generate_planet() -> PlanetGeometry
 {

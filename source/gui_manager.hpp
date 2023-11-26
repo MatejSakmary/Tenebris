@@ -5,7 +5,7 @@
 #include "camera.hpp"
 #include "renderer/renderer.hpp"
 #include "renderer/context.hpp"
-#include "../external/imgui_custom/imgui_file_dialog.hpp"
+#include "imgui_file_dialog.hpp"
 using namespace daxa::types;
 
 struct GuiManagerInfo

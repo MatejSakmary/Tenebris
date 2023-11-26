@@ -60,13 +60,13 @@ struct TerrainShadowmapTask : TerrainShadowmapTaskBase
     void callback(daxa::TaskInterface ti)
     {
         DBG_ASSERT_TRUE_M(NUM_CASCADES <= 8, "[TerrainShadowmapTask::callback()]More than 8 cascades are not supported");
-        auto cmd_list = ti.get_command_list();
+        auto & cmd_list = ti.get_recorder();
 
         cmd_list.set_uniform_buffer(ti.uses.get_uniform_buffer_info());
         auto dimensions = context->device.info_image(uses._shadowmap_cascades.image()).value().size;
 
         const auto resolution_multiplier = resolution_table[NUM_CASCADES - 1];
-        cmd_list.begin_renderpass({
+        auto render_cmd_list = std::move(cmd_list).begin_renderpass({
             .depth_attachment = 
             {{
                 .image_view = {uses._shadowmap_cascades.view()},
@@ -83,8 +83,8 @@ struct TerrainShadowmapTask : TerrainShadowmapTaskBase
             },
         });
 
-        cmd_list.set_pipeline(*(context->pipelines.draw_terrain_shadowmap));
-        cmd_list.set_index_buffer({
+        render_cmd_list.set_pipeline(*(context->pipelines.draw_terrain_shadowmap));
+        render_cmd_list.set_index_buffer({
             .id = uses._indices.buffer(),
             .offset = 0u,
             .index_type = daxa::IndexType::uint32
@@ -95,7 +95,7 @@ struct TerrainShadowmapTask : TerrainShadowmapTaskBase
             daxa_u32vec2 offset;
             offset.x = i % resolution_multiplier.x;
             offset.y = i / resolution_multiplier.x;
-            cmd_list.set_viewport({
+            render_cmd_list.set_viewport({
                 .x = static_cast<daxa_f32>(offset.x * SHADOWMAP_RESOLUTION),
                 .y = static_cast<daxa_f32>(offset.y * SHADOWMAP_RESOLUTION),
                 .width = SHADOWMAP_RESOLUTION,
@@ -103,14 +103,14 @@ struct TerrainShadowmapTask : TerrainShadowmapTaskBase
                 .min_depth = 0.0f,
                 .max_depth = 1.0f
             });
-            cmd_list.push_constant(DrawTerrainShadowmapPC{ 
+            render_cmd_list.push_constant(DrawTerrainShadowmapPC{ 
                 .linear_sampler_id = context->linear_sampler,
                 .cascade_level = i
             });
-            cmd_list.draw_indexed({ .index_count = static_cast<daxa_u32>(context->terrain_index_size)});
+            render_cmd_list.draw_indexed({ .index_count = static_cast<daxa_u32>(context->terrain_index_size)});
         }
 
-        cmd_list.end_renderpass();
+        cmd_list = std::move(render_cmd_list).end_renderpass();
     }
 };
 #endif //__cplusplus

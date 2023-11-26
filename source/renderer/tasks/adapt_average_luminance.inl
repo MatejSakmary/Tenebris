@@ -36,7 +36,7 @@ struct AdaptAverageLuminanceTask : AdaptAverageLuminanceTaskBase
         DBG_ASSERT_TRUE_M(HISTOGRAM_BIN_COUNT == 256, 
             "[Renderer::AdaptAverageLuminanceTask()] Wrong workgroup size for bin count != 256");
 
-        auto cmd_list = ti.get_command_list();
+        auto & cmd_list = ti.get_recorder();
 
         auto resolution = context->swapchain.get_surface_extent();
         cmd_list.set_uniform_buffer(ti.uses.get_uniform_buffer_info());

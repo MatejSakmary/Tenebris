@@ -8,6 +8,7 @@
 struct SkyviewPC
 {
     daxa_SamplerId sampler_id;
+    daxa_SamplerId wrong_sampler_id;
 };
 
 DAXA_DECL_TASK_USES_BEGIN(ComputeSkyViewTaskBase, DAXA_UNIFORM_BUFFER_SLOT0)
@@ -37,14 +38,15 @@ struct ComputeSkyViewTask : ComputeSkyViewTaskBase
 
     void callback(daxa::TaskInterface ti)
     {
-        auto cmd_list = ti.get_command_list();
+        auto & cmd_list = ti.get_recorder();
 
         auto skyview_dimensions = context->device.info_image(uses._skyview_LUT.image()).value().size;
 
         cmd_list.set_uniform_buffer(ti.uses.get_uniform_buffer_info());
         cmd_list.set_pipeline(*(context->pipelines.skyview));
         cmd_list.push_constant(SkyviewPC{
-            .sampler_id = context->linear_sampler,
+            .sampler_id = context->llce_sampler,
+            .wrong_sampler_id = context->linear_sampler,
         });
         cmd_list.dispatch((skyview_dimensions.x + 7)/8, ((skyview_dimensions.y + 3)/4));
     }

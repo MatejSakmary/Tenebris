@@ -9,8 +9,8 @@
 #define UNIT_SCALE 0.001
 #define HISTOGRAM_BIN_COUNT 256
 
-#define VSM_TEXTURE_RESOLUTION 4096
-#define VSM_MEMORY_RESOLUTION 2048
+#define VSM_TEXTURE_RESOLUTION 8192//4096
+#define VSM_MEMORY_RESOLUTION 4096
 #define VSM_PAGE_SIZE 128
 #define VSM_CLIP_LEVELS 16
 #define VSM_PAGE_TABLE_RESOLUTION (VSM_TEXTURE_RESOLUTION / VSM_PAGE_SIZE)
@@ -226,7 +226,6 @@ DAXA_DECL_BUFFER_PTR(AverageLuminance)
 struct VSMClipProjection
 {
     daxa_i32 camera_height_offset;
-    daxa_f32 per_height_unit_depth_offset;
     daxa_f32vec2 depth_page_offset;
     daxa_i32vec2 page_offset;
     daxa_i32vec3 offset;

@@ -26,7 +26,7 @@ struct VSMClearDirtyBitTask : VSMClearDirtyBitTaskBase
 
     void callback(daxa::TaskInterface ti)
     {
-        auto cmd_list = ti.get_command_list();
+        auto & cmd_list = ti.get_recorder();
         cmd_list.set_uniform_buffer(ti.uses.get_uniform_buffer_info());
         cmd_list.set_pipeline(*(context->pipelines.vsm_clear_dirty_bit));
         cmd_list.dispatch_indirect({

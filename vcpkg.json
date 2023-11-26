@@ -18,7 +18,7 @@
   "builtin-baseline": "78ba9711d30c64a6b40462c72f356c681e2255f3",
   "vcpkg-configuration": {
     "overlay-ports": [
-      "C:\\Developement\\Tenebris\\../Daxa/cmake/vcpkg-port"
+      "deps/Daxa"
     ]
   }
 }

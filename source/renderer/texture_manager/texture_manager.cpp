@@ -36,7 +36,7 @@ TextureManager::TextureManager(TextureManagerInfo const & c_info) : info{c_info}
         .uses = { daxa::ImageTransferWrite<>{load_dst_hdr_texture}},
         .task = [=, this](daxa::TaskInterface ti)
         {
-            auto cmd_list = ti.get_command_list();
+            auto & cmd_list = ti.get_recorder();
 
             auto image_info = info.device.info_image(ti.uses[load_dst_hdr_texture].image()).value();
             cmd_list.copy_buffer_to_image({
@@ -114,7 +114,7 @@ TextureManager::TextureManager(TextureManagerInfo const & c_info) : info{c_info}
         },
         .task = [&, this](daxa::TaskInterface ti)
         {
-            auto cmd_list = ti.get_command_list();
+            auto & cmd_list = ti.get_recorder();
             {
                 auto image_info = info.device.info_image(ti.uses[uint_compress_texture].image()).value();
                 cmd_list.copy_image_to_image({

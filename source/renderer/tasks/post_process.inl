@@ -41,11 +41,11 @@ struct PostProcessTask : PostProcessTaskBase
     Context * context = {};
     void callback(daxa::TaskInterface ti)
     {
-        auto cmd_list = ti.get_command_list();
+        auto & cmd_list = ti.get_recorder();
         auto dimensions = context->swapchain.get_surface_extent();
 
         cmd_list.set_uniform_buffer(ti.uses.get_uniform_buffer_info());
-        cmd_list.begin_renderpass({
+        auto render_cmd_list = std::move(cmd_list).begin_renderpass({
             .color_attachments = {{
                 .image_view = {uses._swapchain.view()},
                 .load_op = daxa::AttachmentLoadOp::CLEAR,
@@ -55,13 +55,13 @@ struct PostProcessTask : PostProcessTaskBase
             .render_area = {.x = 0, .y = 0, .width = dimensions.x , .height = dimensions.y}
         });
 
-        cmd_list.set_pipeline(*(context->pipelines.post_process));
-        cmd_list.push_constant(PostProcessPC{
+        render_cmd_list.set_pipeline(*(context->pipelines.post_process));
+        render_cmd_list.push_constant(PostProcessPC{
             .sampler_id = context->linear_sampler,
             .llce_sampler = context->llce_sampler
         });
-        cmd_list.draw({.vertex_count = 3});
-        cmd_list.end_renderpass();
+        render_cmd_list.draw({.vertex_count = 3});
+        cmd_list = std::move(render_cmd_list).end_renderpass();
     }
 };
 #endif

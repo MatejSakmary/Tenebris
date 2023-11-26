@@ -32,7 +32,7 @@ struct LuminanceHistogramTask : LuminanceHistogramTaskBase
     Context * context = {};
     void callback(daxa::TaskInterface ti)
     {
-        auto cmd_list = ti.get_command_list();
+        auto & cmd_list = ti.get_recorder();
 
         auto resolution = context->device.info_image(uses._offscreen.image()).value().size;
         daxa_u32vec2 dispatch_size = daxa_u32vec2{

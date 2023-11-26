@@ -51,13 +51,13 @@ struct DeferredPassTask : DeferredPassTaskBase
     Context *context = {}; 
     void callback(daxa::TaskInterface ti)
     {
-        auto cmd_list = ti.get_command_list();
+        auto & cmd_list = ti.get_recorder();
 
         auto swapchain_resolution = context->swapchain.get_surface_extent();
         auto esm_resolution = context->device.info_image(uses._esm.image()).value().size;
 
         cmd_list.set_uniform_buffer(ti.uses.get_uniform_buffer_info());
-        cmd_list.begin_renderpass({
+        auto render_cmd_list = std::move(cmd_list).begin_renderpass({
             .color_attachments = 
             {{
                 .image_view = {uses._offscreen.view()},
@@ -66,15 +66,15 @@ struct DeferredPassTask : DeferredPassTaskBase
             .render_area = {.x = 0, .y = 0, .width = swapchain_resolution.x , .height = swapchain_resolution.y}
         });
 
-        cmd_list.set_pipeline(*context->pipelines.deferred_pass);
-        cmd_list.push_constant(DeferredPassPC{ 
+        render_cmd_list.set_pipeline(*context->pipelines.deferred_pass);
+        render_cmd_list.push_constant(DeferredPassPC{ 
             .linear_sampler_id = context->linear_sampler,
             .nearest_sampler_id = context->nearest_sampler,
             .esm_resolution = {esm_resolution.x, esm_resolution.y},
             .offscreen_resolution = daxa_u32vec2{swapchain_resolution.x, swapchain_resolution.y},
         });
-        cmd_list.draw({.vertex_count = 3});
-        cmd_list.end_renderpass();
+        render_cmd_list.draw({.vertex_count = 3});
+        cmd_list = std::move(render_cmd_list).end_renderpass();
     }
 };
 #endif

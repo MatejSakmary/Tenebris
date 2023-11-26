@@ -60,10 +60,10 @@ struct VSMDrawPagesTask : VSMDrawPagesTaskBase
             .name = "vsm memory daxa_u32 view"
         });
 
-        auto cmd_list = ti.get_command_list();
+        auto & cmd_list = ti.get_recorder();
         cmd_list.destroy_image_view_deferred(daxa_u32_image_view);
         cmd_list.set_uniform_buffer(ti.uses.get_uniform_buffer_info());
-        cmd_list.begin_renderpass({
+        auto render_cmd_list = std::move(cmd_list).begin_renderpass({
             .color_attachments = 
             {
                 {
@@ -74,21 +74,21 @@ struct VSMDrawPagesTask : VSMDrawPagesTaskBase
             },
             .render_area = {.x = 0, .y = 0, .width = resolution.x, .height = resolution.y}
         });
-        cmd_list.set_pipeline(*(context->pipelines.vsm_draw_pages));
-        cmd_list.push_constant(VSMDrawPagesPC{
+        render_cmd_list.set_pipeline(*(context->pipelines.vsm_draw_pages));
+        render_cmd_list.push_constant(VSMDrawPagesPC{
             .llb_sampler = context->linear_sampler,
             .daxa_u32_vsm_memory_view = daxa_u32_image_view
         });
-        cmd_list.set_index_buffer({
+        render_cmd_list.set_index_buffer({
             .id = uses._indices.buffer(),
             .offset = 0,
             .index_type = daxa::IndexType::uint32 
         });
-        cmd_list.draw_indexed({
+        render_cmd_list.draw_indexed({
             .index_count = static_cast<daxa_u32>(context->terrain_index_size),
             .instance_count = VSM_CLIP_LEVELS
         });
-        cmd_list.end_renderpass();
+        cmd_list = std::move(render_cmd_list).end_renderpass();
     }
 };
 #endif //__cplusplus

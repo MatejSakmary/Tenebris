@@ -56,7 +56,7 @@ struct AnalyzeDepthbufferTask : AnalyzeDepthbufferTaskBase
     Context * context = {};
     void callback(daxa::TaskInterface ti)
     {
-        auto cmd_list = ti.get_command_list();
+        auto & cmd_list = ti.get_recorder();
 
         // Each thread will read a 2x2 block
         auto image_dimensions = context->device.info_image(uses._depth.image()).value().size;

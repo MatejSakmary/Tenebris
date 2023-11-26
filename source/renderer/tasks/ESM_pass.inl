@@ -46,7 +46,7 @@ struct ESMFirstPassTask : ESMFirstPassTaskBase
     {
         DBG_ASSERT_TRUE_M(SHADOWMAP_RESOLUTION % WORKGROUP_SIZE == 0,
             "[Renderer::ESMSecondPassTask()] SHADOWMAP_RESOLUTION must be a multiple of WORKGROUP_SIZE");
-        auto cmd_list = ti.get_command_list();
+        auto & cmd_list = ti.get_recorder();
 
         cmd_list.set_uniform_buffer(ti.uses.get_uniform_buffer_info());
         cmd_list.set_pipeline(*(context->pipelines.first_esm_pass));
@@ -77,7 +77,7 @@ struct ESMSecondPassTask : ESMSecondPassTaskBase
     {
         DBG_ASSERT_TRUE_M(SHADOWMAP_RESOLUTION % WORKGROUP_SIZE == 0,
             "[Renderer::ESMSecondPassTask()] SHADOWMAP_RESOLUTION must be a multiple of WORKGROUP_SIZE");
-        auto cmd_list = ti.get_command_list();
+        auto & cmd_list = ti.get_recorder();
 
         cmd_list.set_uniform_buffer(ti.uses.get_uniform_buffer_info());
         cmd_list.set_pipeline(*(context->pipelines.second_esm_pass));

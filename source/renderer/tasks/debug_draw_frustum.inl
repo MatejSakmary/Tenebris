@@ -44,12 +44,12 @@ struct DebugDrawFrustumTask : DebugDrawFrustumTaskBase
     Context * context = {};
     void callback(daxa::TaskInterface ti)
     {
-        auto cmd_list = ti.get_command_list();
+        auto & cmd_list = ti.get_recorder();
 
         auto dimensions = context->swapchain.get_surface_extent();
 
         cmd_list.set_uniform_buffer(ti.uses.get_uniform_buffer_info());
-        cmd_list.begin_renderpass({
+        auto render_cmd_list = std::move(cmd_list).begin_renderpass({
             .color_attachments = 
             {
                 {
@@ -67,18 +67,18 @@ struct DebugDrawFrustumTask : DebugDrawFrustumTaskBase
             .render_area = {.x = 0, .y = 0, .width = dimensions.x , .height = dimensions.y}
         });
 
-        cmd_list.set_pipeline(*(context->pipelines.debug_draw_frustum)); 
+        render_cmd_list.set_pipeline(*(context->pipelines.debug_draw_frustum)); 
 
-        cmd_list.set_index_buffer({
+        render_cmd_list.set_index_buffer({
             .id = uses._frustum_indices.buffer(),
             .offset = 0u,
             .index_type = daxa::IndexType::uint32
         });
-        cmd_list.draw_indirect({
+        render_cmd_list.draw_indirect({
             .draw_command_buffer = uses._frustum_indirect.buffer(),
             .is_indexed = true
         });
-        cmd_list.end_renderpass();
+        cmd_list = std::move(render_cmd_list).end_renderpass();
     }
 };
 #endif // __cplusplus

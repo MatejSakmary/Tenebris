@@ -31,10 +31,10 @@ void main()
 {
     if(gl_InvocationID == 0)
     {
-        daxa_f32vec4 scaled_pos_00 = daxa_f32vec4(gl_in[0].gl_Position.xy * deref(_globals).terrain_scale, gl_in[0].gl_Position.z, 1.0);
-        daxa_f32vec4 scaled_pos_01 = daxa_f32vec4(gl_in[1].gl_Position.xy * deref(_globals).terrain_scale, gl_in[1].gl_Position.z, 1.0);
-        daxa_f32vec4 scaled_pos_10 = daxa_f32vec4(gl_in[2].gl_Position.xy * deref(_globals).terrain_scale, gl_in[2].gl_Position.z, 1.0);
-        daxa_f32vec4 scaled_pos_11 = daxa_f32vec4(gl_in[3].gl_Position.xy * deref(_globals).terrain_scale, gl_in[3].gl_Position.z, 1.0);
+        daxa_f32vec4 offset_scaled_pos_00 = daxa_f32vec4(gl_in[0].gl_Position.xy * deref(_globals).terrain_scale, gl_in[0].gl_Position.z, 1.0);
+        daxa_f32vec4 offset_scaled_pos_01 = daxa_f32vec4(gl_in[1].gl_Position.xy * deref(_globals).terrain_scale, gl_in[1].gl_Position.z, 1.0);
+        daxa_f32vec4 offset_scaled_pos_10 = daxa_f32vec4(gl_in[2].gl_Position.xy * deref(_globals).terrain_scale, gl_in[2].gl_Position.z, 1.0);
+        daxa_f32vec4 offset_scaled_pos_11 = daxa_f32vec4(gl_in[3].gl_Position.xy * deref(_globals).terrain_scale, gl_in[3].gl_Position.z, 1.0);
 
 #if defined(SHADOWMAP_DRAW)
         daxa_i32vec3 offset = deref(_globals).offset;
@@ -51,10 +51,10 @@ void main()
             view = deref(_globals).view;
         }
 #endif
-        scaled_pos_00.xyz += offset; 
-        scaled_pos_01.xyz += offset; 
-        scaled_pos_10.xyz += offset; 
-        scaled_pos_11.xyz += offset; 
+        const daxa_f32vec4 scaled_pos_00 = daxa_f32vec4(offset_scaled_pos_00.xyz + offset.xyz, 1.0); 
+        const daxa_f32vec4 scaled_pos_01 = daxa_f32vec4(offset_scaled_pos_01.xyz + offset.xyz, 1.0); 
+        const daxa_f32vec4 scaled_pos_10 = daxa_f32vec4(offset_scaled_pos_10.xyz + offset.xyz, 1.0); 
+        const daxa_f32vec4 scaled_pos_11 = daxa_f32vec4(offset_scaled_pos_11.xyz + offset.xyz, 1.0); 
 
         daxa_f32 depth_00 = (view * scaled_pos_00).z;
         daxa_f32 depth_01 = (view * scaled_pos_01).z;

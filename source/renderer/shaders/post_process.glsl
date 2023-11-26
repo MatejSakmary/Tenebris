@@ -89,7 +89,7 @@ void agxLook(inout daxa_f32vec3 color) {
 #endif
 
 #if (TONEMAPPING == AGX) || (TONEMAPPING == TONY_MC_MAPFACE)
-const daxa_f32 exposureBias      = 0.5;
+const daxa_f32 exposureBias      = 1.0;
 const daxa_f32 calibration       = 12.5;  // Light meter calibration
 const daxa_f32 sensorSensitivity = 100.0; // Sensor sensitivity
 
@@ -103,6 +103,7 @@ daxa_f32 computeExposureFromEV100(daxa_f32 ev100) {
 
 daxa_f32 computeExposure(daxa_f32 averageLuminance) {
 	daxa_f32 ev100	 = computeEV100fromLuminance(averageLuminance);
+    ev100 = 12;
 	daxa_f32 exposure = computeExposureFromEV100(ev100);
 
 	return exposure;
@@ -233,6 +234,7 @@ daxa_f32mat3x3 chromaticAdaptationMatrix(daxa_f32vec3 source, daxa_f32vec3 desti
 	return (CONE_RESP_CAT02 * vonKries) * inverse(CONE_RESP_CAT02);
 }
 
+
 void whiteBalance(inout daxa_f32vec3 color) {
     vec3 source           = toXYZ(blackbody(WHITE_BALANCE));
     vec3 destination      = toXYZ(blackbody(WHITE_POINT  ));
@@ -266,5 +268,6 @@ void main()
     daxa_f32vec3 tonemapped_color = xyY_to_rgb(xyY);
 #endif
     whiteBalance(tonemapped_color);
-    out_color = daxa_f32vec4(tonemapped_color, 1.0);
+    out_color = daxa_f32vec4(tonemapped_color.rgb, 1.0);
+    // out_color.xyz = pow(out_color.xyz, daxa_f32vec3(1.0/2.2));
 }

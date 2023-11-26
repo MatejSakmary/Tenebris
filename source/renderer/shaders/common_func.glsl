@@ -258,10 +258,11 @@ ScatteringSample sample_medium_scattering_detailed(daxa_BufferPtr(Globals) param
 
     const daxa_f32 density_mie = exp(deref(params).mie_density[1].exp_scale * height);
     const daxa_f32 density_ray = exp(deref(params).rayleigh_density[1].exp_scale * height);
-    const daxa_f32 density_ozo = clamp(height < deref(params).absorption_density[0].layer_width ?
-        deref(params).absorption_density[0].lin_term * height + deref(params).absorption_density[0].const_term :
-        deref(params).absorption_density[1].lin_term * height + deref(params).absorption_density[1].const_term,
-        0.0, 1.0);
+    // const daxa_f32 density_ozo = clamp(height < deref(params).absorption_density[0].layer_width ?
+    //     deref(params).absorption_density[0].lin_term * height + deref(params).absorption_density[0].const_term :
+    //     deref(params).absorption_density[1].lin_term * height + deref(params).absorption_density[1].const_term,
+    //     0.0, 1.0);
+    // const daxa_f32 density_ozo = exp(-max(0.0, 35.0 - height) * (1.0/5.0)) * exp(-max(0.0, height - 35.0) * (1.0/15.0)) * 2;
 
     daxa_f32vec3 mie_scattering = deref(params).mie_scattering * density_mie;
     daxa_f32vec3 ray_scattering = deref(params).rayleigh_scattering * density_ray;

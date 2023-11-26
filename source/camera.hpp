@@ -76,7 +76,6 @@ struct ClipAlignInfo
     daxa_f32vec2 per_page_depth_offset;
     daxa_i32vec2 page_offset;
     daxa_i32 sun_height_offset;
-    daxa_f32 per_height_unit_depth_offset;
 };
 
 struct Camera

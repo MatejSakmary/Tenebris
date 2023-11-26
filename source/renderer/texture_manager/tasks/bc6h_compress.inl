@@ -44,7 +44,7 @@ struct BC6HCompressTask : BC6HCompressTaskBase
 
     void callback(daxa::TaskInterface ti)
     {
-        auto cmd_list = ti.get_command_list();
+        auto & cmd_list = ti.get_recorder();
 
         auto image_dimensions = device.info_image(uses._src_texture.image()).value().size;
         cmd_list.set_uniform_buffer(ti.uses.get_uniform_buffer_info());

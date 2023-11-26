@@ -139,7 +139,7 @@ auto load_dds_data(std::string const & filepath, daxa::Device device) -> LoadedI
         .name = "dds image staging buffer"
     });
 
-    auto staging_buffer_ptr = device.get_host_address_as<char>(staging_buffer_id);
+    auto staging_buffer_ptr = device.get_host_address_as<char>(staging_buffer_id).value();
     filestream.read(staging_buffer_ptr, memory_requirements.size);
     filestream.close();
     return {

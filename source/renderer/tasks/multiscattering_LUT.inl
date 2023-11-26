@@ -8,6 +8,7 @@
 struct MultiscatteringPC
 {
     daxa_SamplerId sampler_id;
+    daxa_SamplerId wrong_sampler_id;
 };
 
 DAXA_DECL_TASK_USES_BEGIN(ComputeMultiscatteringTaskBase, DAXA_UNIFORM_BUFFER_SLOT0)
@@ -36,13 +37,14 @@ struct ComputeMultiscatteringTask : ComputeMultiscatteringTaskBase
     Context * context = {};
     void callback(daxa::TaskInterface ti)
     {
-        auto cmd_list = ti.get_command_list();
+        auto & cmd_list = ti.get_recorder();
 
         auto multiscattering_dimensions = context->device.info_image(uses._multiscattering_LUT.image()).value().size;
         cmd_list.set_uniform_buffer(ti.uses.get_uniform_buffer_info());
         cmd_list.set_pipeline(*(context->pipelines.multiscattering));
         cmd_list.push_constant(MultiscatteringPC{
-            .sampler_id = context->linear_sampler,
+            .sampler_id = context->llce_sampler,
+            .wrong_sampler_id = context->linear_sampler
         });
         cmd_list.dispatch(multiscattering_dimensions.x, multiscattering_dimensions.y);
     }

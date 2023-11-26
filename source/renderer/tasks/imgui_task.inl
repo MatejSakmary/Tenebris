@@ -16,7 +16,7 @@ struct ImGuiTask : ImGuiTaskBase
     Context *context = {};
     void callback(daxa::TaskInterface ti)
     {
-        auto cmd_list = ti.get_command_list();
+        auto & cmd_list = ti.get_recorder();
         auto swapchain_image_dimensions = context->swapchain.get_surface_extent();
         context->imgui_renderer.record_commands(
             ImGui::GetDrawData(), cmd_list, uses._swapchain.image(),

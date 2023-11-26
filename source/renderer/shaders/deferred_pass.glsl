@@ -12,44 +12,66 @@ DAXA_DECL_PUSH_CONSTANT(DeferredPassPC, pc)
 layout (location = 0) in daxa_f32vec2 uv;
 layout (location = 0) out daxa_f32vec4 out_color;
 
-const daxa_f32vec4 sun_color = daxa_f32vec4(255.0, 204.0, 153.0, 255.0)/255.0;
+// const daxa_f32vec4 sun_color = daxa_f32vec4(255.0, 204.0, 153.0, 255.0)/255.0;
+const daxa_f32vec4 sun_color = daxa_f32vec4(255.0, 240.0, 233.0, 255.0)/255.0; // 5800K
 // const daxa_f32vec4 sun_color = daxa_f32vec4(255.0, 255.0, 255.0, 255.0)/255.0;
 
-daxa_f32vec3 add_sun_circle(daxa_f32vec3 world_dir, daxa_f32vec3 sun_dir, daxa_f32vec3 sky_color)
+daxa_f32vec3 get_sun_illuminance(
+    daxa_f32vec3 view_direction,
+    daxa_f32 height,
+    daxa_f32 zenith_cos_angle
+)
 {
     const daxa_f32 sun_solid_angle = 0.5 * PI / 180.0;
     const daxa_f32 min_sun_cos_theta = cos(sun_solid_angle);
 
-    daxa_f32 cos_theta = dot(world_dir, sun_dir);
-    if(cos_theta >= min_sun_cos_theta) {return sky_color;}
-    else {return daxa_f32vec3(0.0);}
+    const daxa_f32vec3 sun_direction = deref(_globals).sun_direction;
+    daxa_f32 cos_theta = dot(view_direction, sun_direction);
+
+    if(cos_theta >= min_sun_cos_theta) 
+    {
+        TransmittanceParams transmittance_lut_params = TransmittanceParams(height, zenith_cos_angle);
+        daxa_f32vec2 transmittance_texture_uv = transmittance_lut_to_uv(
+            transmittance_lut_params,
+            deref(_globals).atmosphere_bottom,
+            deref(_globals).atmosphere_top
+        );
+        daxa_f32vec3 transmittance_to_sun = texture(
+            daxa_sampler2D(_transmittance, pc.linear_sampler_id),
+            transmittance_texture_uv
+        ).rgb;
+        return transmittance_to_sun * sun_color.rgb * deref(_globals).sun_brightness;
+    }
+    else 
+    {
+        return daxa_f32vec3(0.0);
+    }
 }
 
-daxa_f32vec3 get_far_sky_color(daxa_f32vec3 world_direction)
-{
-    // Because the atmosphere is using km as it's default units and we want one unit in world
-    // space to be one meter we need to scale the position by a factor to get from meters -> kilometers
-    const daxa_f32vec3 camera_position = deref(_globals).camera_position;
-    daxa_f32vec3 world_camera_position = (camera_position - deref(_globals).offset) * UNIT_SCALE; 
-    world_camera_position.z += deref(_globals).atmosphere_bottom;
 
+daxa_f32vec3 get_atmosphere_illuminance_along_ray(
+    daxa_f32vec3 ray,
+    daxa_f32vec3 world_camera_position,
+    daxa_f32vec3 sun_direction,
+    out bool intersects_ground
+)
+{
     const daxa_f32vec3 world_up = normalize(world_camera_position);
 
-    const daxa_f32vec3 sun_direction = deref(_globals).sun_direction;
-    const daxa_f32 view_zenith_angle = acos(dot(world_direction, world_up));
+    const daxa_f32 view_zenith_angle = acos(dot(ray, world_up));
     const daxa_f32 light_view_angle = acos(dot(
         normalize(daxa_f32vec3(sun_direction.xy, 0.0)),
-        normalize(daxa_f32vec3(world_direction.xy, 0.0))
+        normalize(daxa_f32vec3(ray.xy, 0.0))
     ));
 
     const daxa_f32 atmosphere_intersection_distance = ray_sphere_intersect_nearest(
         world_camera_position,
-        world_direction,
+        ray,
         daxa_f32vec3(0.0, 0.0, 0.0),
         deref(_globals).atmosphere_bottom
     );
 
-    const bool intersects_ground = atmosphere_intersection_distance >= 0.0;
+    intersects_ground = atmosphere_intersection_distance >= 0.0;
     const daxa_f32 camera_height = length(world_camera_position);
 
     daxa_f32vec2 skyview_uv = skyview_lut_params_to_uv(
@@ -61,14 +83,65 @@ daxa_f32vec3 get_far_sky_color(daxa_f32vec3 world_direction)
         camera_height
     );
 
-    daxa_f32vec3 sky_color = texture(daxa_sampler2D(_skyview, pc.linear_sampler_id), skyview_uv).rgb;
-    if(!intersects_ground) { sky_color += add_sun_circle(world_direction, sun_direction, sky_color); };
+    const daxa_f32vec3 unitless_atmosphere_illuminance = texture(daxa_sampler2D(_skyview, pc.linear_sampler_id), skyview_uv).rgb;
+    const daxa_f32vec3 sun_color_weighed_atmosphere_illuminance = sun_color.rgb * unitless_atmosphere_illuminance;
+    const daxa_f32vec3 atmosphere_scattering_illuminance = sun_color_weighed_atmosphere_illuminance * deref(_globals).sun_brightness;
 
-    return sky_color;
+    return atmosphere_scattering_illuminance;
+}
+
+struct AtmosphereLightingInfo
+{
+    // illuminance from atmosphere along normal vector
+    daxa_f32vec3 atmosphere_normal_illuminance;
+    // illuminance from atmosphere along view vector
+    daxa_f32vec3 atmosphere_direct_illuminance;
+    // direct sun illuminance
+    daxa_f32vec3 sun_direct_illuminance;
+};
+
+AtmosphereLightingInfo get_atmosphere_lighting(daxa_f32vec3 view_direction, daxa_f32vec3 normal)
+{
+    // Because the atmosphere is using km as it's default units and we want one unit in world
+    // space to be one meter we need to scale the position by a factor to get from meters -> kilometers
+    const daxa_f32vec3 camera_position = deref(_globals).camera_position;
+    daxa_f32vec3 world_camera_position = (camera_position - deref(_globals).offset) * UNIT_SCALE; 
+    world_camera_position.z += deref(_globals).atmosphere_bottom;
+
+    const daxa_f32vec3 sun_direction = deref(_globals).sun_direction;
+
+    bool normal_ray_intersects_ground;
+    bool view_ray_intersects_ground;
+    const daxa_f32vec3 atmosphere_normal_illuminance = get_atmosphere_illuminance_along_ray(
+        normal,
+        world_camera_position,
+        sun_direction,
+        normal_ray_intersects_ground
+    );
+    const daxa_f32vec3 atmosphere_view_illuminance = get_atmosphere_illuminance_along_ray(
+        view_direction,
+        world_camera_position,
+        sun_direction,
+        view_ray_intersects_ground
+    );
+
+    const daxa_f32vec3 direct_sun_illuminance = view_ray_intersects_ground ? 
+        daxa_f32vec3(0.0) : 
+        get_sun_illuminance(
+            view_direction,
+            length(world_camera_position),
+            dot(sun_direction, normalize(world_camera_position))
+        );
+
+    return AtmosphereLightingInfo(
+        atmosphere_normal_illuminance,
+        atmosphere_view_illuminance,
+        direct_sun_illuminance
+    );
 }
 
 // uv going in needs to be in range [-1, 1]
-daxa_f32vec3 get_far_sky_color(daxa_f32vec2 uv)
+daxa_f32vec3 get_view_direction(daxa_f32vec2 ndc_xy)
 {
     // Because the atmosphere is using km as it's default units and we want one unit in world
     // space to be one meter we need to scale the position by a factor to get from meters -> kilometers
@@ -78,10 +151,10 @@ daxa_f32vec3 get_far_sky_color(daxa_f32vec2 uv)
 
     // Get the direction of ray contecting camera origin and current fragment on the near plane 
     // in world coordinate system
-    const daxa_f32vec4 unprojected_pos = deref(_globals).inv_view_projection * daxa_f32vec4(uv, 1.0, 1.0);
+    const daxa_f32vec4 unprojected_pos = deref(_globals).inv_view_projection * daxa_f32vec4(ndc_xy, 1.0, 1.0);
     const daxa_f32vec3 world_direction = normalize((unprojected_pos.xyz / unprojected_pos.w) - camera_position);
 
-    return get_far_sky_color(world_direction);
+    return world_direction;
 }
 
 // takes in uvs in the range [0, 1]
@@ -160,24 +233,6 @@ daxa_i32 get_height_depth_offset(daxa_i32vec3 vsm_page_texel_coords)
     return height_difference;
 }
 
-daxa_u32 good_rand_hash(daxa_u32 x) {
-    x += (x << 10u);
-    x ^= (x >> 6u);
-    x += (x << 3u);
-    x ^= (x >> 11u);
-    x += (x << 15u);
-    return x;
-}
-daxa_f32 good_rand_float_construct(daxa_u32 m) {
-    const daxa_u32 ieee_mantissa = 0x007FFFFFu;
-    const daxa_u32 ieee_one = 0x3F800000u;
-    m &= ieee_mantissa;
-    m |= ieee_one;
-    daxa_f32 f = uintBitsToFloat(m);
-    return f - 1.0;
-}
-daxa_f32 good_rand(daxa_f32 x) { return good_rand_float_construct(good_rand_hash(floatBitsToUint(x))); }
-
 daxa_f32 get_vsm_shadow(daxa_f32vec2 uv, daxa_f32 depth, daxa_f32vec3 offset_world_position)
 {
     const daxa_f32mat4x4 inv_projection_view = deref(_globals).inv_view_projection;
@@ -236,29 +291,31 @@ daxa_f32 get_vsm_shadow(daxa_f32vec2 uv, daxa_f32 depth, daxa_f32vec3 offset_wor
     // return good_rand(floor(10000 * page_offset_depth));
 }
 
-
 void main() 
 {
-    // const daxa_f32 depth = texture(daxa_sampler2D(_depth, pc.nearest_sampler_id), uv).r;
     const daxa_f32 depth = texelFetch(daxa_texture2D(_depth), daxa_i32vec2(gl_FragCoord.xy), 0).r;
 
     // scale uvs to be in the range [-1, 1]
-    const daxa_f32vec2 remap_uv = (uv * 2.0) - 1.0;
+    const daxa_f32vec2 ndc_xy = (uv * 2.0) - 1.0;
+    const daxa_f32vec3 view_direction = get_view_direction(ndc_xy);
 
     // depth == 0 means there was nothing written to the depth buffer
     //      -> there is nothing obscuring the sky so we sample the far sky texture there
     if(depth == 0.0)
     {
-        out_color = daxa_f32vec4(get_far_sky_color(remap_uv) * deref(_globals).sun_brightness * sun_color.xyz, 1.0);
+        AtmosphereLightingInfo atmosphere_lighting = get_atmosphere_lighting(view_direction, daxa_f32vec3(0.0, 0.0, 1.0));
+        const daxa_f32vec3 total_direct_illuminance = 
+            (atmosphere_lighting.atmosphere_direct_illuminance + atmosphere_lighting.sun_direct_illuminance);
+        out_color = daxa_f32vec4(total_direct_illuminance, 1.0);
         return;
     } 
 
     // Distance of the processed fragment from the main camera in view space
-    const daxa_f32vec4 unprojected_position = deref(_globals).inv_projection * daxa_f32vec4(remap_uv, depth, 1.0);
+    const daxa_f32vec4 unprojected_position = deref(_globals).inv_projection * daxa_f32vec4(ndc_xy, depth, 1.0);
     const daxa_f32 viewspace_distance = -unprojected_position.z / unprojected_position.w;
 
     // Position of the processed fragment in world space
-    const daxa_f32vec4 unprojected_world_pos = deref(_globals).inv_view_projection * daxa_f32vec4(remap_uv, depth, 1.0);
+    const daxa_f32vec4 unprojected_world_pos = deref(_globals).inv_view_projection * daxa_f32vec4(ndc_xy, depth, 1.0);
     const daxa_f32vec3 offset_world_position = unprojected_world_pos.xyz / unprojected_world_pos.w;
     const daxa_f32vec3 world_position = offset_world_position - deref(_globals).offset;
 
@@ -315,7 +372,7 @@ void main()
         const daxa_f32vec2 shadow_pix_coord = shadow_map_uv.xy * pc.esm_resolution + (-0.5 + offset);
         const daxa_f32vec2 blend_factor = fract(shadow_pix_coord);
 
-        // texel gather component mapping - (00,w);(01,x);(11,y);(10,z) 
+        // texel gather component mapping - (00,w);(01,x);(11,y);(10,z) const daxa_f32 tmp0 = mix(shadow_gathered.w, shadow_gathered.z, blend_factor.x);
         const daxa_f32 tmp0 = mix(shadow_gathered.w, shadow_gathered.z, blend_factor.x);
         const daxa_f32 tmp1 = mix(shadow_gathered.x, shadow_gathered.y, blend_factor.x);
         shadow = mix(tmp0, tmp1, blend_factor.y);
@@ -324,25 +381,26 @@ void main()
     }
 
     const daxa_f32vec3 vsm_debug_color = get_vsm_debug_page_color(uv, depth);
-    // TODO(msakmary) Improve accuracy by doing integer offset math instead of passing
-    // world pos as float
+    // TODO(msakmary) Improve accuracy by doing integer offset math instead of passing world pos as float
     const daxa_f32 vsm_shadow = get_vsm_shadow(uv, depth, offset_world_position);
 
     const daxa_f32vec4 albedo = texture(daxa_sampler2D(_g_albedo, pc.linear_sampler_id), uv);
+    out_color = daxa_f32vec4(pow(albedo.xyz, daxa_f32vec3(1.7)) * 0.1, 1.0);
+
     const daxa_f32vec3 normal = texture(daxa_sampler2D(_g_normals, pc.linear_sampler_id), uv).xyz;
-
     const daxa_f32vec3 sun_direction = deref(_globals).sun_direction;
-    daxa_f32vec3 transmittance_to_sun = get_far_sky_color(sun_direction);
+    const daxa_f32 sun_norm_dot = clamp(dot(normal, deref(_globals).sun_direction), 0.0, 1.0);
 
-    const daxa_f32 sun_norm_dot = dot(normal, deref(_globals).sun_direction);
-    out_color = pow(albedo, daxa_f32vec4(daxa_f32vec3(2.4), 1.0));
-    daxa_f32vec4 ambient = daxa_f32vec4(deref(_globals).sun_brightness * sun_color.xyz * get_far_sky_color(normal), 1.0); 
+    AtmosphereLightingInfo atmosphere_lighting = get_atmosphere_lighting(sun_direction, normal);
+    const daxa_f32vec3 view_ray_atmosphere_illuminnace = atmosphere_lighting.atmosphere_direct_illuminance;
+    const daxa_f32vec3 normal_atmosphere_illuminance = atmosphere_lighting.atmosphere_normal_illuminance;
+    const daxa_f32vec3 sun_illuminance = atmosphere_lighting.sun_direct_illuminance;
 
-    out_color *= clamp(sun_norm_dot, 0.0, 1.0) * 
-                vsm_shadow * 
-                //  clamp(pow(shadow, 2), 0.0, 1.0) *
-                 daxa_f32vec4(transmittance_to_sun, 1.0) *
-                 deref(_globals).sun_brightness * sun_color + ambient;
+    const daxa_f32 final_shadow = sun_norm_dot * vsm_shadow;
+    // ESM SHADOWS
+    // const daxa_f32 final_shadow = sun_norm_dot * clamp(pow(shadow, 2), 0.0, 1.0);
+
+    out_color.rgb *= final_shadow * (view_ray_atmosphere_illuminnace + sun_illuminance) + normal_atmosphere_illuminance;
     // out_color = vsm_shadow > 0.0 ? daxa_f32vec4(0.0, 0.0, vsm_shadow, 1.0) : daxa_f32vec4(-vsm_shadow, 0.0, 0.0, 1.0);
     // out_color = daxa_f32vec4(vsm_shadow, vsm_shadow, vsm_shadow, 1.0);
     // out_color.xyz = daxa_f32vec3(fract(world_position));
