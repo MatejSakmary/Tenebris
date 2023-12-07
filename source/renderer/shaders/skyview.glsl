@@ -21,6 +21,23 @@ daxa_f32 rayleigh_phase(daxa_f32 cos_theta)
     daxa_f32 factor = 3.0 / (16.0 * PI);
     return factor * (1.0 + cos_theta * cos_theta);
 }
+// https://research.nvidia.com/labs/rtr/approximate-mie/publications/approximate-mie.pdf
+daxa_f32 draine_phase(daxa_f32 alpha, daxa_f32 g, daxa_f32 cos_theta)
+{
+    return 
+        (1.0/(4.0 * PI)) *
+        ((1.0 - (g * g))/pow((1.0 + (g * g) - (2.0 * g * cos_theta)), 3.0 / 2.0)) *
+        ((1.0 + (alpha * cos_theta * cos_theta))/(1.0 + (alpha * (1.0 / 3.0) * (1.0 + (2.0 * g * g)))));
+}
+
+daxa_f32 hg_draine_phase(daxa_f32 cos_theta, daxa_f32 diameter)
+{
+    const daxa_f32 g_hg = exp(-(0.0990567/(diameter - 1.67154)));
+    const daxa_f32 g_d = exp(-(2.20679/(diameter + 3.91029)) - 0.428934);
+    const daxa_f32 alpha = exp(3.62489 - (0.599085/(diameter + 5.52825)));
+    const daxa_f32 w_d = exp(-(0.599085/(diameter - 0.641583)) - 0.665888);
+    return (1 - w_d) * draine_phase(0, g_hg, cos_theta) + w_d * draine_phase(alpha, g_d, cos_theta);
+}
 /* ========================================================================== */
 
 daxa_f32vec3 get_multiple_scattering(daxa_f32vec3 world_position, daxa_f32 view_zenith_cos_angle)
@@ -64,7 +81,8 @@ daxa_f32vec3 integrate_scattered_luminance(daxa_f32vec3 world_position,
     }
 
     daxa_f32 cos_theta = dot(sun_direction, world_direction);
-    daxa_f32 mie_phase_value = klein_nishina_phase(cos_theta, 2800.0);
+    // daxa_f32 mie_phase_value = klein_nishina_phase(cos_theta, 2800.0);
+    daxa_f32 mie_phase_value = hg_draine_phase(cos_theta, 3.6);
     // daxa_f32 mie_phase_value = cornette_shanks_mie_phase_function(deref(_globals).mie_phase_function_g, -cos_theta);
     daxa_f32 rayleigh_phase_value = rayleigh_phase(cos_theta);
 

@@ -8,7 +8,7 @@ DAXA_DECL_PUSH_CONSTANT(PostProcessPC, pc)
 #define SCUFFED_ACES 1
 #define TONY_MC_MAPFACE 2
 
-#define TONEMAPPING TONY_MC_MAPFACE
+#define TONEMAPPING AGX
 
 // Source - https://github.com/BelmuTM/Noble/blob/master/shaders/programs/post/pre_final.glsl
 //        - https://github.com/BelmuTM/Noble/blob/master/shaders/include/post/grading.glsl
@@ -84,12 +84,12 @@ void agxLook(inout daxa_f32vec3 color) {
     daxa_f32 luma = luminance(color);
   
     color = pow(color * slope, power);
-    color = luma + saturation * (color - luma);
+    color = max(daxa_f32vec3(0.0), luma + saturation * (color - luma));
 }
 #endif
 
 #if (TONEMAPPING == AGX) || (TONEMAPPING == TONY_MC_MAPFACE)
-const daxa_f32 exposureBias      = 1.0;
+const daxa_f32 exposureBias      = 5.0;
 const daxa_f32 calibration       = 12.5;  // Light meter calibration
 const daxa_f32 sensorSensitivity = 100.0; // Sensor sensitivity
 
@@ -103,7 +103,6 @@ daxa_f32 computeExposureFromEV100(daxa_f32 ev100) {
 
 daxa_f32 computeExposure(daxa_f32 averageLuminance) {
 	daxa_f32 ev100	 = computeEV100fromLuminance(averageLuminance);
-    ev100 = 12;
 	daxa_f32 exposure = computeExposureFromEV100(ev100);
 
 	return exposure;

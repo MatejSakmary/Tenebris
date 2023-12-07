@@ -20,7 +20,8 @@ GuiManager::GuiManager(GuiManagerInfo const & info) :
     globals.lambda = 1.0f;
     load(curr_path, true);
     globals.use_debug_camera = false;
-    globals.sun_brightness = 120000.0f; // sun is 120000lux
+    // globals.sun_brightness = 120000.0f; // sun is 120000lux
+    globals.sun_brightness = 1000.0f;
     globals.vsm_debug_clip_level = 0;
     globals.force_view_clip_level = false;
 }
